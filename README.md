@@ -104,10 +104,11 @@ xdotool
 Установка Java:
 
 ```bash
-sudo pacman -S jdk25-openjdk
+sudo pacman -S jdk25-openjdk && sudo echo "export ANDROID_NDK_HOME=~/Android/Sdk/ndk/*" >> /home/$USER/.bashrc
 ```
 
 ---
+
 
 # 🟠 Debian / Ubuntu
 
@@ -135,10 +136,26 @@ librsvg2-dev
 Установка Java:
 
 ```bash
-sudo apt-get install openjdk-25-jdk
+sudo apt-get install openjdk-25-jdk && sudo echo "export ANDROID_NDK_HOME=~/Android/Sdk/ndk/*" >> /home/$USER/.bashrc
 ```
 
 ---
+
+# Установка Android Studio
+
+[Android Studio](https://developer.android.com/studio)
+
+```bash
+sudo echo "export JAVA_HOME=/opt/android-studio/jbr" >> /home/$USER/.bashrc
+sudo echo "export ANDROID_HOME="$HOME/Android/Sdk"" >> /home/$USER/.bashrc
+sudo echo "export NDK_HOME="$ANDROID_HOME/ndk/$(ls -1 $ANDROID_HOME/ndk)"" >> /home/$USER/.bashrc
+rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+
+```
+
+
+---
+
 
 # 📦 Установка зависимостей проекта
 
