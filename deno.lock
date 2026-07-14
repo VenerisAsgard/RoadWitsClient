@@ -7,6 +7,7 @@
     "npm:@tauri-apps/api@2": "2.11.1",
     "npm:@tauri-apps/cli@2": "2.11.4",
     "npm:@tauri-apps/plugin-opener@2": "2.5.4",
+    "npm:@tauri-apps/plugin-store@^2.4.3": "2.4.3",
     "npm:svelte-check@^4.6.0": "4.7.2_svelte@5.56.4_typescript@6.0.3",
     "npm:svelte@^5.56.3": "5.56.4",
     "npm:typescript@~6.0.3": "6.0.3",
@@ -286,6 +287,12 @@
     },
     "@tauri-apps/plugin-opener@2.5.4": {
       "integrity": "sha512-1HnPkb+AmgO29HBazm4uPLKB+r7zzcTBW1d0fyYp1uP+jwtpoiNDGKMMzz58SFp49nOIrxdE3aUJtT57lfO9CQ==",
+      "dependencies": [
+        "@tauri-apps/api"
+      ]
+    },
+    "@tauri-apps/plugin-store@2.4.3": {
+      "integrity": "sha512-9LWPj9yMphRi9czEtUv87XHbl1b6xgd9EXpPrUnq6nG7+nbtoF84d4Kwz9xhAv/Hf30sr58pq7EOlyI936y8qw==",
       "dependencies": [
         "@tauri-apps/api"
       ]
@@ -614,6 +621,7 @@
         "npm:@tauri-apps/api@2",
         "npm:@tauri-apps/cli@2",
         "npm:@tauri-apps/plugin-opener@2",
+        "npm:@tauri-apps/plugin-store@^2.4.3",
         "npm:svelte-check@^4.6.0",
         "npm:svelte@^5.56.3",
         "npm:typescript@~6.0.3",
