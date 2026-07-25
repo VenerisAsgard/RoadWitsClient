@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>ПДД РБ — Тренажёр</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <!-- 
+  misqa ile de istifade etmek olsun elave et.
+  birde testden cixmaq isteyende footer -de yazilan xeberdarliqi ele et ki rengli olsun vinimaniye cekmek ucun ve elave et ki prompt ile xeberddarliq gelsin 
+  ki testden cixmaq isteyirsizmi?
+  тренировка по главам пдд -> добавить выбор с помощью чекбокса главы
+  тренировка по тематическим билетам
+  тренировка по случайному билету. burda olacaq sirazi teste daxil olmasin sorussun ki ne qeder bilet lazimdir (5ç10 ve ya 30 ve s)
+  -->
+  <body>
+    <div class="signal" aria-hidden="true">
+      <span class="signal-dot dot-red" data-state="fail"></span>
+      <span class="signal-dot dot-amber" data-state="idle"></span>
+      <span class="signal-dot dot-green" data-state="pass"></span>
+    </div>
+
+    <main class="stage" id="stage">
+      <!-- MENU -->
+      <section class="screen" id="screen-menu" data-screen="menu">
+        <p class="eyebrow">Учебная программа · Республика Беларусь</p>
+        <h1 class="brand-title">ПДД РБ</h1>
+        <p class="brand-sub">Выберите режим стрелками и нажмите Enter</p>
+
+        <ul class="menu-list" id="menu-list"></ul>
+
+        <div class="meta-row">
+          <span id="menu-total-q">— вопросов</span>
+          <span id="menu-total-ch">— глав</span>
+        </div>
+      </section>
+
+      <!-- CHAPTERS -->
+      <section
+        class="screen hidden"
+        id="screen-chapters"
+        data-screen="chapters"
+      >
+        <div class="split">
+          <div class="split-list">
+            <p class="panel-label">Выберите главу</p>
+            <ul class="chapter-list" id="chapter-list"></ul>
+          </div>
+          <div class="split-detail" id="chapter-detail">
+            <p class="loading">Загрузка глав…</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- QUESTION -->
+      <section
+        class="screen hidden"
+        id="screen-question"
+        data-screen="question"
+      >
+        <div class="q-topbar">
+          <span class="q-chapter" id="q-chapter-label">Глава 1</span>
+          <span class="q-progress"
+            ><span id="q-current">1</span>/<span id="q-total">5</span></span
+          >
+          <span class="q-timer hidden" id="q-timer">05:00</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+
+        <div class="q-body">
+          <div class="q-image-wrap hidden" id="q-image-wrap">
+            <img id="q-image" alt="Иллюстрация к вопросу" />
+          </div>
+          <div class="q-content">
+            <p class="q-text" id="q-text">Загрузка вопроса…</p>
+            <ul class="q-options" id="q-options"></ul>
+            <p class="q-answer-line">
+              ВАШ ОТВЕТ: <span id="q-answer-value">_</span>
+            </p>
+            <p class="q-explain hidden" id="q-explain"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- RESULT -->
+      <section class="screen hidden" id="screen-result" data-screen="result">
+        <div class="result-top">
+          <div class="gauge-wrap">
+            <svg
+              class="gauge"
+              viewBox="0 0 200 200"
+              role="img"
+              aria-label="Результат"
+            >
+              <circle class="gauge-track" cx="100" cy="100" r="86"></circle>
+              <circle
+                class="gauge-fill"
+                id="gauge-fill"
+                cx="100"
+                cy="100"
+                r="86"
+              ></circle>
+            </svg>
+            <div class="gauge-center">
+              <span class="gauge-score" id="gauge-score">0%</span>
+              <span class="gauge-verdict" id="gauge-verdict">—</span>
+            </div>
+          </div>
+          <div class="result-info">
+            <p class="result-summary" id="result-summary">—</p>
+            <p class="result-hint">
+              ↑↓ — разбор ответов · Enter — пройти ещё раз · Esc — в меню
+            </p>
+          </div>
+        </div>
+        <div class="review-list" id="review-list"></div>
+      </section>
+    </main>
+
+    <footer class="hint-bar" id="hint-bar">
+      <span class="hint-status" id="backend-status">демо-режим</span>
+      <span class="hint-keys" id="hint-keys">↑↓ выбрать · Enter принять</span>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
