@@ -1,0 +1,36 @@
+body {
+    margin: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #0f1115;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: system-ui;
+}
+
+.splash {
+    text-align: center;
+}
+
+h1 {
+    font-size: 32px;
+}
+
+.loader {
+    width: 35px;
+    height: 35px;
+    margin: 25px auto;
+    border: 4px solid #333;
+    border-top-color: #4f7cff;
+    border-radius: 50%;
+    animation: rotate 1s linear infinite;
+}
+
+
+@keyframes rotate {
+    to {
+        transform: rotate(360deg);
+    }
+}

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Roadwits</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="titlebar" data-tauri-drag-region>
+
+        <h1 class="title">
+            Roadwits
+        </h1>
+
+        <div class="window-buttons">
+
+            <button class="traffic minimize" id="minimize">
+                <span>−</span>
+            </button>
+
+            <button class="traffic maximize" id="maximize">
+                <span>□</span>
+            </button>
+
+            <button class="traffic close" id="close">
+                <span>×</span>
+            </button>
+
+
+        </div>
+
+    </div>
+    <section id="login-view" class="view">
+      <form id="login-form">
+        <h1>Roadwits</h1>
+        <p class="hint">Введи Product Key лицензии</p>
+
+        <input
+          id="product-key"
+          type="text"
+          placeholder="A7P91D_QK28JW_P2T9LA_X91KFE"
+          autocomplete="off"
+          spellcheck="false"
+          required
+        />
+
+        <p id="login-error" class="error hidden"></p>
+
+        <button id="login-submit" type="submit">Войти</button>
+      </form>
+    </section>
+
+    <!-- Экран после входа -->
+    <section id="app-view" class="view hidden">
+      <header>
+        <h1>Roadwits</h1>
+        <button id="logout-button" class="ghost">Выйти</button>
+      </header>
+
+      <div class="card">
+        <h2 id="user-name">—</h2>
+        <dl>
+          <dt>Email</dt>
+          <dd id="user-email">—</dd>
+
+          <dt>Роль</dt>
+          <dd id="user-role">—</dd>
+
+          <dt>Лицензия действует до</dt>
+          <dd id="user-license-until">—</dd>
+
+          <dt>Статус</dt>
+          <dd id="user-status">—</dd>
+        </dl>
+      </div>
+    </section>
+
+    <script src="app.js"></script>
+  </body>
+</html>
