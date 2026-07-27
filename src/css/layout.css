@@ -1,0 +1,390 @@
+/* ============================================================
+   LAYOUT — структура экрана: что где расположено.
+   Цвета/шрифты/бордеры конкретных виджетов — в components.css.
+   Здесь только контейнеры, позиционирование, размеры блоков.
+   ============================================================ */
+
+.hidden {
+  display: none !important;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- титлбар (кастомный, decorations:false в tauri.conf.json) ---------- */
+.titlebar {
+  height: var(--titlebar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 14px 0 18px;
+  position: relative;
+  z-index: 30;
+}
+
+.window-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+/* ---------- экран логина (до авторизации) ---------- */
+#login-view {
+  height: calc(100vh - var(--titlebar-h));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+#login-form {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---------- app-shell (после авторизации): рейка + сцена + hint-bar ---------- */
+#app-shell {
+  height: calc(100vh - var(--titlebar-h));
+  position: relative;
+}
+
+.signal {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: var(--hint-h);
+  width: var(--rail-w);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  z-index: 20;
+}
+
+.stage {
+  position: absolute;
+  left: var(--rail-w);
+  right: 0;
+  top: 0;
+  bottom: var(--hint-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6vw;
+}
+
+.screen {
+  width: 100%;
+  max-width: 860px;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* Если контента в экране больше, чем есть высоты — скроллится сам экран,
+     а не обрезается родителем (у body overflow:hidden, у .stage центрирование
+     без собственного скролла) — иначе на компактных окнах/телефонах контент
+     мог просто пропадать за нижней границей без возможности до него добраться. */
+  overflow-y: auto;
+}
+
+#screen-menu {
+  align-items: flex-start;
+  margin: 0 auto;
+  justify-content: center;
+  max-width: min(760px, 92vw);
+}
+#screen-chapters {
+  max-width: min(1200px, 94vw);
+}
+#screen-question {
+  max-width: min(900px, 90vw);
+}
+#screen-result {
+  max-width: min(900px, 90vw);
+}
+
+.hint-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--hint-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px 0 calc(var(--rail-w) + 20px);
+  z-index: 20;
+}
+
+/* ---------- split-панель (список глав + деталь) ---------- */
+.split {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) 1fr;
+  gap: 0;
+  height: min(620px, 82vh);
+}
+.split-list {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.panel-header,
+.questions-manage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.panel-actions {
+  display: flex;
+  gap: 4px;
+  padding-right: 10px;
+}
+.split-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px;
+  overflow-y: auto;
+}
+
+/* ---------- тело вопроса: картинка + контент ---------- */
+.q-body {
+  display: flex;
+  gap: 26px;
+  flex: 1;
+  min-height: 0;
+}
+.q-image-wrap {
+  flex: 0 0 300px;
+  align-self: flex-start;
+  overflow: hidden;
+}
+.q-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0; /* без этого flex-ребёнок не сжимается меньше контента — скролл не заработает */
+}
+
+/* Список вариантов ответа — единственное, что скроллится внутри вопроса.
+   Текст вопроса/ответ/пояснение остаются на месте, вариантов может быть
+   разное количество и они не всегда помещаются целиком по высоте. */
+.q-options {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ---------- результат: датчик + список разбора ---------- */
+.result-top {
+  display: flex;
+  gap: 36px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.gauge-wrap {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  flex: 0 0 auto;
+}
+.gauge-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.result-info {
+  flex: 1;
+}
+.review-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ---------- адаптив ---------- */
+@media (max-width: 820px) {
+  .split {
+    grid-template-columns: 220px 1fr;
+  }
+  .q-body {
+    flex-direction: column;
+  }
+  .q-image-wrap {
+    flex: 0 0 auto;
+    max-height: 34vh;
+  }
+}
+@media (max-width: 600px) {
+  .signal {
+    display: none;
+  }
+  .stage {
+    left: 0;
+    padding: 0 5vw;
+  }
+  .split {
+    grid-template-columns: 1fr;
+    height: min(520px, 80vh);
+  }
+  .split-list {
+    max-height: 180px;
+  }
+  .hint-bar {
+    padding: 0 14px;
+  }
+}
+
+/* ---------- управление вопросами (editor/admin, внутри детали главы) ---------- */
+.questions-manage {
+  margin-top: 20px;
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+}
+.editor-question-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+}
+.editor-question-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+}
+
+/* ---------- модалка ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-box {
+  width: 100%;
+  max-width: 440px;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+.modal-body {
+  padding: 0 16px 16px;
+  overflow-y: auto;
+}
+.modal-body form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.answers-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.answer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.answer-row input[type="text"] {
+  flex: 1;
+}
+
+/* ---------- профиль ---------- */
+#screen-profile {
+  max-width: min(640px, 92vw);
+}
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.profile-fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+.admin-panel {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.admin-licenses {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+.license-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+}
+
+/* ---------- сплэш (оверлей внутри главного окна, не отдельное Tauri-окно) ---------- */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.25s ease;
+}
+.splash.splash-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.splash-body {
+  text-align: center;
+}
+
+/* ---------- предупреждение о повороте (только тач + портрет, см. components.css) ---------- */
+.rotate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px;
+}

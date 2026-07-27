@@ -10,26 +10,18 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "label": "splash",
-        "title": "Roadwits",
-        "url": "splash.html",
-        "width": 400,
-        "height": 300,
-        "decorations": false,
-        "resizable": false,
-        "center": true
-      },
-      {
         "label": "main",
         "title": "Roadwits",
         "url": "index.html",
-        "width": 480,
-        "height": 640,
-        "minWidth": 380,
-        "minHeight": 480,
+        "width": 960,
+        "height": 600,
+        "minWidth": 860,
+        "minHeight": 520,
+        "maxHeight": 900,
         "decorations": false,
         "resizable": true,
-        "visible": false
+        "center": true,
+        "visible": true
       }
     ],
     "security": {

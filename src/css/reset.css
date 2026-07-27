@@ -1,0 +1,60 @@
+/* ============================================================
+   RESET
+   Сброс браузерных дефолтов + отключение поведений, уместных для
+   сайта, но не для десктоп-приложения (выделение текста мимо полей
+   ввода, скролл всей страницы целиком, дефолтный фокус-outline).
+
+   То, что здесь НЕ трогаем: блокировку контекстного меню и devtools —
+   это не CSS, а поведение самого окна, см. js/device.js.
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  /* Один экран без скролла страницы целиком — скроллятся только
+     отдельные списки внутри (.chapter-list, .review-list и т.п.),
+     это задаётся точечно в components.css. */
+  overflow: hidden;
+}
+
+/* Приложение, а не документ — текст по умолчанию не выделяется.
+   Поля ввода — исключение, там выделение нужно как обычно. */
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Свой фокус-индикатор вместо дефолтного браузерного —
+   виден только при навигации с клавиатуры (:focus-visible),
+   не появляется от случайного клика мышью. */
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Уважаем системную настройку "меньше анимаций". */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

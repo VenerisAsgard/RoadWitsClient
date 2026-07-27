@@ -1,0 +1,877 @@
+/* ============================================================
+   COMPONENTS — как выглядят конкретные элементы интерфейса.
+   Расположение блоков — в layout.css, здесь только оформление.
+   ============================================================ */
+
+/* ---------- базовые элементы форм ---------- */
+h1,
+h2 {
+  margin: 0;
+  font-family: var(--font-display);
+}
+
+input {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 15px;
+}
+
+button {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+button.ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-weight: 500;
+}
+button.small {
+  padding: 5px 9px;
+  font-size: 12px;
+}
+
+.error {
+  color: var(--red);
+  margin: 0;
+  font-size: 14px;
+}
+
+/* ---------- титлбар ---------- */
+.title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.account-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.account-chip .account-role {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Кнопки окна в стиле "трёх точек" — те же три цвета, что и сигнальная
+   рейка ниже и датчик результата: это один визуальный язык, не совпадение. */
+.traffic {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+.traffic span {
+  display: none;
+  color: rgba(0, 0, 0, 0.7);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+.traffic:hover span {
+  display: block;
+}
+.traffic.close {
+  background: var(--red);
+}
+.traffic.minimize {
+  background: var(--amber);
+}
+.traffic.maximize {
+  background: var(--green);
+}
+
+/* ---------- вход по Product Key ---------- */
+.hint {
+  color: var(--muted);
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+#product-key {
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+}
+
+/* ---------- сигнальная рейка (индикатор состояния приложения) ---------- */
+.signal {
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+.signal-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #2a2e33;
+  transition:
+    background var(--transition-base),
+    box-shadow var(--transition-base);
+}
+.dot-amber {
+  background: var(--amber-dim);
+}
+.signal[data-mode="idle"] .dot-amber,
+.signal:not([data-mode]) .dot-amber {
+  background: var(--amber);
+  box-shadow: 0 0 14px 2px rgba(255, 176, 32, 0.5);
+  animation: pulse-amber 1.8s ease-in-out infinite;
+}
+.signal[data-mode="active"] .dot-amber {
+  background: var(--amber);
+  box-shadow: 0 0 14px 2px rgba(255, 176, 32, 0.5);
+}
+.signal[data-mode="pass"] .dot-green {
+  background: var(--green);
+  box-shadow: 0 0 16px 3px rgba(58, 203, 110, 0.55);
+}
+.signal[data-mode="fail"] .dot-red {
+  background: var(--red);
+  box-shadow: 0 0 16px 3px rgba(255, 77, 77, 0.55);
+}
+@keyframes pulse-amber {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ---------- переход между экранами сцены ---------- */
+.screen {
+  animation: screen-in 0.28s ease;
+}
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- меню ---------- */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.brand-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(40px, 6vw, 64px);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+}
+.brand-sub {
+  color: var(--muted);
+  font-size: 15px;
+  margin: 0 0 32px;
+}
+
+.menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  background: transparent;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.menu-item .m-index {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--faint);
+  width: 24px;
+  flex: 0 0 auto;
+}
+.menu-item .m-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.menu-item .m-title {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+}
+.menu-item .m-sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+.menu-item.active {
+  background: var(--panel);
+  border-color: var(--line);
+  border-left-color: var(--amber);
+}
+.menu-item.active .m-index {
+  color: var(--amber);
+}
+
+.meta-row {
+  margin-top: 28px;
+  display: flex;
+  gap: 28px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ---------- главы ---------- */
+.split {
+  border: 1px solid var(--line);
+}
+.split-list {
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+.split-detail {
+  background: var(--bg);
+}
+.panel-header,
+.questions-manage-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.panel-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+  margin: 0;
+}
+.chapter-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  flex: 1;
+}
+.chapter-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 11px 12px;
+  font-size: 14px;
+  color: var(--muted);
+  border-left: 3px solid transparent;
+}
+.chapter-item .c-num {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--faint);
+  flex: 0 0 auto;
+}
+.chapter-item.active {
+  background: var(--panel-2);
+  color: var(--ink);
+  border-left-color: var(--amber);
+}
+.chapter-item.active .c-num {
+  color: var(--amber);
+}
+.chapter-item.empty {
+  opacity: 0.55;
+}
+
+.split-detail .d-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+.split-detail h2 {
+  font-size: 26px;
+  font-weight: 600;
+}
+.split-detail p.d-desc {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 48ch;
+}
+.d-count {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--amber);
+  margin: 0;
+}
+.d-hint {
+  margin-top: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--faint);
+}
+.loading {
+  font-family: var(--font-mono);
+  color: var(--faint);
+  font-size: 13px;
+  padding: 16px;
+}
+
+/* ---------- вопрос ---------- */
+.q-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.q-chapter {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.q-progress {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink);
+}
+.q-timer {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--amber);
+  border: 1px solid var(--line);
+  padding: 3px 10px;
+}
+.progress-track {
+  height: 3px;
+  background: var(--line);
+  margin-bottom: 26px;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--amber);
+  width: 0%;
+  transition: width var(--transition-base);
+}
+
+.q-image-wrap {
+  border: 1px solid var(--line);
+}
+.q-image-wrap img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.q-text {
+  font-family: var(--font-display);
+  font-size: clamp(18px, 2.2vw, 23px);
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 0 0 20px;
+}
+
+.q-options {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.q-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--line);
+  padding: 12px 14px;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--panel);
+  cursor: pointer;
+}
+.q-option .o-key {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border: 1px solid var(--faint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+.q-option.selected {
+  border-color: var(--amber);
+}
+.q-option.selected .o-key {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.q-option.correct {
+  border-color: var(--green);
+  background: rgba(58, 203, 110, 0.08);
+}
+.q-option.correct .o-key {
+  border-color: var(--green);
+  color: var(--green);
+}
+.q-option.wrong {
+  border-color: var(--red);
+  background: rgba(255, 77, 77, 0.08);
+}
+.q-option.wrong .o-key {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.q-answer-line {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0 0 10px;
+  letter-spacing: 0.03em;
+}
+.q-answer-line #q-answer-value {
+  color: var(--amber);
+  font-weight: 700;
+}
+.q-explain {
+  font-size: 13.5px;
+  color: var(--muted);
+  border-left: 2px solid var(--amber);
+  padding-left: 12px;
+  margin: 0;
+}
+
+/* ---------- результат ---------- */
+.gauge {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.gauge-track {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 12;
+}
+.gauge-fill {
+  fill: none;
+  stroke: var(--amber);
+  stroke-width: 12;
+  stroke-linecap: butt;
+  stroke-dasharray: 540;
+  stroke-dashoffset: 540;
+  transition:
+    stroke-dashoffset 1s ease,
+    stroke var(--transition-base);
+}
+.gauge-score {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+}
+.gauge-verdict {
+  font-family: var(--font-display);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.result-summary {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--ink);
+  margin: 0 0 10px;
+}
+.result-hint {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--faint);
+  margin: 0;
+}
+
+.review-list {
+  border-top: 1px solid var(--line);
+}
+.review-item {
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.review-item.active {
+  background: var(--panel);
+}
+.review-item .rev-q {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+.review-item p {
+  margin: 3px 0;
+  font-size: 13px;
+}
+.review-item .rev-correct {
+  color: var(--green);
+}
+.review-item .rev-wrong {
+  color: var(--red);
+}
+.review-item .rev-explain {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ---------- подсказка клавиш снизу ---------- */
+.hint-bar {
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.hint-status::before {
+  content: "● ";
+  color: var(--amber);
+}
+
+/* ---------- тонкие скроллбары для внутренних списков ---------- */
+.chapter-list::-webkit-scrollbar,
+.split-detail::-webkit-scrollbar,
+.review-list::-webkit-scrollbar,
+.q-options::-webkit-scrollbar {
+  width: 6px;
+}
+.chapter-list::-webkit-scrollbar-thumb,
+.split-detail::-webkit-scrollbar-thumb,
+.review-list::-webkit-scrollbar-thumb,
+.q-options::-webkit-scrollbar-thumb {
+  background: var(--line);
+}
+
+/* ---------- кнопка "Начать тренировку" в деталях главы (мышь/тач) ---------- */
+.chapter-start {
+  margin-top: 8px;
+  align-self: flex-start;
+}
+
+/* ---------- сплэш ---------- */
+.splash-body h1 {
+  font-family: var(--font-display);
+  font-size: 32px;
+  margin: 0;
+}
+.splash .loader {
+  width: 35px;
+  height: 35px;
+  margin: 25px auto 0;
+  border: 4px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- оверлей "поверни устройство" ---------- */
+.rotate-overlay {
+  background: var(--bg);
+}
+.rotate-overlay p {
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--ink);
+  max-width: 32ch;
+}
+/* Показываем только на тач-устройстве в портретной ориентации — десктоп,
+   даже если окно узкое (что мы и так не даём сделать, см. device.js
+   enforceLandscapeWindow), это правило вообще не затрагивает. */
+@media (pointer: coarse) and (orientation: portrait) {
+  .rotate-overlay {
+    display: flex;
+  }
+  #app-shell,
+  #login-view {
+    visibility: hidden;
+  }
+}
+
+/* ---------- скрытие десктопных элементов на тач-устройствах ---------- */
+@media (pointer: coarse) {
+  .window-buttons {
+    display: none;
+  }
+  .hint-bar {
+    display: none;
+  }
+}
+
+/* ---------- аватар и аккаунт-чип ---------- */
+.avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  color: #fff;
+  flex: 0 0 auto;
+}
+.avatar.large {
+  width: 56px;
+  height: 56px;
+  font-size: 22px;
+}
+
+.account-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 4px 8px 4px 4px;
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 400;
+  transition: border-color var(--transition-fast);
+}
+.account-chip:hover {
+  border-color: var(--line);
+}
+.account-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+}
+.account-name {
+  font-size: 12.5px;
+  color: var(--ink);
+  font-weight: 500;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-role {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ---------- иконки-кнопки редактирования: ➕ ✏️ ❌ ---------- */
+.icon-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.icon-btn:hover {
+  border-color: var(--amber);
+  color: var(--ink);
+}
+.icon-btn.tiny {
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+}
+.icon-btn.danger:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+.icon-btn.active {
+  border-color: var(--amber);
+  color: var(--amber);
+  background: rgba(255, 176, 32, 0.1);
+}
+
+.c-controls,
+.eq-controls,
+.license-controls {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+.c-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- управление вопросами ---------- */
+.editor-question-item {
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.editor-question-item:last-child {
+  border-bottom: none;
+}
+.eq-num {
+  font-family: var(--font-mono);
+  color: var(--faint);
+  flex: 0 0 auto;
+}
+.eq-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+/* ---------- модалка ---------- */
+.modal-overlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+.modal-box {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+.modal-header {
+  border-bottom: 1px solid var(--line);
+}
+.modal-header h2 {
+  font-size: 16px;
+}
+.modal-body label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.modal-body input,
+.modal-body textarea,
+.modal-body select {
+  font-family: inherit;
+  resize: vertical;
+}
+.modal-hint {
+  font-size: 12px;
+  color: var(--faint);
+  margin: 0;
+}
+
+/* ---------- профиль ---------- */
+.profile-back {
+  align-self: flex-start;
+  margin-bottom: 16px;
+}
+.profile-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+.profile-head h2 {
+  font-size: 20px;
+  margin: 0 0 2px;
+}
+.profile-role {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin: 0;
+}
+.profile-fields dt {
+  color: var(--faint);
+  font-size: 12px;
+}
+.profile-fields dd {
+  margin: 0;
+  font-size: 14px;
+}
+.license-row {
+  background: var(--panel-2);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+}
+.license-row.blocked {
+  opacity: 0.55;
+}
+.license-key {
+  font-family: var(--font-mono);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.license-role {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 11px;
+}
+.license-until {
+  color: var(--faint);
+  white-space: nowrap;
+}

@@ -1,0 +1,130 @@
+/**
+ * Всё, что касается самого Tauri-окружения (не бэкенда, не рендера) —
+ * вызовы invoke() к Rust-командам из src-tauri/src/lib.rs, управление
+ * окном, отключение поведений, неуместных для десктоп-приложения.
+ *
+ * window.__TAURI__ доступен благодаря "app.withGlobalTauri": true
+ * в src-tauri/tauri.conf.json.
+ */
+const invoke = window.__TAURI__.core.invoke;
+
+/**
+ * pointer:coarse — самый надёжный кросс-платформенный признак "это тач-устройство"
+ * (телефон/планшет), не завязанный на ширину окна: большой Android-планшет
+ * в альбомной ориентации всё равно останется тач-устройством и на нём не должно
+ * быть кнопок управления окном/подсказок клавиатуры — а десктопное окно даже
+ * при таком же пикселном размере пусть их сохраняет.
+ */
+export const isTouchDevice = window.matchMedia("(pointer: coarse)").matches;
+
+/* ============================================================
+   Хранение сессии (fingerprint устройства, JWT).
+   Не через tauri-plugin-store — у него JS-биндинги рассчитаны на
+   npm-пакет, а здесь чистый JS без сборщика. Вместо этого — три
+   свои Rust-команды, см. src-tauri/src/lib.rs.
+   ============================================================ */
+
+export async function getFingerprint() {
+  return invoke("get_fingerprint");
+}
+
+export async function saveToken(token) {
+  return invoke("save_token", { token });
+}
+
+export async function loadToken() {
+  try {
+    return await invoke("load_token");
+  } catch (err) {
+    console.error("Не удалось прочитать сохранённый токен:", err);
+    return null;
+  }
+}
+
+export async function clearToken() {
+  try {
+    await invoke("clear_token");
+  } catch {
+    // если стереть не удалось — не блокируем логаут из-за этого
+  }
+}
+
+/* ============================================================
+   Управление окном (кастомный титлбар, decorations:false)
+   ============================================================ */
+
+export function initWindowControls() {
+  const { getCurrentWindow } = window.__TAURI__.window;
+  const appWindow = getCurrentWindow();
+
+  document.getElementById("minimize").addEventListener("click", () => {
+    appWindow.minimize();
+  });
+
+  document.getElementById("maximize").addEventListener("click", async () => {
+    if (await appWindow.isMaximized()) {
+      await appWindow.unmaximize();
+    } else {
+      await appWindow.maximize();
+    }
+  });
+
+  document.getElementById("close").addEventListener("click", () => {
+    appWindow.close();
+  });
+}
+
+/**
+ * Приложение должно оставаться горизонтальным на десктопе — minWidth/minHeight
+ * в tauri.conf.json (860x520) уже не дают окну стать совсем маленьким и узким,
+ * но это не мешает вытянуть окно по высоте больше ширины, перетаскивая только
+ * нижнюю границу. minWidth/minHeight/maxHeight — это статичные границы, а не
+ * "держи пропорцию" — в Tauri v2 нет отдельного конфига под aspect-ratio,
+ * поэтому досчитываем это сами: слушаем resize и, если окно стало выше, чем
+ * шире, мягко возвращаем его к горизонтальной форме.
+ *
+ * Это лучшее из доступного, а не гарантия на уровне ОС — если у используемой
+ * версии @tauri-apps/api изменится сигнатура LogicalSize/onResized, здесь
+ * может потребоваться правка под актуальный API.
+ */
+export async function enforceLandscapeWindow() {
+  const { getCurrentWindow, LogicalSize } = window.__TAURI__.window;
+  const appWindow = getCurrentWindow();
+
+  appWindow.onResized(async ({ payload: size }) => {
+    try {
+      const scale = await appWindow.scaleFactor();
+      const logical = size.toLogical(scale);
+      if (logical.height > logical.width) {
+        await appWindow.setSize(new LogicalSize(logical.height, logical.width));
+      }
+    } catch (err) {
+      console.error("Не удалось скорректировать пропорции окна:", err);
+    }
+  });
+}
+
+/* ============================================================
+   Отключение поведений, уместных для сайта, но не для приложения
+   ============================================================ */
+
+export function disableWebDefaults() {
+  // Своё контекстное меню приложению не нужно — дефолтное браузерное
+  // выглядит как "это веб-страница", а не нативный клиент.
+  document.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+  });
+
+  // Открытие devtools в собранном приложении не нужно пользователю
+  // и не должно быть первой линией защиты чего-либо чувствительного —
+  // это просто убирает случайное открытие, не более того.
+  document.addEventListener("keydown", (e) => {
+    if (
+      e.key === "F12" ||
+      (e.ctrlKey && e.shiftKey && e.key === "I") ||
+      (e.ctrlKey && e.shiftKey && e.key === "C")
+    ) {
+      e.preventDefault();
+    }
+  });
+}

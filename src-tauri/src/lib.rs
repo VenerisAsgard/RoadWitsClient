@@ -3,7 +3,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use std::time::Duration;
 use tauri::Manager;
 use uuid::Uuid;
 
@@ -106,67 +105,16 @@ fn clear_token(
 }
 
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-
         .invoke_handler(tauri::generate_handler![
             get_fingerprint,
             save_token,
             load_token,
             clear_token
         ])
-
-        .setup(|app| {
-
-            let splash = app
-                .get_webview_window("splash")
-                .expect("Splash window not found");
-
-
-            let main = app
-                .get_webview_window("main")
-                .expect("Main window not found");
-
-
-            std::thread::spawn(move || {
-
-                /*
-                    Здесь будет настоящая загрузка:
-
-                    1. Получение fingerprint
-                    2. Проверка сохраненного JWT
-                    3. Проверка лицензии
-                    4. Запрос пользователя /me
-                */
-
-
-                std::thread::sleep(
-                    Duration::from_secs(2)
-                );
-
-
-                splash
-                    .close()
-                    .expect("Cannot close splash");
-
-
-                main
-                    .show()
-                    .expect("Cannot show main");
-
-
-                main
-                    .set_focus()
-                    .expect("Cannot focus main");
-
-            });
-
-
-            Ok(())
-        })
-
         .run(tauri::generate_context!())
-
         .expect("error while running tauri application");
 }

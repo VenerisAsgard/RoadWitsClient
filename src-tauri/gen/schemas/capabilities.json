@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Базовые разрешения для главного окна Roadwits","local":true,"windows":["main"],"permissions":["core:window:default","core:window:allow-close","core:window:allow-minimize","core:window:allow-maximize","core:window:allow-unmaximize","core:window:allow-start-dragging"]}}

@@ -1,40 +1,47 @@
 <!doctype html>
 <html lang="ru">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"
+    />
     <title>Roadwits</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/main.css" />
   </head>
   <body>
+    <!-- Кастомный титлбар (decorations:false в tauri.conf.json). На тач-устройствах
+         кнопки окна скрываются в CSS (components.css, @media pointer:coarse) —
+         на телефоне/планшете у окна и так нет режима minimize/maximize/close. -->
     <div class="titlebar" data-tauri-drag-region>
+      <h1 class="title">Roadwits</h1>
 
-        <h1 class="title">
-            Roadwits
-        </h1>
+      <button class="account-chip hidden" id="account-chip" type="button">
+        <span class="avatar" id="account-avatar">?</span>
+        <span class="account-text">
+          <span class="account-name" id="account-name">—</span>
+          <span class="account-role" id="account-role">—</span>
+        </span>
+      </button>
+      <button id="logout-button" class="ghost small hidden">Выйти</button>
 
-        <div class="window-buttons">
-
-            <button class="traffic minimize" id="minimize">
-                <span>−</span>
-            </button>
-
-            <button class="traffic maximize" id="maximize">
-                <span>□</span>
-            </button>
-
-            <button class="traffic close" id="close">
-                <span>×</span>
-            </button>
-
-
-        </div>
-
+      <div class="window-buttons">
+        <button class="traffic minimize" id="minimize"><span>−</span></button>
+        <button class="traffic maximize" id="maximize"><span>□</span></button>
+        <button class="traffic close" id="close"><span>×</span></button>
+      </div>
     </div>
+
+    <!-- Экран входа -->
     <section id="login-view" class="view">
       <form id="login-form">
         <h1>Roadwits</h1>
-        <p class="hint">Введи Product Key лицензии</p>
+        <p class="hint">Введи Product Key лицензии — без пароля, без регистрации.</p>
 
         <input
           id="product-key"
@@ -51,31 +58,134 @@
       </form>
     </section>
 
-    <!-- Экран после входа -->
-    <section id="app-view" class="view hidden">
-      <header>
-        <h1>Roadwits</h1>
-        <button id="logout-button" class="ghost">Выйти</button>
-      </header>
-
-      <div class="card">
-        <h2 id="user-name">—</h2>
-        <dl>
-          <dt>Email</dt>
-          <dd id="user-email">—</dd>
-
-          <dt>Роль</dt>
-          <dd id="user-role">—</dd>
-
-          <dt>Лицензия действует до</dt>
-          <dd id="user-license-until">—</dd>
-
-          <dt>Статус</dt>
-          <dd id="user-status">—</dd>
-        </dl>
+    <!-- Приложение после входа -->
+    <div id="app-shell" class="hidden">
+      <div class="signal" id="signal" aria-hidden="true">
+        <span class="signal-dot dot-red"></span>
+        <span class="signal-dot dot-amber"></span>
+        <span class="signal-dot dot-green"></span>
       </div>
-    </section>
 
-    <script src="app.js"></script>
+      <main class="stage" id="stage">
+        <!-- MENU -->
+        <section class="screen" id="screen-menu" data-screen="menu">
+          <p class="eyebrow">Учебная программа · Республика Беларусь</p>
+          <h1 class="brand-title">ПДД РБ</h1>
+          <p class="brand-sub">Выбери режим — стрелками и Enter, или мышью/тапом</p>
+
+          <ul class="menu-list" id="menu-list"></ul>
+
+          <div class="meta-row">
+            <span id="menu-total-q">— вопросов</span>
+            <span id="menu-total-ch">— глав</span>
+          </div>
+        </section>
+
+        <!-- CHAPTERS -->
+        <section class="screen hidden" id="screen-chapters" data-screen="chapters">
+          <div class="split">
+            <div class="split-list">
+              <div class="panel-header">
+                <p class="panel-label">Выберите главу</p>
+                <div class="panel-actions hidden" id="chapters-toolbar">
+                  <button class="icon-btn hidden" id="chapter-add-btn" type="button" title="Добавить главу">+</button>
+                  <button class="icon-btn hidden" id="chapters-edit-toggle" type="button" title="Режим редактирования">✏️</button>
+                </div>
+              </div>
+              <ul class="chapter-list" id="chapter-list"></ul>
+            </div>
+            <div class="split-detail" id="chapter-detail">
+              <p class="loading">Загрузка глав…</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- QUESTION -->
+        <section class="screen hidden" id="screen-question" data-screen="question">
+          <div class="q-topbar">
+            <span class="q-chapter" id="q-chapter-label">Глава 1</span>
+            <span class="q-progress"><span id="q-current">1</span>/<span id="q-total">5</span></span>
+            <span class="q-timer hidden" id="q-timer">05:00</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+
+          <div class="q-body">
+            <div class="q-image-wrap hidden" id="q-image-wrap">
+              <img id="q-image" alt="Иллюстрация к вопросу" />
+            </div>
+            <div class="q-content">
+              <p class="q-text" id="q-text">Загрузка вопроса…</p>
+              <ul class="q-options" id="q-options"></ul>
+              <p class="q-answer-line">ВАШ ОТВЕТ: <span id="q-answer-value">_</span></p>
+              <p class="q-explain hidden" id="q-explain"></p>
+            </div>
+          </div>
+        </section>
+
+        <!-- RESULT -->
+        <section class="screen hidden" id="screen-result" data-screen="result">
+          <div class="result-top">
+            <div class="gauge-wrap">
+              <svg class="gauge" viewBox="0 0 200 200" role="img" aria-label="Результат">
+                <circle class="gauge-track" cx="100" cy="100" r="86"></circle>
+                <circle class="gauge-fill" id="gauge-fill" cx="100" cy="100" r="86"></circle>
+              </svg>
+              <div class="gauge-center">
+                <span class="gauge-score" id="gauge-score">0%</span>
+                <span class="gauge-verdict" id="gauge-verdict">—</span>
+              </div>
+            </div>
+            <div class="result-info">
+              <p class="result-summary" id="result-summary">—</p>
+              <p class="result-hint">↑↓ — разбор ответов · Enter — пройти ещё раз · Esc — в меню</p>
+            </div>
+          </div>
+          <div class="review-list" id="review-list"></div>
+        </section>
+
+        <!-- PROFILE -->
+        <section class="screen hidden" id="screen-profile" data-screen="profile">
+          <button class="ghost small profile-back" id="profile-back-btn" type="button">← Назад</button>
+          <div class="profile-card" id="profile-card"></div>
+        </section>
+      </main>
+
+      <footer class="hint-bar" id="hint-bar">
+        <span class="hint-keys" id="hint-keys">↑↓ выбрать · Enter принять</span>
+      </footer>
+    </div>
+
+    <!-- Модалка форм редактирования (глава/вопрос/лицензия) — один переиспользуемый
+         контейнер вместо отдельной вёрстки под каждую форму, см. render.openModal(). -->
+    <div class="modal-overlay hidden" id="modal-overlay">
+      <div class="modal-box" role="dialog" aria-modal="true">
+        <div class="modal-header">
+          <h2 id="modal-title">—</h2>
+          <button class="ghost small" id="modal-close-btn" type="button">×</button>
+        </div>
+        <div class="modal-body" id="modal-body"></div>
+      </div>
+    </div>
+
+    <!-- Сплэш — оверлей поверх всего, не отдельное Tauri-окно (см. README:
+         "Почему сплэш — оверлей, а не отдельное окно"). Скрывается из main.js
+         сразу после того, как понятно, показывать логин или сразу приложение. -->
+    <div class="splash" id="splash-overlay">
+      <div class="splash-body">
+        <h1>Roadwits</h1>
+        <div class="loader"></div>
+      </div>
+    </div>
+
+    <!-- Предупреждение о повороте — только тач-устройства в портретной
+         ориентации (чисто CSS, @media orientation:portrait and pointer:coarse
+         в components.css). На десктопе никогда не показывается. -->
+    <div class="rotate-overlay" id="rotate-overlay" aria-hidden="true">
+      <p>Поверни устройство горизонтально</p>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
   </body>
 </html>
