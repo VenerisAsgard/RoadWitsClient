@@ -102,7 +102,14 @@ export function promptRenameChapter() {
 export async function confirmDeleteChapter() {
   const chapter = state.chapters[state.chapterIndex];
   if (!chapter) return;
-  if (!window.confirm(`Удалить главу «${chapter.title}» вместе со всеми вопросами?`)) return;
+  const ok = await render.confirmDialog({
+    title: "Удалить главу?",
+    text: `Глава «${chapter.title}» будет удалена вместе со всеми вопросами внутри неё.`,
+    confirmLabel: "Удалить",
+    cancelLabel: "Отмена",
+    danger: true,
+  });
+  if (!ok) return;
   try {
     await api.deleteChapter(state.token, chapter.id);
     state.chapterIndex = Math.max(0, state.chapterIndex - 1);
@@ -233,7 +240,14 @@ export function promptEditQuestion(questionId) {
 }
 
 export async function confirmDeleteQuestion(questionId) {
-  if (!window.confirm("Удалить этот вопрос?")) return;
+  const ok = await render.confirmDialog({
+    title: "Удалить вопрос?",
+    text: "Это действие нельзя отменить.",
+    confirmLabel: "Удалить",
+    cancelLabel: "Отмена",
+    danger: true,
+  });
+  if (!ok) return;
   try {
     const chapter = state.chapters[state.chapterIndex];
     await api.deleteQuestion(state.token, chapter.id, questionId);

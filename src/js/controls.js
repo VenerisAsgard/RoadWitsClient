@@ -12,37 +12,32 @@ import * as admin from "./admin.js";
    КЛАВИАТУРА — единый обработчик для всей навигации по приложению.
    ============================================================ */
 
-function armEscape(message) {
-  state.escArmed = true;
-  render.setHint(message);
-  clearTimeout(state.escTimeout);
-  state.escTimeout = setTimeout(() => {
-    state.escArmed = false;
-    if (state.screen === "question") {
-      render.setHint("1-4 ответить · Space/Enter далее · ←назад · Esc выйти");
-    }
-  }, 2200);
-}
-
 export function initKeyboardControls() {
   document.addEventListener("keydown", (e) => {
     // Пока не вошли — ничего не перехватываем, чтобы форма логина сама
     // обработала Enter как обычный submit.
     if (!render.$("login-view").classList.contains("hidden")) return;
 
-    // Модалка (формы редактирования) — Esc закрывает её и ничего больше,
-    // независимо от того, какой экран под ней. Проверяем это раньше
-    // основного switch, чтобы не закрыть заодно ещё что-то за компанию.
+    // Модалка (формы редактирования / confirmDialog) — Esc закрывает её и
+    // ничего больше, независимо от того, какой экран под ней. Enter, если
+    // в модалке есть кнопка подтверждения (confirmDialog, не форма с своим
+    // submit-ом), нажимает её — формы редактирования сабмитятся сами по Enter
+    // штатным поведением браузера, туда не лезем.
     if (render.isModalOpen()) {
       if (e.key === "Escape") {
         e.preventDefault();
         render.closeModal();
+      } else if (e.key === "Enter") {
+        const confirmBtn = document.querySelector('#modal-body [data-resolve="confirm"]');
+        if (confirmBtn) {
+          e.preventDefault();
+          confirmBtn.click();
+        }
       }
       return;
     }
 
     const key = e.key;
-    if (key !== "Escape") state.escArmed = false;
 
     switch (state.screen) {
       case "menu": {
@@ -66,9 +61,31 @@ export function initKeyboardControls() {
         } else if (key === "ArrowDown") {
           e.preventDefault();
           quiz.chaptersMove(1);
+        } else if (key === " ") {
+          // Space — отметить/снять отметку текущей главы (мультивыбор),
+          // не подтверждение — иначе нечем было бы отдельно "начать".
+          e.preventDefault();
+          quiz.toggleChapterCheck(state.chapters[state.chapterIndex]);
         } else if (key === "Enter") {
           e.preventDefault();
           quiz.chaptersConfirm();
+        } else if (key === "Escape") {
+          e.preventDefault();
+          quiz.returnToMenu();
+        }
+        break;
+      }
+
+      case "random-count": {
+        if (key === "ArrowUp") {
+          e.preventDefault();
+          quiz.randomCountMove(-1);
+        } else if (key === "ArrowDown") {
+          e.preventDefault();
+          quiz.randomCountMove(1);
+        } else if (key === "Enter") {
+          e.preventDefault();
+          quiz.randomCountConfirm();
         } else if (key === "Escape") {
           e.preventDefault();
           quiz.returnToMenu();
@@ -88,11 +105,7 @@ export function initKeyboardControls() {
           quiz.questionPrev();
         } else if (key === "Escape") {
           e.preventDefault();
-          if (state.escArmed) {
-            quiz.returnToMenu();
-          } else {
-            armEscape("Esc ещё раз — выйти без сохранения результата");
-          }
+          quiz.requestExit(); // тематическая модалка подтверждения, не браузерный confirm()
         }
         break;
       }
@@ -106,12 +119,7 @@ export function initKeyboardControls() {
           quiz.reviewMove(1);
         } else if (key === "Enter") {
           e.preventDefault();
-          if (state.mode === "chapter") {
-            const c = state.chapters.find((x) => x.id === state.chapterId);
-            quiz.beginQuiz("chapter", c);
-          } else {
-            quiz.beginQuiz(state.mode);
-          }
+          quiz.retryQuiz();
         } else if (key === "Escape") {
           e.preventDefault();
           quiz.returnToMenu();
@@ -151,13 +159,27 @@ export function initMouseControls() {
     quiz.closeProfile();
   });
 
-  /* ---------- главы: выбор строки + кнопки ✏️/❌ на ней ---------- */
+  /* ---------- кнопки "назад" — то же самое, что Esc, но не все хотят
+     помнить про Esc, особенно на тач-устройствах ---------- */
+  render.$("chapters-back-btn").addEventListener("click", () => {
+    quiz.returnToMenu();
+  });
+  render.$("random-count-back-btn").addEventListener("click", () => {
+    quiz.returnToMenu();
+  });
+
+  /* ---------- главы: чекбокс (мультивыбор) / выбор строки / ✏️ / ❌ ---------- */
   render.$("chapter-list").addEventListener("click", (e) => {
     const li = e.target.closest(".chapter-item");
     if (!li) return;
     const index = Number(li.dataset.index);
-    const actionBtn = e.target.closest("[data-action]");
 
+    if (e.target.closest('[data-role="checkbox"]')) {
+      quiz.toggleChapterCheck(state.chapters[index]);
+      return;
+    }
+
+    const actionBtn = e.target.closest("[data-action]");
     if (actionBtn) {
       // Кнопка могла быть на НЕ активной строке — сперва выбираем её главу,
       // чтобы admin.js (который смотрит на state.chapterIndex) работал с той
@@ -203,6 +225,14 @@ export function initMouseControls() {
     else if (action === "delete-question") admin.confirmDeleteQuestion(questionId);
   });
 
+  /* ---------- выбор количества вопросов для случайного билета ---------- */
+  render.$("random-count-list").addEventListener("click", (e) => {
+    const li = e.target.closest(".menu-item");
+    if (!li) return;
+    state.randomCountIndex = Number(li.dataset.index);
+    quiz.randomCountConfirm();
+  });
+
   /* ---------- вопрос (прохождение теста) ---------- */
   render.$("q-options").addEventListener("click", (e) => {
     const li = e.target.closest(".q-option");
@@ -211,12 +241,19 @@ export function initMouseControls() {
     // сразу, без промежуточного "выделить, потом подтвердить" как с клавиатуры.
     quiz.selectOptionByClick(Number(li.dataset.index));
   });
+  render.$("q-btn-prev").addEventListener("click", () => quiz.questionPrev());
+  render.$("q-btn-next").addEventListener("click", () => quiz.confirmPendingOrAdvance());
+  render.$("q-btn-exit").addEventListener("click", () => quiz.requestExit());
 
   render.$("review-list").addEventListener("click", (e) => {
     const item = e.target.closest(".review-item");
     if (!item) return;
     quiz.reviewJumpTo(Number(item.dataset.index));
   });
+
+  /* ---------- результат ---------- */
+  render.$("result-retry-btn").addEventListener("click", () => quiz.retryQuiz());
+  render.$("result-menu-btn").addEventListener("click", () => quiz.returnToMenu());
 
   /* ---------- профиль: панель администрирования (только admin) ---------- */
   render.$("profile-card").addEventListener("click", (e) => {
@@ -234,11 +271,8 @@ export function initMouseControls() {
     }
   });
 
-  /* ---------- модалка: крестик, клик по фону, кнопки "Отмена" внутри форм ---------- */
+  /* ---------- модалка: крестик, кнопки "Отмена" внутри форм ---------- */
   render.$("modal-close-btn").addEventListener("click", () => render.closeModal());
-  render.$("modal-overlay").addEventListener("click", (e) => {
-    if (e.target.id === "modal-overlay") render.closeModal();
-  });
   render.$("modal-body").addEventListener("click", (e) => {
     if (e.target.closest('[data-action="modal-cancel"]')) render.closeModal();
   });

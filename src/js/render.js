@@ -4,7 +4,14 @@
  * более не делают fetch (это api.js через quiz.js/admin.js). Если понадобится
  * сменить способ рендера, менять нужно будет только этот файл.
  */
-import { state, MENU_ITEMS, ROLE_LABELS, canEditContent, isAdmin } from "./state.js";
+import {
+  state,
+  MENU_ITEMS,
+  RANDOM_COUNT_OPTIONS,
+  ROLE_LABELS,
+  canEditContent,
+  isAdmin,
+} from "./state.js";
 
 export const $ = (id) => document.getElementById(id);
 
@@ -111,7 +118,7 @@ export function setHint(text) {
    Переключение экранов внутри app-shell
    ============================================================ */
 
-const SCREENS = ["menu", "chapters", "question", "result", "profile"];
+const SCREENS = ["menu", "chapters", "random-count", "question", "result", "profile"];
 
 export function showScreen(name) {
   state.screen = name;
@@ -169,10 +176,12 @@ export function renderChapters() {
   state.chapters.forEach((c, i) => {
     const li = document.createElement("li");
     const hasQuestions = (c.count || 0) > 0;
+    const checked = state.checkedChapters.has(c.id);
     li.className =
       "chapter-item" +
       (i === state.chapterIndex ? " active" : "") +
-      (hasQuestions ? "" : " empty");
+      (hasQuestions ? "" : " empty") +
+      (checked ? " checked" : "");
     li.dataset.index = String(i);
 
     let controls = "";
@@ -184,6 +193,7 @@ export function renderChapters() {
     }
 
     li.innerHTML = `
+      <span class="c-checkbox" data-role="checkbox" role="checkbox" aria-checked="${checked}">${checked ? "☑" : "☐"}</span>
       <span class="c-num">${String(c.num ?? i + 1).padStart(2, "0")}</span>
       <span class="c-title">${c.title}</span>
       ${controls ? `<span class="c-controls">${controls}</span>` : ""}
@@ -206,17 +216,23 @@ export function renderChapterDetail() {
   }
   const hasQuestions = (c.count || 0) > 0;
   const editable = canEditContent();
+  const checkedCount = state.checkedChapters.size;
+
+  const startLabel = checkedCount
+    ? `Начать по ${checkedCount} ${checkedCount === 1 ? "главе" : "главам"}`
+    : hasQuestions
+      ? "Начать тренировку"
+      : "Нет вопросов";
+  const startDisabled = !checkedCount && !hasQuestions;
 
   wrap.innerHTML = `
     <p class="d-eyebrow">Глава ${c.num ?? state.chapterIndex + 1}</p>
     <h2>${c.title}</h2>
     <p class="d-desc">${c.description ?? ""}</p>
     <p class="d-count">${c.count ?? 0} вопросов в главе</p>
-    ${
-      hasQuestions
-        ? `<button id="chapter-start-btn" class="chapter-start">Начать тренировку</button>`
-        : `<p class="d-hint">Вопросы этой главы скоро появятся</p>`
-    }
+    ${checkedCount ? `<p class="d-selected">Отмечено глав: ${checkedCount}</p>` : ""}
+    <p class="d-hint">Space или клик по ☐ — отметить главу (можно несколько)</p>
+    <button id="chapter-start-btn" class="chapter-start" ${startDisabled ? "disabled" : ""}>${startLabel}</button>
     ${
       editable
         ? `
@@ -253,6 +269,28 @@ export function renderEditorQuestionList(questions) {
       <span class="eq-controls">
         <button class="icon-btn tiny" data-action="edit-question" title="Редактировать">✏️</button>
         <button class="icon-btn tiny danger" data-action="delete-question" title="Удалить">❌</button>
+      </span>
+    `;
+    list.appendChild(li);
+  });
+}
+
+/* ============================================================
+   RANDOM COUNT — сколько вопросов взять для случайного билета
+   ============================================================ */
+
+export function renderRandomCount() {
+  const list = $("random-count-list");
+  list.innerHTML = "";
+  RANDOM_COUNT_OPTIONS.forEach((count, i) => {
+    const li = document.createElement("li");
+    li.className = "menu-item" + (i === state.randomCountIndex ? " active" : "");
+    li.dataset.index = String(i);
+    li.innerHTML = `
+      <span class="m-index">${String(i + 1).padStart(2, "0")}</span>
+      <span class="m-body">
+        <span class="m-title">${count} вопросов</span>
+        <span class="m-sub">Случайная подборка из базы вопросов</span>
       </span>
     `;
     list.appendChild(li);
@@ -312,6 +350,10 @@ export function renderQuestion() {
 
   const pct = (state.currentQ / state.questions.length) * 100;
   $("progress-fill").style.width = `${pct}%`;
+
+  $("q-btn-prev").disabled = state.currentQ === 0;
+  $("q-btn-next").textContent =
+    state.currentQ === state.questions.length - 1 ? "Завершить →" : "Далее →";
 }
 
 export function updateTimerDisplay() {
@@ -432,6 +474,7 @@ export function renderLicenseList(licenses) {
 export function openModal(title, bodyHtml) {
   $("modal-title").textContent = title;
   $("modal-body").innerHTML = bodyHtml;
+  $("modal-box").classList.remove("danger");
   $("modal-overlay").classList.remove("hidden");
   const firstInput = $("modal-body").querySelector("input, textarea, select");
   if (firstInput) firstInput.focus();
@@ -440,8 +483,54 @@ export function openModal(title, bodyHtml) {
 export function closeModal() {
   $("modal-overlay").classList.add("hidden");
   $("modal-body").innerHTML = "";
+  // confirmDialog() слушает это, чтобы не зависнуть неразрешённым промисом,
+  // если модалку закрыли крестиком/Esc, а не одной из её собственных кнопок.
+  $("modal-overlay").dispatchEvent(new CustomEvent("modal:closed"));
 }
 
 export function isModalOpen() {
   return !$("modal-overlay").classList.contains("hidden");
+}
+
+/**
+ * Тематический да/нет-диалог (взамен браузерного confirm()) — тот же
+ * модальный контейнер, что и формы редактирования, просто с двумя кнопками
+ * вместо формы. Возвращает Promise<boolean> — true, если подтвердили.
+ */
+export function confirmDialog({ title, text, confirmLabel = "Да", cancelLabel = "Отмена", danger = false }) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+
+    openModal(
+      title,
+      `
+        <p class="modal-text">${text}</p>
+        <div class="modal-actions">
+          <button type="button" class="modal-btn modal-btn-ghost" data-resolve="cancel">${cancelLabel}</button>
+          <button type="button" class="modal-btn ${danger ? "modal-btn-danger" : ""}" data-resolve="confirm">${confirmLabel}</button>
+        </div>
+      `,
+    );
+    if (danger) $("modal-box").classList.add("danger");
+
+    const onBodyClick = (e) => {
+      const btn = e.target.closest("[data-resolve]");
+      if (!btn) return;
+      settle(btn.dataset.resolve === "confirm");
+      closeModal();
+    };
+    const onClosed = () => {
+      settle(false);
+      $("modal-body").removeEventListener("click", onBodyClick);
+      $("modal-overlay").removeEventListener("modal:closed", onClosed);
+    };
+
+    $("modal-body").addEventListener("click", onBodyClick);
+    $("modal-overlay").addEventListener("modal:closed", onClosed);
+  });
 }

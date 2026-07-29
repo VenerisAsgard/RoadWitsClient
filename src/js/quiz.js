@@ -3,7 +3,7 @@
  * мышь это была или клавиатура (это controls.js) — просто набор операций
  * над state, вызываемых извне.
  */
-import { state, MENU_ITEMS } from "./state.js";
+import { state, MENU_ITEMS, RANDOM_COUNT_OPTIONS } from "./state.js";
 import * as api from "./api.js";
 import * as render from "./render.js";
 import * as admin from "./admin.js";
@@ -36,31 +36,57 @@ async function getQuestionPool() {
   return pool;
 }
 
-export async function beginQuiz(mode, chapter) {
+/**
+ * mode: "chapter" | "random" | "exam".
+ * chapterOrChapters — для "chapter": один объект главы ИЛИ массив глав
+ * (мультивыбор через чекбоксы, см. toggleChapterCheck/chaptersConfirm).
+ * count — для "random": сколько вопросов взять (см. randomCountConfirm).
+ */
+export async function beginQuiz(mode, chapterOrChapters, count) {
   state.mode = mode;
-  state.chapterId = chapter ? chapter.id : null;
   state.currentQ = 0;
   state.answers = {};
   state.selected = {};
 
+  // Откуда вернуться, если выйти из теста незавершённым (см. controls.js
+  // exit-confirm) — не всегда корень меню: если тест начали с экрана глав
+  // или с выбора количества вопросов, логичнее вернуть именно туда.
+  state.originScreen =
+    mode === "chapter" ? "chapters" : mode === "random" ? "random-count" : "menu";
+
   let questions = [];
+  let label = "";
+
   if (mode === "chapter") {
-    questions = await api.listQuestions(state.token, chapter.id);
+    if (Array.isArray(chapterOrChapters)) {
+      // Мультивыбор: тянем вопросы каждой отмеченной главы и объединяем.
+      const lists = await Promise.all(
+        chapterOrChapters.map((c) => api.listQuestions(state.token, c.id)),
+      );
+      questions = shuffle(lists.flat());
+      state.chapterId = null;
+      state.multiChapterIds = chapterOrChapters.map((c) => c.id);
+      label = `Главы: ${chapterOrChapters.map((c) => c.num ?? "?").join(", ")}`;
+    } else {
+      questions = await api.listQuestions(state.token, chapterOrChapters.id);
+      state.chapterId = chapterOrChapters.id;
+      state.multiChapterIds = null;
+      label = chapterOrChapters.title;
+    }
   } else if (mode === "random") {
-    questions = shuffle(await getQuestionPool()).slice(0, 5);
+    state.randomCount = count || state.randomCount || 10;
+    const pool = await getQuestionPool();
+    questions = shuffle(pool).slice(0, Math.min(state.randomCount, pool.length));
+    label = `Случайный билет · ${questions.length} вопр.`;
   } else if (mode === "exam") {
     const pool = await getQuestionPool();
     questions = shuffle(pool).slice(0, Math.min(20, pool.length));
+    label = "Контрольный экзамен";
   }
 
   state.questions = questions;
   render.$("q-total").textContent = questions.length;
-  render.$("q-chapter-label").textContent =
-    mode === "chapter"
-      ? chapter.title
-      : mode === "random"
-        ? "Случайный билет"
-        : "Контрольный экзамен";
+  render.$("q-chapter-label").textContent = label;
 
   const timerEl = render.$("q-timer");
   if (mode === "exam") {
@@ -92,7 +118,7 @@ function startTimer(seconds) {
 }
 
 function updateQuestionHint() {
-  render.setHint("1-4 ответить · Space/Enter далее · ←назад · Esc выйти");
+  render.setHint("1-4 или клик ответить · Space/Enter далее · ←назад · Esc выйти");
 }
 
 /**
@@ -102,6 +128,7 @@ function updateQuestionHint() {
 export function selectOptionByClick(index) {
   const q = state.questions[state.currentQ];
   if (!q || index < 0 || index >= q.options.length) return;
+  if (state.answers[q.id] !== undefined) return; // уже отвечен — повторный клик ничего не меняет
   state.answers[q.id] = index;
   delete state.selected[q.id];
   render.renderQuestion();
@@ -185,7 +212,7 @@ export async function finishQuiz() {
 
   state.reviewIndex = 0;
   render.buildReview();
-  render.setHint("↑↓ разбор ответов · Enter ещё раз · Esc в меню");
+  render.setHint("↑↓ или клик — разбор ответов · Enter — пройти ещё раз · Esc — в меню");
 }
 
 export function reviewMove(delta) {
@@ -203,6 +230,23 @@ export function reviewJumpTo(index) {
   render.buildReview();
 }
 
+/** "Пройти ещё раз" на экране результата — тот же режим/выбор заново. */
+export function retryQuiz() {
+  if (state.mode === "chapter") {
+    if (state.multiChapterIds) {
+      const chosen = state.chapters.filter((c) => state.multiChapterIds.includes(c.id));
+      beginQuiz("chapter", chosen);
+    } else {
+      const c = state.chapters.find((x) => x.id === state.chapterId);
+      beginQuiz("chapter", c);
+    }
+  } else if (state.mode === "random") {
+    beginQuiz("random", null, state.randomCount);
+  } else {
+    beginQuiz(state.mode);
+  }
+}
+
 /* ============================================================
    MENU
    ============================================================ */
@@ -216,13 +260,17 @@ export function menuConfirm() {
   const choice = MENU_ITEMS[state.menuIndex].id;
   if (choice === "chapter") {
     state.chapterIndex = 0;
+    state.checkedChapters = new Set();
     render.showScreen("chapters");
     render.renderChapters();
-    render.setHint("↑↓ выбрать главу · Enter начать · Esc в меню");
+    render.setHint("↑↓ выбрать · Space/клик по ☐ отметить · Enter начать · Esc в меню");
     render.setSignal("idle");
     admin.refreshEditorQuestions();
   } else if (choice === "random") {
-    beginQuiz("random");
+    render.showScreen("random-count");
+    render.renderRandomCount();
+    render.setHint("↑↓ выбрать количество · Enter начать · Esc в меню");
+    render.setSignal("idle");
   } else if (choice === "exam") {
     beginQuiz("exam");
   }
@@ -236,8 +284,49 @@ export function returnToMenu() {
   render.setHint("↑↓ выбрать · Enter принять");
 }
 
+/**
+ * Выход из теста ДО его завершения — по Esc или кнопке "Выйти". Тематическая
+ * модалка (render.confirmDialog) вместо браузерного confirm(), возвращает
+ * туда, откуда тест начали настраивать (см. returnToOrigin).
+ */
+export async function requestExit() {
+  if (state.screen !== "question") return;
+  const ok = await render.confirmDialog({
+    title: "Выйти из теста?",
+    text: "Текущий прогресс не будет сохранён. Вы уверены, что хотите выйти?",
+    confirmLabel: "Да, выйти",
+    cancelLabel: "Остаться",
+    danger: true,
+  });
+  if (ok) returnToOrigin();
+}
+
+/**
+ * Выход из НЕЗАВЕРШЁННОГО теста — возвращает туда, где тест начали
+ * настраивать (главы / выбор количества), а не сразу в корень меню.
+ * Экзамен стартует прямо с меню (нет промежуточного экрана выбора),
+ * поэтому для него originScreen и так "menu" — ведёт себя как returnToMenu.
+ */
+export function returnToOrigin() {
+  clearInterval(state.timerHandle);
+  const origin = state.originScreen || "menu";
+  if (origin === "chapters") {
+    render.showScreen("chapters");
+    render.renderChapters();
+    render.setSignal("idle");
+    render.setHint("↑↓ выбрать · Space/клик по ☐ отметить · Enter начать · Esc в меню");
+  } else if (origin === "random-count") {
+    render.showScreen("random-count");
+    render.renderRandomCount();
+    render.setSignal("idle");
+    render.setHint("↑↓ выбрать количество · Enter начать · Esc в меню");
+  } else {
+    returnToMenu();
+  }
+}
+
 /* ============================================================
-   CHAPTERS
+   CHAPTERS (мультивыбор чекбоксами)
    ============================================================ */
 
 export async function loadChapters() {
@@ -254,10 +343,38 @@ export function chaptersMove(delta) {
   admin.refreshEditorQuestions();
 }
 
+export function toggleChapterCheck(chapter) {
+  if (!chapter || !(chapter.count > 0)) return;
+  if (state.checkedChapters.has(chapter.id)) state.checkedChapters.delete(chapter.id);
+  else state.checkedChapters.add(chapter.id);
+  render.renderChapters();
+}
+
 export function chaptersConfirm() {
+  const checked = [...state.checkedChapters];
+  if (checked.length) {
+    const chosen = state.chapters.filter((c) => checked.includes(c.id));
+    beginQuiz("chapter", chosen);
+    return;
+  }
   const c = state.chapters[state.chapterIndex];
   if (!c || !(c.count > 0)) return;
   beginQuiz("chapter", c);
+}
+
+/* ============================================================
+   RANDOM COUNT
+   ============================================================ */
+
+export function randomCountMove(delta) {
+  const n = RANDOM_COUNT_OPTIONS.length;
+  state.randomCountIndex = (state.randomCountIndex + delta + n) % n;
+  render.renderRandomCount();
+}
+
+export function randomCountConfirm() {
+  const count = RANDOM_COUNT_OPTIONS[state.randomCountIndex];
+  beginQuiz("random", null, count);
 }
 
 /* ============================================================
@@ -265,7 +382,12 @@ export function chaptersConfirm() {
    ============================================================ */
 
 export function openProfile() {
-  state.profileReturnScreen = state.screen;
+  // Если уже на профиле (повторный клик по аккаунту) — не затираем прежний
+  // profileReturnScreen текущим "profile", иначе Esc/кнопка "Назад" начинают
+  // возвращать на сам профиль и выйти из него становится нельзя.
+  if (state.screen !== "profile") {
+    state.profileReturnScreen = state.screen;
+  }
   render.showScreen("profile");
   render.renderProfile(state.user);
   render.setSignal("idle");
@@ -280,6 +402,6 @@ export function closeProfile() {
   if (state.profileReturnScreen === "menu") {
     render.setHint("↑↓ выбрать · Enter принять");
   } else if (state.profileReturnScreen === "chapters") {
-    render.setHint("↑↓ выбрать главу · Enter начать · Esc в меню");
+    render.setHint("↑↓ выбрать · Space/клик по ☐ отметить · Enter начать · Esc в меню");
   }
 }

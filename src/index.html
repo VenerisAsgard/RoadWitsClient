@@ -83,6 +83,7 @@
 
         <!-- CHAPTERS -->
         <section class="screen hidden" id="screen-chapters" data-screen="chapters">
+          <button class="ghost small screen-back" id="chapters-back-btn" type="button">← Меню</button>
           <div class="split">
             <div class="split-list">
               <div class="panel-header">
@@ -98,6 +99,15 @@
               <p class="loading">Загрузка глав…</p>
             </div>
           </div>
+        </section>
+
+        <!-- RANDOM COUNT -->
+        <section class="screen hidden" id="screen-random-count" data-screen="random-count">
+          <button class="ghost small screen-back" id="random-count-back-btn" type="button">← Меню</button>
+          <p class="eyebrow">Тренировка по случайному билету</p>
+          <h1 class="brand-title" style="font-size: clamp(28px, 4vw, 40px)">Сколько вопросов?</h1>
+          <p class="brand-sub">Выбери количество стрелками и Enter, или мышью/тапом</p>
+          <ul class="menu-list" id="random-count-list"></ul>
         </section>
 
         <!-- QUESTION -->
@@ -120,6 +130,11 @@
               <ul class="q-options" id="q-options"></ul>
               <p class="q-answer-line">ВАШ ОТВЕТ: <span id="q-answer-value">_</span></p>
               <p class="q-explain hidden" id="q-explain"></p>
+              <div class="q-actions">
+                <button class="q-btn" id="q-btn-prev" type="button">← Назад</button>
+                <button class="q-btn" id="q-btn-next" type="button">Далее →</button>
+                <button class="q-btn q-btn-exit" id="q-btn-exit" type="button">Выйти</button>
+              </div>
             </div>
           </div>
         </section>
@@ -139,7 +154,11 @@
             </div>
             <div class="result-info">
               <p class="result-summary" id="result-summary">—</p>
-              <p class="result-hint">↑↓ — разбор ответов · Enter — пройти ещё раз · Esc — в меню</p>
+              <p class="result-hint">↑↓ или клик — разбор ответов · Enter — пройти ещё раз · Esc — в меню</p>
+              <div class="result-actions">
+                <button id="result-retry-btn" type="button">Пройти ещё раз</button>
+                <button class="ghost" id="result-menu-btn" type="button">В меню</button>
+              </div>
             </div>
           </div>
           <div class="review-list" id="review-list"></div>
@@ -160,7 +179,7 @@
     <!-- Модалка форм редактирования (глава/вопрос/лицензия) — один переиспользуемый
          контейнер вместо отдельной вёрстки под каждую форму, см. render.openModal(). -->
     <div class="modal-overlay hidden" id="modal-overlay">
-      <div class="modal-box" role="dialog" aria-modal="true">
+      <div class="modal-box" id="modal-box" role="dialog" aria-modal="true">
         <div class="modal-header">
           <h2 id="modal-title">—</h2>
           <button class="ghost small" id="modal-close-btn" type="button">×</button>

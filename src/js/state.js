@@ -9,13 +9,21 @@ export const state = {
   user: null, // { id, email, first_name, last_name, license_until, user_type, is_blocked, settings, payment_info }
 
   // --- навигация по экранам после входа ---
-  screen: "menu", // "menu" | "chapters" | "question" | "result" | "profile"
+  screen: "menu", // "menu" | "chapters" | "random-count" | "question" | "result" | "profile"
   profileReturnScreen: "menu", // куда вернуться из профиля по Esc/кнопке "назад"
+  originScreen: "menu", // куда вернуться, если выйти из ТЕКУЩЕГО теста незавершённым
+  // (не путать с profileReturnScreen — это конкретно про "откуда начали тест":
+  // chapters/random-count/menu, чтобы не кидать на корень меню без необходимости)
 
   // --- меню и главы ---
   chapters: [], // нормализованные главы с бэкенда, см. js/api.js
   menuIndex: 0,
   chapterIndex: 0,
+  checkedChapters: new Set(), // мультивыбор нескольких глав разом (Space/чекбокс)
+
+  // --- выбор количества вопросов для случайного билета ---
+  randomCountIndex: 1,
+  randomCount: 10,
 
   // --- редактирование контента (editor/admin) ---
   editMode: false, // переключатель "режима редактирования" на экране глав
@@ -23,7 +31,8 @@ export const state = {
 
   // --- прохождение теста ---
   mode: null, // "chapter" | "random" | "exam"
-  chapterId: null,
+  chapterId: null, // выбрана ровно одна глава
+  multiChapterIds: null, // выбрано несколько глав разом (см. checkedChapters)
   questions: [], // нормализованные вопросы текущего прохождения
   currentQ: 0,
   answers: {}, // { [questionId]: подтверждённый индекс варианта — уже раскрыт цветом }
@@ -34,10 +43,6 @@ export const state = {
 
   // --- разбор результата ---
   reviewIndex: 0,
-
-  // --- двухшаговый Esc, чтобы не терять прогресс по случайному нажатию ---
-  escArmed: false,
-  escTimeout: null,
 
   // --- кэш всех вопросов (для режимов "random"/"exam", которые тянут
   // вопросы сразу по всем главам) — считается один раз за сессию,
@@ -59,12 +64,12 @@ export const MENU_ITEMS = [
   {
     id: "chapter",
     title: "Тренировка по главам ПДД",
-    sub: "Выбери главу и отвечай без ограничения по времени",
+    sub: "Отметь одну или несколько глав и отвечай без ограничения по времени",
   },
   {
     id: "random",
     title: "Тренировка по случайному билету",
-    sub: "5 случайных вопросов, мгновенная проверка ответа",
+    sub: "Выбери количество вопросов, получай мгновенную проверку ответа",
   },
   {
     id: "exam",
@@ -72,6 +77,8 @@ export const MENU_ITEMS = [
     sub: "Официальный формат, обратный отсчёт, разбор ошибок",
   },
 ];
+
+export const RANDOM_COUNT_OPTIONS = [5, 10, 20, 30];
 
 export const ROLE_LABELS = {
   admin: "Администратор",
