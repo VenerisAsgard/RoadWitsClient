@@ -21,7 +21,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: calc(16px * var(--k));
   padding: 0 14px 0 18px;
   position: relative;
   z-index: 30;
@@ -30,7 +30,7 @@ body {
 .window-buttons {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: calc(10px * var(--k));
   margin-left: auto;
 }
 
@@ -40,15 +40,15 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: calc(20px * var(--k));
 }
 
 #login-form {
   width: 100%;
-  max-width: 360px;
+  max-width: min(calc(380px * var(--k)), 92vw);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: calc(12px * var(--k));
 }
 
 /* ---------- app-shell (после авторизации): рейка + сцена + hint-bar ---------- */
@@ -57,35 +57,21 @@ body {
   position: relative;
 }
 
-.signal {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: var(--hint-h);
-  width: var(--rail-w);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  z-index: 20;
-}
-
 .stage {
   position: absolute;
-  left: var(--rail-w);
+  left: 0;
   right: 0;
   top: 0;
   bottom: var(--hint-h);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 6vw;
+  padding: 0 clamp(20px, 4vw, 100px);
 }
 
 .screen {
   width: 100%;
-  max-width: 860px;
+  max-width: min(calc(1320px * var(--k)), 94vw);
   max-height: 100%;
   display: flex;
   flex-direction: column;
@@ -100,16 +86,18 @@ body {
   align-items: flex-start;
   margin: 0 auto;
   justify-content: center;
-  max-width: min(760px, 92vw);
+  max-width: min(calc(820px * var(--k)), 92vw);
 }
 #screen-chapters {
-  max-width: min(1200px, 94vw);
+  max-width: min(calc(1280px * var(--k)), 95vw);
 }
+/* Вопросу отдана заметно большая ширина, чем раньше (900px):
+   в нём две колонки — картинка и текст с вариантами, и обеим было тесно. */
 #screen-question {
-  max-width: min(900px, 90vw);
+  max-width: min(calc(1440px * var(--k)), 95vw);
 }
 #screen-result {
-  max-width: min(900px, 90vw);
+  max-width: min(calc(1100px * var(--k)), 94vw);
 }
 
 .hint-bar {
@@ -121,16 +109,16 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px 0 calc(var(--rail-w) + 20px);
+  padding: 0 20px;
   z-index: 20;
 }
 
 /* ---------- split-панель (список глав + деталь) ---------- */
 .split {
   display: grid;
-  grid-template-columns: minmax(240px, 320px) 1fr;
+  grid-template-columns: minmax(calc(240px * var(--k)), calc(340px * var(--k))) 1fr;
   gap: 0;
-  height: min(620px, 82vh);
+  height: min(calc(620px * var(--k)), 80vh);
 }
 .split-list {
   display: flex;
@@ -142,31 +130,44 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: calc(8px * var(--k));
 }
 .panel-actions {
   display: flex;
-  gap: 4px;
+  gap: calc(4px * var(--k));
   padding-right: 10px;
 }
 .split-detail {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 28px;
+  gap: calc(14px * var(--k));
+  padding: calc(28px * var(--k));
   overflow-y: auto;
 }
 
 /* ---------- тело вопроса: картинка + контент ---------- */
 .q-body {
   display: flex;
-  gap: 26px;
+  gap: calc(26px * var(--k));
   flex: 1;
   min-height: 0;
+  align-items: stretch;
 }
+/* Картинка — половина ширины вопроса, а не колонка фиксированных
+   300px: на широком окне такая колонка превращалась в маленькую марку
+   сбоку от текста, потому что текст забирал весь остаток. Теперь
+   это доля (48%) с разумными границами, бокс тянется на всю доступную
+   высоту, а сама <img> вписывается в него через object-fit: contain
+   (components.css) — т.е. увеличивается пропорционально, без обрезки. */
 .q-image-wrap {
-  flex: 0 0 300px;
-  align-self: flex-start;
+  flex: 1 1 48%;
+  min-width: min(calc(260px * var(--k)), 40%);
+  max-width: 52%;
+  min-height: 360px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
 }
 .q-content {
@@ -189,14 +190,14 @@ body {
 /* ---------- результат: датчик + список разбора ---------- */
 .result-top {
   display: flex;
-  gap: 36px;
+  gap: calc(36px * var(--k));
   align-items: center;
   margin-bottom: 24px;
 }
 .gauge-wrap {
   position: relative;
-  width: 160px;
-  height: 160px;
+  width: calc(160px * var(--k));
+  height: calc(160px * var(--k));
   flex: 0 0 auto;
 }
 .gauge-center {
@@ -210,9 +211,13 @@ body {
 .result-info {
   flex: 1;
 }
-.review-list {
+.review-wrap {
   flex: 1;
-  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(14px * var(--k));
+  overflow: hidden;
 }
 
 /* ---------- адаптив ---------- */
@@ -225,15 +230,15 @@ body {
   }
   .q-image-wrap {
     flex: 0 0 auto;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    min-height: 180px;
     max-height: 34vh;
   }
 }
 @media (max-width: 600px) {
-  .signal {
-    display: none;
-  }
   .stage {
-    left: 0;
     padding: 0 5vw;
   }
   .split {
@@ -241,7 +246,7 @@ body {
     height: min(520px, 80vh);
   }
   .split-list {
-    max-height: 180px;
+    max-height: calc(180px * var(--k));
   }
   .hint-bar {
     padding: 0 14px;
@@ -254,19 +259,19 @@ body {
   border: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  max-height: 280px;
+  max-height: calc(280px * var(--k));
 }
 .editor-question-list {
   list-style: none;
   margin: 0;
-  padding: 4px;
+  padding: calc(4px * var(--k));
   overflow-y: auto;
 }
 .editor-question-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: calc(10px * var(--k));
+  padding: calc(8px * var(--k)) calc(10px * var(--k));
 }
 
 /* ---------- модалка ---------- */
@@ -277,11 +282,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: calc(20px * var(--k));
 }
 .modal-box {
   width: 100%;
-  max-width: 440px;
+  max-width: min(calc(460px * var(--k)), 94vw);
   max-height: 86vh;
   display: flex;
   flex-direction: column;
@@ -291,7 +296,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: calc(14px * var(--k)) calc(16px * var(--k));
 }
 .modal-body {
   padding: 0 16px 16px;
@@ -300,23 +305,23 @@ body {
 .modal-body form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: calc(12px * var(--k));
 }
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: calc(8px * var(--k));
   margin-top: 4px;
 }
 .answers-editor {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: calc(6px * var(--k));
 }
 .answer-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: calc(8px * var(--k));
 }
 .answer-row input[type="text"] {
   flex: 1;
@@ -324,12 +329,12 @@ body {
 
 /* ---------- профиль ---------- */
 #screen-profile {
-  max-width: min(640px, 92vw);
+  max-width: min(calc(720px * var(--k)), 92vw);
 }
 .profile-head {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: calc(16px * var(--k));
   margin-bottom: 20px;
 }
 .profile-fields {
@@ -346,16 +351,16 @@ body {
 .admin-licenses {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-height: 240px;
+  gap: calc(6px * var(--k));
+  max-height: calc(240px * var(--k));
   overflow-y: auto;
   margin-bottom: 12px;
 }
 .license-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: calc(10px * var(--k));
+  padding: calc(8px * var(--k)) calc(10px * var(--k));
 }
 
 /* ---------- сплэш (оверлей внутри главного окна, не отдельное Tauri-окно) ---------- */
@@ -386,5 +391,43 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 32px;
+  padding: calc(32px * var(--k));
 }
+
+/* ---------- просмотр картинки вопроса во весь экран ----------
+   Клик по иллюстрации открывает её поверх всего: в дорожных
+   задачах деталь на схеме бывает мелкой. */
+.image-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: calc(14px * var(--k));
+  padding: 3vh 3vw;
+}
+.image-viewer img {
+  max-width: 100%;
+  max-height: 88%;
+  object-fit: contain;
+}
+
+/* ---------- тосты (короткие сообщения вместо браузерного alert) ---------- */
+.toast-stack {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 130;
+  display: flex;
+  flex-direction: column;
+  gap: calc(8px * var(--k));
+  align-items: flex-end;
+  pointer-events: none;
+}
+
+
+/* На больших мониторах сцена использует ширину, а не остаётся маленьким островком. */
+@media (min-width: 1600px) { .stage { padding-left: 3vw; padding-right: 3vw; } }
+@media (min-width: 2200px) { .screen { max-width: min(1680px, 92vw); } #screen-question { max-width: min(1760px, 92vw); } }

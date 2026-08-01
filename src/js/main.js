@@ -6,6 +6,8 @@ import * as device from "./device.js";
 import * as render from "./render.js";
 import * as auth from "./auth.js";
 import * as controls from "./controls.js";
+import * as api from "./api.js";
+import { state } from "./state.js";
 
 async function init() {
   device.disableWebDefaults();
@@ -31,7 +33,14 @@ async function init() {
   });
 
   await auth.tryAutoLogin();
+  device.setDevtoolsAllowed(state.user?.user_type === "admin");
   render.hideSplash();
+  const checkConnection = async () => {
+    try { const data = await api.health(); render.renderConnection(data?.status === "ok" ? "ok" : "degraded", data?.status || "статус сервера не ok"); }
+    catch (err) { render.renderConnection("offline", "Проблемы с подключением или сервером"); }
+  };
+  checkConnection();
+  window.setInterval(checkConnection, 30000);
 }
 
 init();

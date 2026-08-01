@@ -40,6 +40,9 @@ export const state = {
 
   timerSeconds: 0,
   timerHandle: null,
+  connectionStatus: "checking",
+  examErrors: 0,
+  examFailed: false,
 
   // --- разбор результата ---
   reviewIndex: 0,
@@ -56,6 +59,12 @@ export function canEditContent() {
 }
 
 /** Может создавать/удалять главы и лицензии — только admin. */
+export function userSettings() {
+  return state.user?.settings && typeof state.user.settings === "object" ? state.user.settings : {};
+}
+
+export function isLightTheme() { return userSettings().theme === "light"; }
+
 export function isAdmin() {
   return !!state.user && state.user.user_type === "admin";
 }
@@ -78,7 +87,7 @@ export const MENU_ITEMS = [
   },
 ];
 
-export const RANDOM_COUNT_OPTIONS = [5, 10, 20, 30];
+export const RANDOM_COUNT_OPTIONS = [10, 30, 60, 90];
 
 export const ROLE_LABELS = {
   admin: "Администратор",

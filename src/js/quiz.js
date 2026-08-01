@@ -42,11 +42,13 @@ async function getQuestionPool() {
  * (мультивыбор через чекбоксы, см. toggleChapterCheck/chaptersConfirm).
  * count — для "random": сколько вопросов взять (см. randomCountConfirm).
  */
-export async function beginQuiz(mode, chapterOrChapters, count) {
+async function runQuiz(mode, chapterOrChapters, count) {
   state.mode = mode;
   state.currentQ = 0;
   state.answers = {};
   state.selected = {};
+  state.examErrors = 0;
+  state.examFailed = false;
 
   // Откуда вернуться, если выйти из теста незавершённым (см. controls.js
   // exit-confirm) — не всегда корень меню: если тест начали с экрана глав
@@ -91,16 +93,31 @@ export async function beginQuiz(mode, chapterOrChapters, count) {
   const timerEl = render.$("q-timer");
   if (mode === "exam") {
     timerEl.classList.remove("hidden");
-    startTimer(questions.length * 60);
+    startTimer(900);
   } else {
     timerEl.classList.add("hidden");
     clearInterval(state.timerHandle);
   }
 
   render.showScreen("question");
-  render.setSignal("active");
   render.renderQuestion();
   updateQuestionHint();
+}
+
+/**
+ * Публичная точка входа. Сеть может упасть (бэкенд недоступен, лицензия
+ * протухла) — раньше beginQuiz отваливался необработанным промисом и экран
+ * просто не менялся. Теперь ошибка видна и мы возвращаемся туда, откуда
+ * тест запускали.
+ */
+export async function beginQuiz(mode, chapterOrChapters, count) {
+  try {
+    await runQuiz(mode, chapterOrChapters, count);
+  } catch (err) {
+    const msg = err instanceof api.ApiError ? err.message : "Не удалось загрузить вопросы";
+    render.toast(msg, "error");
+    returnToOrigin();
+  }
 }
 
 function startTimer(seconds) {
@@ -118,7 +135,51 @@ function startTimer(seconds) {
 }
 
 function updateQuestionHint() {
-  render.setHint("1-4 или клик ответить · Space/Enter далее · ←назад · Esc выйти");
+  render.setHint("↑↓ вариант · 1-9 ответить · Enter подтвердить · Space пропустить · ←→ вопрос · Esc выйти");
+}
+
+export function answerMove(delta) {
+  const q = state.questions[state.currentQ];
+  if (!q || !q.options.length) return;
+  const current = state.selected[q.id] ?? state.answers[q.id] ?? 0;
+  state.selected[q.id] = (current + delta + q.options.length) % q.options.length;
+  render.renderQuestion();
+}
+
+export function skipQuestion() {
+  delete state.selected[state.questions[state.currentQ]?.id];
+  questionNext();
+}
+
+function firstUnanswered() {
+  return state.questions.findIndex((q) => state.answers[q.id] === undefined);
+}
+
+export function questionNext() {
+  if (state.currentQ < state.questions.length - 1) {
+    state.currentQ++;
+    render.renderQuestion();
+    return;
+  }
+  const unanswered = firstUnanswered();
+  if (unanswered >= 0) {
+    state.currentQ = unanswered;
+    render.renderQuestion();
+    render.toast(`Остался вопрос ${unanswered + 1}`, "info");
+  } else {
+    finishQuiz();
+  }
+}
+
+function handleExamAnswer(q, idx) {
+  if (idx !== q.correctIndex) {
+    state.examErrors += 1;
+    if (state.examErrors >= 2) {
+      state.examFailed = true;
+      render.toast("Вторая ошибка. Экзамен прекращён: НЕЗАЧЁТ", "error");
+      finishQuiz(true);
+    }
+  }
 }
 
 /**
@@ -131,6 +192,10 @@ export function selectOptionByClick(index) {
   if (state.answers[q.id] !== undefined) return; // уже отвечен — повторный клик ничего не меняет
   state.answers[q.id] = index;
   delete state.selected[q.id];
+  if (state.mode === "exam") {
+    handleExamAnswer(q, index);
+    if (state.examFailed) return;
+  }
   render.renderQuestion();
 }
 
@@ -148,6 +213,8 @@ export function pressDigit(digit) {
 
   if (state.mode === "exam") {
     state.answers[q.id] = idx;
+    handleExamAnswer(q, idx);
+    if (state.examFailed) return;
   } else {
     state.selected[q.id] = idx;
   }
@@ -179,14 +246,7 @@ export function confirmPendingOrAdvance() {
   return false;
 }
 
-export function questionNext() {
-  if (state.currentQ < state.questions.length - 1) {
-    state.currentQ++;
-    render.renderQuestion();
-  } else {
-    finishQuiz();
-  }
-}
+
 
 export function questionPrev() {
   if (state.currentQ > 0) {
@@ -195,7 +255,14 @@ export function questionPrev() {
   }
 }
 
-export async function finishQuiz() {
+/** Клик по точке в навигаторе — переход к любому вопросу напрямую, не только соседнему. */
+export function jumpToQuestion(index) {
+  if (index < 0 || index >= state.questions.length) return;
+  state.currentQ = index;
+  render.renderQuestion();
+}
+
+export async function finishQuiz(forcedFail = false) {
   clearInterval(state.timerHandle);
 
   let correct = 0;
@@ -204,11 +271,16 @@ export async function finishQuiz() {
   });
   const total = state.questions.length;
   const pct = total ? Math.round((correct / total) * 100) : 0;
-  const passed = pct >= 80;
+  const isExam = state.mode === "exam";
+  const passed = isExam ? !forcedFail && !state.examFailed && state.examErrors <= 1 : null; // экзамен: максимум одна ошибка
+  const settings = state.user?.settings && typeof state.user.settings === "object" ? state.user.settings : {};
+  const stats = settings.quiz_stats && typeof settings.quiz_stats === "object" ? settings.quiz_stats : {};
+  const key = isExam ? "exam" : state.chapterId ? `chapter:${state.chapterId}` : "mixed";
+  stats[key] = { ...(stats[key] || {}), passed: (stats[key]?.passed || 0) + (passed === true ? 1 : 0), failed: (stats[key]?.failed || 0) + (passed === false ? 1 : 0), answered: (stats[key]?.answered || 0) + correct, unanswered: (stats[key]?.unanswered || 0) + (total - Object.keys(state.answers).length) };
+  if (state.user) { state.user.settings = { ...settings, quiz_stats: stats }; api.updateSettings(state.token, state.user.settings).catch(() => {}); }
 
   render.showScreen("result");
-  render.setSignal(passed ? "pass" : "fail");
-  render.renderResult({ correct, total, pct, passed });
+  render.renderResult({ correct, total, pct, passed, isExam });
 
   state.reviewIndex = 0;
   render.buildReview();
@@ -219,7 +291,7 @@ export function reviewMove(delta) {
   const n = state.questions.length;
   if (!n) return;
   state.reviewIndex = Math.max(0, Math.min(n - 1, state.reviewIndex + delta));
-  render.buildReview();
+  render.updateReviewActive();
   render.scrollActiveReviewIntoView();
 }
 
@@ -227,7 +299,7 @@ export function reviewJumpTo(index) {
   const n = state.questions.length;
   if (!n || index < 0 || index >= n) return;
   state.reviewIndex = index;
-  render.buildReview();
+  render.updateReviewActive();
 }
 
 /** "Пройти ещё раз" на экране результата — тот же режим/выбор заново. */
@@ -251,6 +323,13 @@ export function retryQuiz() {
    MENU
    ============================================================ */
 
+export function menuDigit(digit) {
+  if (digit < 1 || digit > MENU_ITEMS.length) return;
+  state.menuIndex = digit - 1;
+  render.renderMenu();
+  menuConfirm();
+}
+
 export function menuMove(delta) {
   state.menuIndex = (state.menuIndex + delta + MENU_ITEMS.length) % MENU_ITEMS.length;
   render.renderMenu();
@@ -264,13 +343,11 @@ export function menuConfirm() {
     render.showScreen("chapters");
     render.renderChapters();
     render.setHint("↑↓ выбрать · Space/клик по ☐ отметить · Enter начать · Esc в меню");
-    render.setSignal("idle");
     admin.refreshEditorQuestions();
   } else if (choice === "random") {
     render.showScreen("random-count");
     render.renderRandomCount();
     render.setHint("↑↓ выбрать количество · Enter начать · Esc в меню");
-    render.setSignal("idle");
   } else if (choice === "exam") {
     beginQuiz("exam");
   }
@@ -279,7 +356,6 @@ export function menuConfirm() {
 export function returnToMenu() {
   clearInterval(state.timerHandle);
   render.showScreen("menu");
-  render.setSignal("idle");
   render.renderMenu();
   render.setHint("↑↓ выбрать · Enter принять");
 }
@@ -313,12 +389,10 @@ export function returnToOrigin() {
   if (origin === "chapters") {
     render.showScreen("chapters");
     render.renderChapters();
-    render.setSignal("idle");
     render.setHint("↑↓ выбрать · Space/клик по ☐ отметить · Enter начать · Esc в меню");
   } else if (origin === "random-count") {
     render.showScreen("random-count");
     render.renderRandomCount();
-    render.setSignal("idle");
     render.setHint("↑↓ выбрать количество · Enter начать · Esc в меню");
   } else {
     returnToMenu();
@@ -330,7 +404,15 @@ export function returnToOrigin() {
    ============================================================ */
 
 export async function loadChapters() {
-  state.chapters = await api.listChapters(state.token);
+  // Ошибку сети нельзя выпускать наружу: auth.tryAutoLogin() ловит любое
+  // исключение из enterApp() как признак невалидного токена и разлогинивает,
+  // то есть упавший на минуту бэкенд стирал сохранённую сессию.
+  try {
+    state.chapters = await api.listChapters(state.token);
+  } catch (err) {
+    state.chapters = [];
+    render.toast(err instanceof api.ApiError ? err.message : "Нет связи с сервером", "error");
+  }
   state.questionPoolCache = null; // главы обновились — старый кэш пула вопросов больше не актуален
   render.renderMenuMeta();
 }
@@ -390,7 +472,6 @@ export function openProfile() {
   }
   render.showScreen("profile");
   render.renderProfile(state.user);
-  render.setSignal("idle");
   render.setHint("Esc — назад");
   if (state.user.user_type === "admin") {
     admin.loadLicenses();

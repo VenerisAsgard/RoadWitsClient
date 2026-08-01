@@ -9,13 +9,13 @@ import * as render from "./render.js";
 import * as quiz from "./quiz.js";
 
 async function enterApp(user) {
-  state.user = user;
-  render.renderAccountChip(user);
+  state.user = { ...user, settings: user.settings && typeof user.settings === "object" ? user.settings : {} };
+  render.applyTheme();
+  render.renderAccountChip(state.user);
   render.showApp();
 
   state.menuIndex = 0;
   render.renderMenu();
-  render.setSignal("idle");
   render.setHint("↑↓ выбрать · Enter принять");
   render.showScreen("menu");
 
@@ -60,6 +60,9 @@ export async function submitLogin(productKey) {
 }
 
 export async function logout() {
+  // Таймер экзамена мог остаться запущенным, если выйти прямо из теста.
+  clearInterval(state.timerHandle);
+  state.timerHandle = null;
   await device.clearToken();
   state.token = null;
   state.user = null;

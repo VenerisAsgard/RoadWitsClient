@@ -11,9 +11,83 @@ import {
   ROLE_LABELS,
   canEditContent,
   isAdmin,
+  userSettings,
+  isLightTheme,
 } from "./state.js";
 
 export const $ = (id) => document.getElementById(id);
+
+export function applyTheme() { document.documentElement.dataset.theme = isLightTheme() ? "light" : "dark"; }
+export function renderConnection(status, detail = "") {
+  const el = $("connection-status"); if (!el) return;
+  el.dataset.status = status;
+  el.textContent = status === "ok" ? "Сервер: онлайн" : status === "degraded" ? "Сервер: проблемы" : "Сервер: нет связи";
+  el.title = detail;
+}
+
+/* ============================================================
+   Всё, что пришло с бэкенда или было введено редактором, вставляется
+   через innerHTML — значит, обязано экранироваться. Раньше этого не
+   было: глава с названием вроде "Знаки <особые>" ломала разметку списка,
+   а вопрос с HTML в тексте выполнялся как разметка.
+   ============================================================ */
+
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/* ============================================================
+   Тосты — короткие сообщения вместо alert(). alert блокирует
+   окно, выглядит как браузер, а в открытой модалке ещё и перекрывает
+   форму, которую пользователь как раз заполняет.
+   ============================================================ */
+
+export function toast(message, type = "info", ttl = 4200) {
+  let stack = $("toast-stack");
+  if (!stack) {
+    // на случай, если разметка почему-то не содержит контейнер — тост всё
+    // равно должен быть виден, а не тихо потеряться.
+    stack = document.createElement("div");
+    stack.id = "toast-stack";
+    stack.className = "toast-stack";
+    document.body.appendChild(stack);
+  }
+  const el = document.createElement("div");
+  el.className = "toast" + (type === "error" ? " toast-error" : type === "success" ? " toast-success" : type === "info" ? " toast-info" : "");
+  el.textContent = message;
+  stack.appendChild(el);
+  window.setTimeout(() => {
+    el.classList.add("toast-out");
+    window.setTimeout(() => el.remove(), 260);
+  }, ttl);
+}
+
+/* ============================================================
+   Просмотр иллюстрации во весь экран.
+   ============================================================ */
+
+export function openImageViewer(src) {
+  if (!src) return;
+  $("image-viewer-img").src = src;
+  const viewer = $("image-viewer");
+  viewer.classList.remove("hidden");
+  viewer.setAttribute("aria-hidden", "false");
+}
+
+export function closeImageViewer() {
+  const viewer = $("image-viewer");
+  viewer.classList.add("hidden");
+  viewer.setAttribute("aria-hidden", "true");
+  $("image-viewer-img").removeAttribute("src");
+}
+
+export function isImageViewerOpen() {
+  return !$("image-viewer").classList.contains("hidden");
+}
 
 /* ============================================================
    Сплэш — оверлей внутри главного окна, не отдельное Tauri-окно.
@@ -94,8 +168,9 @@ function avatarHueOf(user) {
 
 export function renderAccountChip(user) {
   const avatar = $("account-avatar");
-  avatar.textContent = initialsOf(user);
-  avatar.style.background = `hsl(${avatarHueOf(user)}, 55%, 40%)`;
+  const photo = userSettings().profile_photo;
+  avatar.textContent = photo ? "" : initialsOf(user);
+  avatar.style.background = photo ? `url(${photo}) center/cover` : `hsl(${avatarHueOf(user)}, 55%, 40%)`;
 
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
   $("account-name").textContent = fullName || user.email || `Пользователь #${user.id}`;
@@ -103,15 +178,11 @@ export function renderAccountChip(user) {
 }
 
 /* ============================================================
-   Сигнал (индикатор состояния) и подсказка клавиш
+   Подсказка клавиш
    ============================================================ */
 
-export function setSignal(mode) {
-  $("signal").dataset.mode = mode;
-}
-
 export function setHint(text) {
-  $("hint-keys").textContent = text;
+  $("hint-keys").textContent = state.screen === "menu" ? "" : text;
 }
 
 /* ============================================================
@@ -151,8 +222,8 @@ export function renderMenu() {
 
 export function renderMenuMeta() {
   const totalQ = state.chapters.reduce((s, c) => s + (c.count || 0), 0);
-  $("menu-total-q").textContent = totalQ ? `${totalQ} вопросов в базе` : "— вопросов";
-  $("menu-total-ch").textContent = `${state.chapters.length} глав ПДД`;
+  $("menu-total-q").textContent = totalQ ? `${totalQ} вопросов` : "— вопросов";
+  $("menu-total-ch").textContent = `${state.chapters.length} глав`;
 }
 
 /* ============================================================
@@ -185,9 +256,9 @@ export function renderChapters() {
     li.dataset.index = String(i);
 
     let controls = "";
-    if (editable) {
+    if (editable && state.editMode) {
       controls += `<button class="icon-btn tiny" data-action="rename-chapter" title="Переименовать">✏️</button>`;
-      if (state.editMode && isAdmin()) {
+      if (isAdmin()) {
         controls += `<button class="icon-btn tiny danger" data-action="delete-chapter" title="Удалить">❌</button>`;
       }
     }
@@ -195,7 +266,7 @@ export function renderChapters() {
     li.innerHTML = `
       <span class="c-checkbox" data-role="checkbox" role="checkbox" aria-checked="${checked}">${checked ? "☑" : "☐"}</span>
       <span class="c-num">${String(c.num ?? i + 1).padStart(2, "0")}</span>
-      <span class="c-title">${c.title}</span>
+      <span class="c-title">${escapeHtml(c.title)}</span>
       ${controls ? `<span class="c-controls">${controls}</span>` : ""}
     `;
     list.appendChild(li);
@@ -227,8 +298,8 @@ export function renderChapterDetail() {
 
   wrap.innerHTML = `
     <p class="d-eyebrow">Глава ${c.num ?? state.chapterIndex + 1}</p>
-    <h2>${c.title}</h2>
-    <p class="d-desc">${c.description ?? ""}</p>
+    <h2>${escapeHtml(c.title)}</h2>
+    <p class="d-desc">${escapeHtml(c.description)}</p>
     <p class="d-count">${c.count ?? 0} вопросов в главе</p>
     ${checkedCount ? `<p class="d-selected">Отмечено глав: ${checkedCount}</p>` : ""}
     <p class="d-hint">Space или клик по ☐ — отметить главу (можно несколько)</p>
@@ -265,7 +336,7 @@ export function renderEditorQuestionList(questions) {
     li.dataset.id = String(q.id);
     li.innerHTML = `
       <span class="eq-num">${i + 1}</span>
-      <span class="eq-text">${q.text}</span>
+      <span class="eq-text">${escapeHtml(q.text)}</span>
       <span class="eq-controls">
         <button class="icon-btn tiny" data-action="edit-question" title="Редактировать">✏️</button>
         <button class="icon-btn tiny danger" data-action="delete-question" title="Удалить">❌</button>
@@ -305,6 +376,8 @@ export function renderQuestion() {
   const q = state.questions[state.currentQ];
   if (!q) return;
   $("q-current").textContent = state.currentQ + 1;
+  const phase = $("q-phase");
+  if (phase) phase.textContent = state.mode === "random" && state.questions.length > 10 ? `Фаза ${Math.floor(state.currentQ / 10) + 1}` : "";
 
   const imgWrap = $("q-image-wrap");
   if (q.image) {
@@ -333,7 +406,7 @@ export function renderQuestion() {
       if (i === q.correctIndex) li.classList.add("correct");
       else if (i === confirmed) li.classList.add("wrong");
     }
-    li.innerHTML = `<span class="o-key">${i + 1}</span><span>${opt}</span>`;
+    li.innerHTML = `<span class="o-key">${i + 1}</span><span>${escapeHtml(opt)}</span>`;
     optsWrap.appendChild(li);
   });
 
@@ -348,12 +421,42 @@ export function renderQuestion() {
     explainEl.textContent = "";
   }
 
-  const pct = (state.currentQ / state.questions.length) * 100;
-  $("progress-fill").style.width = `${pct}%`;
+  renderQuestionDots();
+}
 
-  $("q-btn-prev").disabled = state.currentQ === 0;
-  $("q-btn-next").textContent =
-    state.currentQ === state.questions.length - 1 ? "Завершить →" : "Далее →";
+function renderQuestionDots() {
+  const wrap = $("q-dots");
+  wrap.innerHTML = "";
+  state.questions.forEach((q, i) => {
+    const answerIdx = state.answers[q.id];
+    const revealed = state.mode !== "exam";
+
+    let squareState = "empty";
+    if (answerIdx !== undefined) {
+      squareState = revealed ? (answerIdx === q.correctIndex ? "correct" : "wrong") : "answered";
+    }
+
+    if (i % 10 === 0 && i > 0) {
+      const divider = document.createElement("span");
+      divider.className = "phase-divider";
+      divider.textContent = `Фаза ${Math.floor(i / 10) + 1}`;
+      wrap.appendChild(divider);
+    }
+    if (i % 10 === 0 && i > 0) {
+      const divider = document.createElement("span");
+      divider.className = "phase-divider";
+      divider.textContent = "Фаза " + (Math.floor(i / 10) + 1);
+      wrap.appendChild(divider);
+    }
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "q-dot" + (i === state.currentQ ? " current" : "");
+    dot.dataset.state = squareState;
+    dot.dataset.index = String(i);
+    dot.title = `Вопрос ${i + 1}`;
+    dot.textContent = String(i + 1);
+    wrap.appendChild(dot);
+  });
 }
 
 export function updateTimerDisplay() {
@@ -368,51 +471,86 @@ export function updateTimerDisplay() {
 
 const GAUGE_CIRCUMFERENCE = 540;
 
-export function renderResult({ correct, total, pct, passed }) {
+export function renderResult({ correct, total, pct, passed, isExam }) {
   const gaugeFill = $("gauge-fill");
-  gaugeFill.style.stroke = passed ? "var(--green)" : "var(--red)";
+  // Тренировка (по главам/случайный билет) — не тест, вердикта "сдал/не сдал"
+  // для неё не существует, датчик просто нейтрального цвета.
+  const color = isExam ? (passed ? "var(--green)" : "var(--red)") : "var(--amber)";
+  gaugeFill.style.stroke = color;
   gaugeFill.style.strokeDashoffset = String(GAUGE_CIRCUMFERENCE);
   const offset = GAUGE_CIRCUMFERENCE - (GAUGE_CIRCUMFERENCE * pct) / 100;
   requestAnimationFrame(() => {
     gaugeFill.style.strokeDashoffset = String(offset);
   });
 
-  $("gauge-score").textContent = `${pct}%`;
-  $("gauge-verdict").textContent = passed ? "Сдал" : "Не сдал";
-  $("result-summary").textContent = `Правильно: ${correct} из ${total} · проходной балл 80%`;
+  $("gauge-score").textContent = `${correct} из ${total}`;
+  $("gauge-verdict").textContent = isExam ? (passed ? "Сдал" : "Не сдал") : "Готово";
+  const errors = $("result-errors");
+  if (errors) {
+    errors.classList.toggle("hidden", !isExam);
+    errors.textContent = isExam ? `Ошибок: ${state.examErrors} из 1 допустимой` : "";
+  }
+  $("result-summary").textContent = `Правильно: ${correct} из ${total}`;
 }
 
 export function buildReview() {
-  const list = $("review-list");
-  list.innerHTML = "";
+  const grid = $("review-grid");
+  grid.innerHTML = "";
   state.questions.forEach((q, i) => {
     const userIdx = state.answers[q.id];
-    const correct = userIdx === q.correctIndex;
-    const item = document.createElement("div");
-    item.className = "review-item" + (i === state.reviewIndex ? " active" : "");
-    item.dataset.index = String(i);
-    const userLine =
-      userIdx === undefined
-        ? `<p class="rev-wrong">Ответ не выбран</p>`
-        : correct
-          ? `<p class="rev-correct">Ваш ответ: ${userIdx + 1}) ${q.options[userIdx]} — верно</p>`
-          : `<p class="rev-wrong">Ваш ответ: ${userIdx + 1}) ${q.options[userIdx]}</p>`;
-    const correctLine = !correct
-      ? `<p class="rev-correct">Верно: ${q.correctIndex + 1}) ${q.options[q.correctIndex]}</p>`
-      : "";
-    item.innerHTML = `
-      <p class="rev-q">${i + 1}. ${q.text}</p>
-      ${userLine}
-      ${correctLine}
-      <p class="rev-explain">${q.explanation ?? ""}</p>
-    `;
-    list.appendChild(item);
+    const squareState =
+      userIdx === undefined ? "unanswered" : userIdx === q.correctIndex ? "correct" : "wrong";
+
+    const sq = document.createElement("button");
+    sq.type = "button";
+    sq.className = "review-square" + (i === state.reviewIndex ? " active" : "");
+    sq.dataset.index = String(i);
+    sq.dataset.state = squareState;
+    sq.title = `Вопрос ${i + 1}`;
+    sq.textContent = String(i + 1);
+    grid.appendChild(sq);
   });
+  renderReviewDetail();
+}
+
+function renderReviewDetail() {
+  const q = state.questions[state.reviewIndex];
+  const wrap = $("review-detail");
+  if (!q) {
+    wrap.innerHTML = "";
+    return;
+  }
+  const userIdx = state.answers[q.id];
+  const correct = userIdx === q.correctIndex;
+  const userLine =
+    userIdx === undefined
+      ? `<p class="rev-wrong">Ответ не выбран</p>`
+      : correct
+        ? `<p class="rev-correct">Ваш ответ: ${userIdx + 1}) ${escapeHtml(q.options[userIdx])} — верно</p>`
+        : `<p class="rev-wrong">Ваш ответ: ${userIdx + 1}) ${escapeHtml(q.options[userIdx])}</p>`;
+  const correctLine = !correct && q.correctIndex >= 0
+    ? `<p class="rev-correct">Верно: ${q.correctIndex + 1}) ${escapeHtml(q.options[q.correctIndex])}</p>`
+    : "";
+  wrap.innerHTML = `
+    <p class="rev-q">${state.reviewIndex + 1}. ${escapeHtml(q.text)}</p>
+    ${userLine}
+    ${correctLine}
+    <p class="rev-explain">${escapeHtml(q.explanation)}</p>
+  `;
 }
 
 export function scrollActiveReviewIntoView() {
-  const active = $("review-list").querySelector(".review-item.active");
+  const active = $("review-grid").querySelector(".review-square.active");
   if (active) active.scrollIntoView({ block: "nearest" });
+}
+
+/** Для навигации (стрелки/клик) — не перестраивает всю сетку, только активный квадрат + деталь. */
+export function updateReviewActive() {
+  const grid = $("review-grid");
+  grid.querySelectorAll(".review-square").forEach((sq) => {
+    sq.classList.toggle("active", Number(sq.dataset.index) === state.reviewIndex);
+  });
+  renderReviewDetail();
 }
 
 /* ============================================================
@@ -428,17 +566,42 @@ export function renderProfile(user) {
     <div class="profile-head">
       <span class="avatar large" style="background: hsl(${hue}, 55%, 40%)">${initials}</span>
       <div>
-        <h2>${fullName || "Без имени"}</h2>
+        <h2>${escapeHtml(fullName) || "Без имени"}</h2>
         <p class="profile-role">${ROLE_LABELS[user.user_type] || user.user_type}</p>
       </div>
     </div>
     <dl class="profile-fields">
-      <dt>Email</dt><dd>${user.email || "—"}</dd>
+      <dt>Email</dt><dd>${escapeHtml(user.email) || "—"}</dd>
       <dt>Лицензия действует до</dt><dd>${formatDate(user.license_until)}</dd>
       <dt>Статус</dt><dd>${user.is_blocked ? "Заблокирован" : "Активна"}</dd>
     </dl>
-    ${isAdmin() ? `<div class="admin-panel" id="admin-panel"><p class="panel-label">Администрирование</p><div class="admin-licenses" id="admin-licenses"><p class="loading">Загрузка лицензий…</p></div><button class="chapter-start" id="license-add-btn" type="button">➕ Выдать лицензию</button></div>` : ""}
+    <div class="profile-settings">
+      <p class="panel-label">Настройки</p>
+      <label>Тема
+        <select id="profile-theme" class="select-styled"><option value="dark">Тёмная</option><option value="light">Светлая</option></select>
+      </label>
+      <label>Фото профиля, максимум 1024×1024<input id="profile-photo" type="file" accept="image/*" /></label>
+      <div class="friends-block">
+        <p class="friends-label">Друзья</p>
+        <ul class="friends-list" id="profile-friends-list">
+          ${(Array.isArray(userSettings().friend_emails) ? userSettings().friend_emails : [])
+            .map((email) => `<li class="friend-row"><span class="friend-email">${escapeHtml(email)}</span><button type="button" class="icon-btn tiny danger friend-remove-btn" data-email="${escapeHtml(email)}" title="Удалить">✕</button></li>`)
+            .join("") || `<li class="friends-empty">Пока никого не добавлено</li>`}
+        </ul>
+        <div class="friend-add-row">
+          <input id="profile-friend-email" type="email" placeholder="email@example.com" autocomplete="off" />
+          <button type="button" class="icon-btn friend-add-btn" id="profile-friend-add-btn" title="Добавить друга">+</button>
+        </div>
+      </div>
+      <button type="button" id="profile-settings-save">Сохранить настройки</button>
+      <p class="modal-hint">Прогресс по главам и экзамену сохраняется автоматически.</p>
+    </div>
+    ${isAdmin() ? `<div class="admin-panel" id="admin-panel"><p class="panel-label">Администрирование</p><div class="admin-licenses" id="admin-licenses"><p class="loading">Загрузка лицензий…</p></div><button class="chapter-start" id="license-add-btn" type="button">➕ Выдать лицензию</button>
+      <button class="ghost" id="devtools-open-btn" type="button">Открыть DevTools</button></div>` : ""}
   `;
+  const settings = userSettings();
+  const theme = $("profile-theme");
+  if (theme) theme.value = settings.theme === "light" ? "light" : "dark";
 }
 
 export function renderLicenseList(licenses) {
@@ -454,11 +617,12 @@ export function renderLicenseList(licenses) {
     row.className = "license-row" + (lic.is_blocked ? " blocked" : "");
     row.dataset.id = String(lic.id);
     row.innerHTML = `
-      <span class="license-key">${lic.product_key}</span>
+      <span class="license-key">${escapeHtml(lic.product_key)}</span>
       <span class="license-role">${ROLE_LABELS[lic.user_type] || lic.user_type}</span>
       <span class="license-until">до ${formatDate(lic.license_until)}</span>
       <span class="license-controls">
         <button class="icon-btn tiny" data-action="license-extend" title="Продлить на 30 дней">+30д</button>
+        <button class="icon-btn tiny danger" data-action="license-reset-device" title="Сбросить устройство">↻</button>
         <button class="icon-btn tiny" data-action="license-toggle-block" title="${lic.is_blocked ? "Разблокировать" : "Заблокировать"}">${lic.is_blocked ? "🔓" : "🔒"}</button>
       </span>
     `;
@@ -509,7 +673,7 @@ export function confirmDialog({ title, text, confirmLabel = "Да", cancelLabel 
     openModal(
       title,
       `
-        <p class="modal-text">${text}</p>
+        <p class="modal-text">${escapeHtml(text)}</p>
         <div class="modal-actions">
           <button type="button" class="modal-btn modal-btn-ghost" data-resolve="cancel">${cancelLabel}</button>
           <button type="button" class="modal-btn ${danger ? "modal-btn-danger" : ""}" data-resolve="confirm">${confirmLabel}</button>
@@ -532,5 +696,40 @@ export function confirmDialog({ title, text, confirmLabel = "Да", cancelLabel 
 
     $("modal-body").addEventListener("click", onBodyClick);
     $("modal-overlay").addEventListener("modal:closed", onClosed);
+  });
+}
+
+/* ============================================================
+   Разовый показ Product Key после выдачи лицензии: раньше это был
+   alert(), из которого ключ нельзя скопировать, а второго шанса нет.
+   ============================================================ */
+
+export function showProductKey(productKey) {
+  openModal(
+    "Лицензия создана",
+    `
+      <p class="modal-text">Product Key показывается только сейчас и больше нигде не появится.</p>
+      <p class="product-key-box" id="product-key-box">${escapeHtml(productKey)}</p>
+      <div class="modal-actions">
+        <button type="button" class="modal-btn modal-btn-ghost" data-action="modal-cancel">Закрыть</button>
+        <button type="button" id="product-key-copy">Скопировать</button>
+      </div>
+    `,
+  );
+
+  const btn = $("product-key-copy");
+  btn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(productKey);
+      btn.textContent = "Скопировано";
+    } catch {
+      // Буфер обмена недоступен — выделяем ключ, чтобы его можно было взять руками.
+      const range = document.createRange();
+      range.selectNodeContents($("product-key-box"));
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      btn.textContent = "Скопируй вручную";
+    }
   });
 }

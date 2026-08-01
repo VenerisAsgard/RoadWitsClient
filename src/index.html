@@ -28,6 +28,7 @@
           <span class="account-role" id="account-role">—</span>
         </span>
       </button>
+      <span id="connection-status" class="connection-status" data-status="checking">Сервер: проверка…</span>
       <button id="logout-button" class="ghost small hidden">Выйти</button>
 
       <div class="window-buttons">
@@ -60,18 +61,12 @@
 
     <!-- Приложение после входа -->
     <div id="app-shell" class="hidden">
-      <div class="signal" id="signal" aria-hidden="true">
-        <span class="signal-dot dot-red"></span>
-        <span class="signal-dot dot-amber"></span>
-        <span class="signal-dot dot-green"></span>
-      </div>
-
       <main class="stage" id="stage">
         <!-- MENU -->
         <section class="screen" id="screen-menu" data-screen="menu">
-          <p class="eyebrow">Учебная программа · Республика Беларусь</p>
+          <div class="belarus-mark"><span>🇧🇾</span><span>Учебная программа · Республика Беларусь</span></div>
           <h1 class="brand-title">ПДД РБ</h1>
-          <p class="brand-sub">Выбери режим — стрелками и Enter, или мышью/тапом</p>
+          <p class="brand-sub">Выбери режим</p>
 
           <ul class="menu-list" id="menu-list"></ul>
 
@@ -115,15 +110,14 @@
           <div class="q-topbar">
             <span class="q-chapter" id="q-chapter-label">Глава 1</span>
             <span class="q-progress"><span id="q-current">1</span>/<span id="q-total">5</span></span>
-            <span class="q-timer hidden" id="q-timer">05:00</span>
+            <span class="q-phase" id="q-phase"></span>
+            <span class="q-timer hidden" id="q-timer">15:00</span>
           </div>
-          <div class="progress-track">
-            <div class="progress-fill" id="progress-fill"></div>
-          </div>
+          <div class="q-dots" id="q-dots"></div>
 
           <div class="q-body">
             <div class="q-image-wrap hidden" id="q-image-wrap">
-              <img id="q-image" alt="Иллюстрация к вопросу" />
+              <img id="q-image" alt="Иллюстрация к вопросу" title="Нажми, чтобы увеличить" />
             </div>
             <div class="q-content">
               <p class="q-text" id="q-text">Загрузка вопроса…</p>
@@ -131,9 +125,7 @@
               <p class="q-answer-line">ВАШ ОТВЕТ: <span id="q-answer-value">_</span></p>
               <p class="q-explain hidden" id="q-explain"></p>
               <div class="q-actions">
-                <button class="q-btn" id="q-btn-prev" type="button">← Назад</button>
-                <button class="q-btn" id="q-btn-next" type="button">Далее →</button>
-                <button class="q-btn q-btn-exit" id="q-btn-exit" type="button">Выйти</button>
+                <button class="q-btn-finish" id="q-btn-finish" type="button">Завершить</button>
               </div>
             </div>
           </div>
@@ -154,6 +146,7 @@
             </div>
             <div class="result-info">
               <p class="result-summary" id="result-summary">—</p>
+              <p class="result-errors hidden" id="result-errors"></p>
               <p class="result-hint">↑↓ или клик — разбор ответов · Enter — пройти ещё раз · Esc — в меню</p>
               <div class="result-actions">
                 <button id="result-retry-btn" type="button">Пройти ещё раз</button>
@@ -161,7 +154,10 @@
               </div>
             </div>
           </div>
-          <div class="review-list" id="review-list"></div>
+          <div class="review-wrap">
+            <div class="review-grid" id="review-grid"></div>
+            <div class="review-detail" id="review-detail"></div>
+          </div>
         </section>
 
         <!-- PROFILE -->
@@ -187,6 +183,16 @@
         <div class="modal-body" id="modal-body"></div>
       </div>
     </div>
+
+    <!-- Просмотр иллюстрации во весь экран — открывается кликом по картинке
+         в вопросе (controls.js), закрывается кликом/Esc. -->
+    <div class="image-viewer hidden" id="image-viewer" aria-hidden="true">
+      <img id="image-viewer-img" alt="Иллюстрация к вопросу во весь экран" />
+      <p class="image-viewer-hint">Клик или Esc — закрыть</p>
+    </div>
+
+    <!-- Короткие сообщения (ошибки сети, валидация форм) вместо alert(). -->
+    <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
 
     <!-- Сплэш — оверлей поверх всего, не отдельное Tauri-окно (см. README:
          "Почему сплэш — оверлей, а не отдельное окно"). Скрывается из main.js

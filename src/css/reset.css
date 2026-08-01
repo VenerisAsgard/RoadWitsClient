@@ -22,7 +22,7 @@ body {
 body {
   margin: 0;
   /* Один экран без скролла страницы целиком — скроллятся только
-     отдельные списки внутри (.chapter-list, .review-list и т.п.),
+     отдельные списки внутри (.chapter-list, .review-grid и т.п.),
      это задаётся точечно в components.css. */
   overflow: hidden;
 }

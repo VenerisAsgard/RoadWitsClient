@@ -82,7 +82,7 @@ function wireChapterForm(chapter) {
       render.closeModal();
       await reloadChapters();
     } catch (err) {
-      alert(err instanceof api.ApiError ? err.message : "Не удалось сохранить главу");
+      render.toast(err instanceof api.ApiError ? err.message : "Не удалось сохранить главу", "error");
     }
   });
 }
@@ -115,7 +115,7 @@ export async function confirmDeleteChapter() {
     state.chapterIndex = Math.max(0, state.chapterIndex - 1);
     await reloadChapters();
   } catch (err) {
-    alert(err instanceof api.ApiError ? err.message : "Не удалось удалить главу");
+    render.toast(err instanceof api.ApiError ? err.message : "Не удалось удалить главу", "error");
   }
 }
 
@@ -172,11 +172,15 @@ function questionFormHtml(question) {
 }
 
 function wireQuestionForm(question) {
-  const body = document.getElementById("modal-body");
   const form = document.getElementById("question-form");
   const editor = document.getElementById("answers-editor");
 
-  body.addEventListener("click", (e) => {
+  // Делегируем на самой форме, а не на #modal-body: modal-body живёт в
+  // разметке постоянно, поэтому обработчик на нём накапливался с каждым
+  // открытием формы. На третий раз одна кнопка добавляла три варианта
+  // ответа сразу. Форма создаётся заново при каждом открытии модалки,
+  // и её обработчики умирают вместе с ней.
+  form.addEventListener("click", (e) => {
     if (e.target.closest('[data-action="add-answer-row"]')) {
       editor.insertAdjacentHTML("beforeend", answerRowHtml("", false));
     } else if (e.target.closest('[data-action="remove-answer-row"]')) {
@@ -196,11 +200,11 @@ function wireQuestionForm(question) {
     }));
 
     if (!text || answers.some((a) => !a.text)) {
-      alert("Заполни текст вопроса и все варианты ответа");
+      render.toast("Заполни текст вопроса и все варианты ответа", "error");
       return;
     }
     if (answers.filter((a) => a.is_correct).length !== 1) {
-      alert("Отметь ровно один правильный вариант");
+      render.toast("Отметь ровно один правильный вариант", "error");
       return;
     }
 
@@ -222,7 +226,7 @@ function wireQuestionForm(question) {
       render.closeModal();
       await reloadChapters(); // у главы изменился question_count — перечитываем целиком
     } catch (err) {
-      alert(err instanceof api.ApiError ? err.message : "Не удалось сохранить вопрос");
+      render.toast(err instanceof api.ApiError ? err.message : "Не удалось сохранить вопрос", "error");
     }
   });
 }
@@ -253,7 +257,7 @@ export async function confirmDeleteQuestion(questionId) {
     await api.deleteQuestion(state.token, chapter.id, questionId);
     await reloadChapters();
   } catch (err) {
-    alert(err instanceof api.ApiError ? err.message : "Не удалось удалить вопрос");
+    render.toast(err instanceof api.ApiError ? err.message : "Не удалось удалить вопрос", "error");
   }
 }
 
@@ -274,7 +278,7 @@ function licenseFormHtml() {
   return `
     <form id="license-form">
       <label>Роль
-        <select name="user_type">
+        <select name="user_type" class="select-styled">
           <option value="student">Ученик</option>
           <option value="editor">Редактор</option>
           <option value="admin">Администратор</option>
@@ -302,13 +306,12 @@ export function promptCreateLicense() {
         license_days: Number(form.license_days.value),
       });
       render.closeModal();
-      // product_key больше нигде не показывается — единственный момент его увидеть.
-      alert(
-        `Лицензия создана.\n\nProduct Key: ${created.product_key}\n\nСохрани его сейчас — второй раз он нигде не покажется.`,
-      );
+      // product_key больше нигде не показывается — единственный момент его увидеть,
+      // поэтому отдельная модалка с кнопкой копирования, а не alert().
+      render.showProductKey(created.product_key);
       await loadLicenses();
     } catch (err) {
-      alert(err instanceof api.ApiError ? err.message : "Не удалось создать лицензию");
+      render.toast(err instanceof api.ApiError ? err.message : "Не удалось создать лицензию", "error");
     }
   });
 }
@@ -318,7 +321,7 @@ export async function extendLicenseById(userId) {
     await api.extendLicense(state.token, userId, 30);
     await loadLicenses();
   } catch (err) {
-    alert(err instanceof api.ApiError ? err.message : "Не удалось продлить лицензию");
+    render.toast(err instanceof api.ApiError ? err.message : "Не удалось продлить лицензию", "error");
   }
 }
 
@@ -328,6 +331,14 @@ export async function toggleBlockLicense(userId, currentlyBlocked) {
     else await api.blockLicense(state.token, userId);
     await loadLicenses();
   } catch (err) {
-    alert(err instanceof api.ApiError ? err.message : "Не удалось изменить статус лицензии");
+    render.toast(err instanceof api.ApiError ? err.message : "Не удалось изменить статус лицензии", "error");
   }
+}
+
+
+export async function resetDeviceById(userId) {
+  const ok = await render.confirmDialog({ title: "Сбросить устройство?", text: "Пользователь сможет войти с нового устройства.", confirmLabel: "Сбросить", cancelLabel: "Отмена", danger: true });
+  if (!ok) return;
+  try { await api.resetDevice(state.token, userId); render.toast("Устройство сброшено", "success"); }
+  catch (err) { render.toast(err instanceof api.ApiError ? err.message : "Не удалось сбросить устройство", "error"); }
 }

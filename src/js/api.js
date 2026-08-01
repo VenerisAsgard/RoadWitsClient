@@ -9,6 +9,16 @@
  */
 const API_BASE_URL = "http://localhost:8000";
 
+export async function health() {
+  const res = await fetch(`${API_BASE_URL}/health`);
+  if (!res.ok) throw new ApiError(res.status, "Сервер недоступен");
+  return res.json();
+}
+
+export function updateSettings(token, settings) {
+  return request("/auth/me/settings", { method: "PATCH", token, body: { settings } });
+}
+
 export class ApiError extends Error {
   constructor(status, message) {
     super(message);
@@ -67,7 +77,11 @@ export function me(token) {
 function normalizeChapter(raw, index) {
   return {
     id: raw.id,
-    num: raw.order ?? index + 1,
+    // Порядковый номер для бейджа в списке — ВСЕГДА позиция в массиве, не raw.order:
+    // order по умолчанию 0 у каждой новой главы (см. ChapterCreate на бэкенде),
+    // и "0 ?? index+1" из-за ?? не подставляет фолбэк (0 — не null/undefined),
+    // так что при использовании order все главы показывали бы "00".
+    num: index + 1,
     title: raw.title,
     description: raw.description ?? "",
     count: raw.question_count ?? 0,
@@ -204,4 +218,8 @@ export function blockLicense(token, userId) {
 
 export function unblockLicense(token, userId) {
   return request(`/admin/licenses/${userId}/unblock`, { method: "POST", token });
+}
+
+export function resetDevice(token, userId) {
+  return request(`/admin/licenses/${userId}/reset-device`, { method: "POST", token });
 }

@@ -16,6 +16,8 @@ const invoke = window.__TAURI__.core.invoke;
  * при таком же пикселном размере пусть их сохраняет.
  */
 export const isTouchDevice = window.matchMedia("(pointer: coarse)").matches;
+let devtoolsAllowed = false;
+export function setDevtoolsAllowed(value) { devtoolsAllowed = !!value; }
 
 /* ============================================================
    Хранение сессии (fingerprint устройства, JWT).
@@ -52,6 +54,11 @@ export async function clearToken() {
 /* ============================================================
    Управление окном (кастомный титлбар, decorations:false)
    ============================================================ */
+
+export async function openDevtools() {
+  const appWindow = window.__TAURI__.window.getCurrentWindow();
+  if (typeof appWindow.openDevtools === "function") await appWindow.openDevtools();
+}
 
 export function initWindowControls() {
   const { getCurrentWindow } = window.__TAURI__.window;
@@ -115,9 +122,10 @@ export function disableWebDefaults() {
     event.preventDefault();
   });
 
-  // Открытие devtools в собранном приложении не нужно пользователю
-  // и не должно быть первой линией защиты чего-либо чувствительного —
-  // это просто убирает случайное открытие, не более того.
+  // DevTools открываются только кнопкой в панели администратора
+  // (см. controls.js #devtools-open-btn) — нигде больше, включая
+  // сочетания клавиш, даже для admin (devtoolsAllowed управляет только
+  // тем, доступна ли сама кнопка, а не сочетания клавиш).
   document.addEventListener("keydown", (e) => {
     if (
       e.key === "F12" ||
