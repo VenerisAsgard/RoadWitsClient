@@ -8,6 +8,7 @@ import * as auth from "./auth.js";
 import * as controls from "./controls.js";
 import * as api from "./api.js";
 import { state } from "./state.js";
+import { HEALTHCHECK_POLL_MS } from "./config.js";
 
 async function init() {
   device.disableWebDefaults();
@@ -40,7 +41,10 @@ async function init() {
     catch (err) { render.renderConnection("offline", "Проблемы с подключением или сервером"); }
   };
   checkConnection();
-  window.setInterval(checkConnection, 30000);
+  // Раз в 2 минуты достаточно, чтобы индикатор в титлбаре не врал больше
+  // чем на пару минут — 30 секунд гоняли запрос настолько часто, что он
+  // забивал собой логи сервера (см. HEALTHCHECK_POLL_MS в config.js).
+  window.setInterval(checkConnection, HEALTHCHECK_POLL_MS);
 }
 
 init();

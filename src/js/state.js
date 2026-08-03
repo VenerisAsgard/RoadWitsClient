@@ -6,7 +6,7 @@
 export const state = {
   // --- auth ---
   token: null,
-  user: null, // { id, email, first_name, last_name, license_until, user_type, is_blocked, settings, payment_info }
+  user: null, // { id, email, first_name, last_name, license_until, user_type, is_blocked, settings, profile_photo }
 
   // --- навигация по экранам после входа ---
   screen: "menu", // "menu" | "chapters" | "random-count" | "question" | "result" | "profile"

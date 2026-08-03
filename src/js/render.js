@@ -11,7 +11,6 @@ import {
   ROLE_LABELS,
   canEditContent,
   isAdmin,
-  userSettings,
   isLightTheme,
 } from "./state.js";
 
@@ -106,6 +105,7 @@ export function hideSplash() {
 export function showLogin() {
   $("app-shell").classList.add("hidden");
   $("account-chip").classList.add("hidden");
+  $("leaderboard-btn").classList.add("hidden");
   $("logout-button").classList.add("hidden");
   $("login-view").classList.remove("hidden");
 
@@ -119,6 +119,7 @@ export function showApp() {
   $("login-view").classList.add("hidden");
   $("app-shell").classList.remove("hidden");
   $("account-chip").classList.remove("hidden");
+  $("leaderboard-btn").classList.remove("hidden");
   $("logout-button").classList.remove("hidden");
 }
 
@@ -147,11 +148,9 @@ function formatDate(iso) {
 }
 
 /* ============================================================
-   Аватар — инициалы + детерминированный цвет по id, т.к. бэкенд
-   не хранит фото пользователя (см. User в roadwits-server — там
-   только текстовые/JSON-поля, ни одного под изображение профиля).
-   Если фото когда-нибудь появится на бэкенде — здесь единственное
-   место, которое нужно будет поменять на <img>.
+   Аватар — инициалы + детерминированный цвет по id как фолбэк, либо
+   фото профиля, если оно задано (User.profile_photo на бэкенде,
+   см. auth.py/user.py — это личные данные, а не произвольная настройка).
    ============================================================ */
 
 function initialsOf(user) {
@@ -166,11 +165,16 @@ function avatarHueOf(user) {
   return (user.id * 47) % 360;
 }
 
+/** Красит один DOM-узел .avatar под конкретного пользователя — общая
+ * логика для чипа в титлбаре, карточки профиля и строк лидерборда. */
+export function paintAvatar(el, user) {
+  const photo = user.profile_photo;
+  el.textContent = photo ? "" : initialsOf(user);
+  el.style.background = photo ? `url(${photo}) center/cover` : `hsl(${avatarHueOf(user)}, 55%, 40%)`;
+}
+
 export function renderAccountChip(user) {
-  const avatar = $("account-avatar");
-  const photo = userSettings().profile_photo;
-  avatar.textContent = photo ? "" : initialsOf(user);
-  avatar.style.background = photo ? `url(${photo}) center/cover` : `hsl(${avatarHueOf(user)}, 55%, 40%)`;
+  paintAvatar($("account-avatar"), user);
 
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
   $("account-name").textContent = fullName || user.email || `Пользователь #${user.id}`;
@@ -558,50 +562,112 @@ export function updateReviewActive() {
    ============================================================ */
 
 export function renderProfile(user) {
-  const initials = initialsOf(user);
-  const hue = avatarHueOf(user);
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
+  const isLight = isLightTheme();
 
   $("profile-card").innerHTML = `
+    <div class="profile-menu-bar">
+      <label class="theme-switch" title="Тема оформления">
+        <span class="theme-switch-icon">🌙</span>
+        <input type="checkbox" id="profile-theme-toggle" ${isLight ? "checked" : ""} />
+        <span class="theme-switch-track"><span class="theme-switch-thumb"></span></span>
+        <span class="theme-switch-icon">☀️</span>
+      </label>
+    </div>
     <div class="profile-head">
-      <span class="avatar large" style="background: hsl(${hue}, 55%, 40%)">${initials}</span>
+      <button type="button" class="avatar-upload-btn" id="avatar-upload-btn" title="Изменить фото">
+        <span class="avatar large" id="profile-avatar"></span>
+        <span class="avatar-upload-hint">Изменить</span>
+      </button>
+      <input id="profile-photo-input" type="file" accept="image/*" class="hidden" />
       <div>
         <h2>${escapeHtml(fullName) || "Без имени"}</h2>
         <p class="profile-role">${ROLE_LABELS[user.user_type] || user.user_type}</p>
       </div>
     </div>
     <dl class="profile-fields">
-      <dt>Email</dt><dd>${escapeHtml(user.email) || "—"}</dd>
       <dt>Лицензия действует до</dt><dd>${formatDate(user.license_until)}</dd>
       <dt>Статус</dt><dd>${user.is_blocked ? "Заблокирован" : "Активна"}</dd>
     </dl>
     <div class="profile-settings">
-      <p class="panel-label">Настройки</p>
-      <label>Тема
-        <select id="profile-theme" class="select-styled"><option value="dark">Тёмная</option><option value="light">Светлая</option></select>
-      </label>
-      <label>Фото профиля, максимум 1024×1024<input id="profile-photo" type="file" accept="image/*" /></label>
-      <div class="friends-block">
-        <p class="friends-label">Друзья</p>
-        <ul class="friends-list" id="profile-friends-list">
-          ${(Array.isArray(userSettings().friend_emails) ? userSettings().friend_emails : [])
-            .map((email) => `<li class="friend-row"><span class="friend-email">${escapeHtml(email)}</span><button type="button" class="icon-btn tiny danger friend-remove-btn" data-email="${escapeHtml(email)}" title="Удалить">✕</button></li>`)
-            .join("") || `<li class="friends-empty">Пока никого не добавлено</li>`}
-        </ul>
-        <div class="friend-add-row">
-          <input id="profile-friend-email" type="email" placeholder="email@example.com" autocomplete="off" />
-          <button type="button" class="icon-btn friend-add-btn" id="profile-friend-add-btn" title="Добавить друга">+</button>
-        </div>
+      <p class="panel-label">Личные данные</p>
+      <label>Имя<input id="profile-first-name" type="text" maxlength="100" value="${escapeHtml(user.first_name || "")}" /></label>
+      <label>Фамилия<input id="profile-last-name" type="text" maxlength="100" value="${escapeHtml(user.last_name || "")}" /></label>
+      <label>Email<input id="profile-email" type="email" value="${escapeHtml(user.email || "")}" /></label>
+      <p class="modal-hint">Сохраняется автоматически при выходе из профиля. Фото меняется кликом по аватарке выше — можно выбрать любой снимок, он сам обрежется в квадрат и сожмётся.</p>
+    </div>
+    <div class="profile-settings">
+      <p class="panel-label">Друзья</p>
+      <div class="friends-section" id="friends-incoming"><p class="loading">Загрузка…</p></div>
+      <div class="friends-section" id="friends-outgoing"></div>
+      <div class="friends-section" id="friends-accepted"></div>
+      <div class="friend-add-row">
+        <input id="profile-friend-email" type="email" placeholder="email@example.com" autocomplete="off" />
+        <button type="button" class="icon-btn friend-add-btn" id="profile-friend-add-btn" title="Добавить друга">+</button>
       </div>
-      <button type="button" id="profile-settings-save">Сохранить настройки</button>
-      <p class="modal-hint">Прогресс по главам и экзамену сохраняется автоматически.</p>
     </div>
     ${isAdmin() ? `<div class="admin-panel" id="admin-panel"><p class="panel-label">Администрирование</p><div class="admin-licenses" id="admin-licenses"><p class="loading">Загрузка лицензий…</p></div><button class="chapter-start" id="license-add-btn" type="button">➕ Выдать лицензию</button>
       <button class="ghost" id="devtools-open-btn" type="button">Открыть DevTools</button></div>` : ""}
   `;
-  const settings = userSettings();
-  const theme = $("profile-theme");
-  if (theme) theme.value = settings.theme === "light" ? "light" : "dark";
+  paintAvatar($("profile-avatar"), user);
+}
+
+function friendPartner(friendship, currentUserId) {
+  return friendship.requester.id === currentUserId ? friendship.addressee : friendship.requester;
+}
+
+function friendLabel(person) {
+  const name = [person.first_name, person.last_name].filter(Boolean).join(" ");
+  return escapeHtml(name || person.email || `#${person.id}`);
+}
+
+export function renderFriends({ incoming, outgoing, accepted }) {
+  const incomingEl = $("friends-incoming");
+  const outgoingEl = $("friends-outgoing");
+  const acceptedEl = $("friends-accepted");
+  if (!incomingEl || !outgoingEl || !acceptedEl) return;
+  const myId = state.user?.id;
+
+  incomingEl.innerHTML = incoming.length
+    ? `<p class="friends-label">Входящие заявки</p><ul class="friends-list">${incoming
+        .map(
+          (f) => `<li class="friend-row" data-id="${f.id}">
+            <span class="friend-email">${friendLabel(friendPartner(f, myId))}</span>
+            <span class="friend-row-actions">
+              <button type="button" class="icon-btn tiny" data-friend-action="accept" title="Принять">✓</button>
+              <button type="button" class="icon-btn tiny danger" data-friend-action="decline" title="Отклонить">✕</button>
+            </span>
+          </li>`
+        )
+        .join("")}</ul>`
+    : "";
+
+  outgoingEl.innerHTML = outgoing.length
+    ? `<p class="friends-label">Отправленные заявки</p><ul class="friends-list">${outgoing
+        .map(
+          (f) => `<li class="friend-row" data-id="${f.id}">
+            <span class="friend-email">${friendLabel(friendPartner(f, myId))}</span>
+            <span class="friend-row-actions">
+              <span class="friend-pending-hint">ожидает</span>
+              <button type="button" class="icon-btn tiny danger" data-friend-action="cancel" title="Отозвать">✕</button>
+            </span>
+          </li>`
+        )
+        .join("")}</ul>`
+    : "";
+
+  acceptedEl.innerHTML = `<p class="friends-label">Друзья</p><ul class="friends-list">${
+    accepted.length
+      ? accepted
+          .map(
+            (f) => `<li class="friend-row" data-id="${f.id}">
+              <span class="friend-email">${friendLabel(friendPartner(f, myId))}</span>
+              <button type="button" class="icon-btn tiny danger" data-friend-action="remove" title="Удалить">✕</button>
+            </li>`
+          )
+          .join("")
+      : `<li class="friends-empty">Пока никого не добавлено</li>`
+  }</ul>`;
 }
 
 export function renderLicenseList(licenses) {
@@ -624,6 +690,7 @@ export function renderLicenseList(licenses) {
         <button class="icon-btn tiny" data-action="license-extend" title="Продлить на 30 дней">+30д</button>
         <button class="icon-btn tiny danger" data-action="license-reset-device" title="Сбросить устройство">↻</button>
         <button class="icon-btn tiny" data-action="license-toggle-block" title="${lic.is_blocked ? "Разблокировать" : "Заблокировать"}">${lic.is_blocked ? "🔓" : "🔒"}</button>
+        <button class="icon-btn tiny danger" data-action="license-delete" title="Удалить пользователя">🗑</button>
       </span>
     `;
     wrap.appendChild(row);
@@ -697,6 +764,56 @@ export function confirmDialog({ title, text, confirmLabel = "Да", cancelLabel 
     $("modal-body").addEventListener("click", onBodyClick);
     $("modal-overlay").addEventListener("modal:closed", onClosed);
   });
+}
+
+/* ============================================================
+   ЛИДЕРБОРД — себя + принятых друзей по баллам (сумма правильных
+   ответов из settings.quiz_stats, см. GET /friends/leaderboard).
+   ============================================================ */
+
+const MEDALS = ["🥇", "🥈", "🥉"];
+
+function leaderboardRowHtml(entry, rank) {
+  const name = [entry.first_name, entry.last_name].filter(Boolean).join(" ") || entry.email || `Пользователь #${entry.user_id}`;
+  const medal = MEDALS[rank] || `${rank + 1}`;
+  const hue = (entry.user_id * 47) % 360;
+  const avatarStyle = entry.profile_photo
+    ? `background: url(${entry.profile_photo}) center/cover`
+    : `background: hsl(${hue}, 55%, 40%)`;
+  const initials = entry.profile_photo
+    ? ""
+    : ((entry.first_name?.[0] || "") + (entry.last_name?.[0] || "")).toUpperCase() || (entry.email?.[0] || "U").toUpperCase();
+  return `
+    <li class="leaderboard-row ${entry.is_me ? "leaderboard-row-me" : ""}">
+      <span class="leaderboard-rank">${medal}</span>
+      <span class="avatar" style="${avatarStyle}">${initials}</span>
+      <span class="leaderboard-name">${escapeHtml(name)}${entry.is_me ? " <em>(вы)</em>" : ""}</span>
+      <span class="leaderboard-points">${entry.points} ${pointsWord(entry.points)}</span>
+    </li>
+  `;
+}
+
+function pointsWord(n) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "балл";
+  if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) return "балла";
+  return "баллов";
+}
+
+export function renderLeaderboard(entries) {
+  const body = entries.length
+    ? `<ul class="leaderboard-list">${entries.map((e, i) => leaderboardRowHtml(e, i)).join("")}</ul>`
+    : `<p class="modal-hint">Пока пусто — добавьте друзей в профиле, чтобы сравнивать баллы.</p>`;
+  openModal("👑 Лидерборд друзей", body);
+}
+
+export function renderLeaderboardLoading() {
+  openModal("👑 Лидерборд друзей", `<p class="loading">Загрузка…</p>`);
+}
+
+export function renderLeaderboardError(message) {
+  openModal("👑 Лидерборд друзей", `<p class="modal-hint">${escapeHtml(message)}</p>`);
 }
 
 /* ============================================================

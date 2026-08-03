@@ -7,6 +7,7 @@ import { state, MENU_ITEMS, RANDOM_COUNT_OPTIONS } from "./state.js";
 import * as api from "./api.js";
 import * as render from "./render.js";
 import * as admin from "./admin.js";
+import * as friends from "./friends.js";
 
 function shuffle(arr) {
   const a = arr.slice();
@@ -473,6 +474,7 @@ export function openProfile() {
   render.showScreen("profile");
   render.renderProfile(state.user);
   render.setHint("Esc — назад");
+  friends.loadFriends();
   if (state.user.user_type === "admin") {
     admin.loadLicenses();
   }

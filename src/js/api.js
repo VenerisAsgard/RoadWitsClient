@@ -4,10 +4,12 @@
  * JSON конкретных эндпоинтов бэкенда и т.п. — он работает с уже нормализованными
  * объектами (см. normalizeChapter/normalizeQuestion ниже).
  *
- * В деве бэкенд поднят через docker-compose на 8000 (см. roadwits-server/.env
- * APP_PORT). Для прод-сборки поменяй под реальный адрес API.
+ * Адрес сервера и таймаут запроса вынесены в js/config.js — там единственное
+ * место, которое нужно менять под другой backend (прод/стейджинг/свой порт).
  */
-const API_BASE_URL = "http://localhost:8000";
+import { SERVER_BASE_URL, REQUEST_TIMEOUT_MS } from "./config.js";
+
+const API_BASE_URL = SERVER_BASE_URL;
 
 export async function health() {
   const res = await fetch(`${API_BASE_URL}/health`);
@@ -26,21 +28,53 @@ export class ApiError extends Error {
   }
 }
 
+// FastAPI при ошибке валидации кладет в detail список объектов {loc, msg, type}
+// вместо строки. Бэкенд теперь сам приводит это к строке (см. main.py
+// readable_validation_error), но на случай сетевой ошибки, старого бэкенда без
+// этого хендлера или detail неожиданной формы — клиент тоже не должен упасть
+// в "[object Object]": здесь разбираем ЛЮБУЮ форму detail в читаемый текст.
+function readableDetail(detail, fallback) {
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (Array.isArray(detail)) {
+    const parts = detail
+      .map((item) => (item && typeof item === "object" ? item.msg : item))
+      .filter((msg) => typeof msg === "string" && msg.trim());
+    if (parts.length) return parts.join("; ");
+  }
+  if (detail && typeof detail === "object" && typeof detail.msg === "string") return detail.msg;
+  return fallback;
+}
+
 async function request(path, { method = "GET", body, token } = {}) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    // Сетевая ошибка (сервер не запущен, неверный адрес в config.js, CORS
+    // заблокировал запрос) или обрыв по таймауту — в обоих случаях fetch
+    // бросает TypeError/AbortError без осмысленного текста для пользователя.
+    const timedOut = err?.name === "AbortError";
+    throw new ApiError(0, timedOut ? "Сервер не отвечает" : "Нет соединения с сервером");
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 
   if (!res.ok) {
     let detail = res.statusText;
     try {
       const data = await res.json();
-      detail = data.detail ?? detail;
+      detail = readableDetail(data.detail, detail);
     } catch {
       // ответ не JSON — оставляем statusText
     }
@@ -222,4 +256,55 @@ export function unblockLicense(token, userId) {
 
 export function resetDevice(token, userId) {
   return request(`/admin/licenses/${userId}/reset-device`, { method: "POST", token });
+}
+
+export function deleteLicense(token, userId) {
+  return request(`/admin/licenses/${userId}`, { method: "DELETE", token });
+}
+
+/* ============================================================
+   ПРОФИЛЬ — имя/фамилия/email пользователя (в отличие от
+   updateSettings выше, это не произвольный JSON, а конкретные поля).
+   ============================================================ */
+
+export function updateProfile(token, { firstName, lastName, email, profilePhoto }) {
+  const body = { first_name: firstName || null, last_name: lastName || null, email: email || null };
+  // profilePhoto специально undefined-able: если вызывающий код не передал
+  // это поле вовсе (например, сохраняет только имя/email), поле не уйдет
+  // в body и бэкенд не тронет уже сохраненное фото (см. photo_provided на
+  // сервере). Если явно передали null — это осознанное "убрать фото".
+  if (profilePhoto !== undefined) body.profile_photo = profilePhoto;
+  return request("/auth/me/profile", { method: "PATCH", token, body });
+}
+
+/* ============================================================
+   ДРУЗЬЯ — заявки по email, принятие, удаление/отклонение.
+   ============================================================ */
+
+export function sendFriendRequest(token, email) {
+  return request("/friends/requests", { method: "POST", token, body: { email } });
+}
+
+export function listIncomingFriendRequests(token) {
+  return request("/friends/requests/incoming", { token });
+}
+
+export function listOutgoingFriendRequests(token) {
+  return request("/friends/requests/outgoing", { token });
+}
+
+export function acceptFriendRequest(token, friendshipId) {
+  return request(`/friends/requests/${friendshipId}/accept`, { method: "POST", token });
+}
+
+export function removeFriendship(token, friendshipId) {
+  return request(`/friends/requests/${friendshipId}`, { method: "DELETE", token });
+}
+
+export function listFriends(token) {
+  return request("/friends", { token });
+}
+
+export function getLeaderboard(token) {
+  return request("/friends/leaderboard", { token });
 }

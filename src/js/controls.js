@@ -8,6 +8,8 @@ import * as render from "./render.js";
 import * as quiz from "./quiz.js";
 import * as admin from "./admin.js";
 import * as device from "./device.js";
+import * as friends from "./friends.js";
+import * as api from "./api.js";
 
 /* ============================================================
    КЛАВИАТУРА — единый обработчик для всей навигации по приложению.
@@ -156,12 +158,131 @@ export function initKeyboardControls() {
       case "profile": {
         if (key === "Escape") {
           e.preventDefault();
-          quiz.closeProfile();
+          exitProfile();
         }
         break;
       }
     }
   });
+}
+
+/* ============================================================
+   ПРОФИЛЬ — автосохранение вместо кнопок:
+   - имя/фамилия/email сохраняются при выходе из профиля (если менялись);
+   - фото сохраняется сразу при выборе файла (клик по аватарке-кружку);
+   - тема сохраняется сразу при переключении свича.
+   Все три — через PATCH /auth/me/profile или /auth/me/settings, без
+   отдельного "Сохранить" — см. запрос убрать кнопки сохранения.
+   ============================================================ */
+
+/** Файл -> сжатый data URL, готовый под аватарку: центр-кроп в квадрат,
+ * уменьшение до AVATAR_SIZE и JPEG-компрессия. Раньше здесь просто
+ * ОТКЛОНЯЛИ фото крупнее 1024×1024 без какого-либо сжатия — из-за этого
+ * а) обычное фото с телефона (обычно 3000–4000px) отклонялось с ошибкой
+ * "должно быть максимум 1024×1024", хотя пользователь никак не мог
+ * заранее знать точный размер в пикселях; б) даже те фото, что проходили
+ * проверку по габаритам, в PNG/с большим количеством деталей легко
+ * весили больше 1.5–2 МБ в base64 и всё равно падали на сервере с
+ * ошибкой "слишком большое". Теперь любое фото приводится к одному
+ * небольшому квадратному JPEG — ограничение по размеру на сервере
+ * (см. schemas/auth.py) с огромным запасом никогда не будет достигнуто. */
+const AVATAR_SIZE = 480;
+const AVATAR_JPEG_QUALITY = 0.85;
+
+function readPhotoAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      try {
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2;
+        const sy = (img.height - side) / 2;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = AVATAR_SIZE;
+        canvas.height = AVATAR_SIZE;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
+        resolve(canvas.toDataURL("image/jpeg", AVATAR_JPEG_QUALITY));
+      } catch {
+        reject(new Error("Не удалось обработать фото"));
+      }
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("Файл не похож на изображение")); };
+    img.src = objectUrl;
+  });
+}
+
+/** Сохраняет имя/фамилию/email, если они реально изменились с момента
+ * открытия профиля — вызывается при выходе из профиля (кнопка "Назад"/Esc).
+ * Тихо, без тоста об успехе — тост только если сохранение не удалось,
+ * чтобы не терять правку молча. */
+async function savePersonalDataIfChanged() {
+  const firstNameEl = render.$("profile-first-name");
+  if (!firstNameEl || !state.user) return; // профиль ни разу не открывался в этой сессии
+
+  const firstName = firstNameEl.value.trim();
+  const lastName = render.$("profile-last-name").value.trim();
+  const email = render.$("profile-email").value.trim();
+  const unchanged =
+    firstName === (state.user.first_name || "") &&
+    lastName === (state.user.last_name || "") &&
+    email === (state.user.email || "");
+  if (unchanged) return;
+
+  try {
+    const updated = await api.updateProfile(state.token, { firstName, lastName, email });
+    state.user = { ...state.user, ...updated };
+    render.renderAccountChip(state.user);
+  } catch (err) {
+    render.toast(err instanceof api.ApiError ? err.message : "Не удалось сохранить данные профиля", "error");
+  }
+}
+
+/** Общий выход из профиля: сначала пробуем сохранить правки полей, потом
+ * переключаем экран — поля остаются в DOM (экраны просто скрываются, не
+ * уничтожаются), так что читать их можно и после showScreen(). */
+function exitProfile() {
+  savePersonalDataIfChanged();
+  quiz.closeProfile();
+}
+
+async function saveProfilePhoto(file) {
+  let dataUrl;
+  try {
+    dataUrl = await readPhotoAsDataUrl(file);
+  } catch (err) {
+    render.toast(err.message || "Не удалось обработать фото", "error");
+    return;
+  }
+  try {
+    // Заодно уходят текущие значения имени/фамилии/email из полей —
+    // если пользователь успел их поправить перед сменой фото, правки
+    // не потеряются и не потребуют отдельного сохранения.
+    const firstName = render.$("profile-first-name")?.value.trim() ?? state.user.first_name ?? "";
+    const lastName = render.$("profile-last-name")?.value.trim() ?? state.user.last_name ?? "";
+    const email = render.$("profile-email")?.value.trim() ?? state.user.email ?? "";
+    const updated = await api.updateProfile(state.token, { firstName, lastName, email, profilePhoto: dataUrl });
+    state.user = { ...state.user, ...updated };
+    render.renderProfile(state.user);
+    render.renderAccountChip(state.user);
+    render.toast("Фото обновлено", "success");
+  } catch (err) {
+    render.toast(err instanceof api.ApiError ? err.message : "Не удалось сохранить фото", "error");
+  }
+}
+
+async function saveThemeChoice(isLight) {
+  const settings = { ...(state.user.settings || {}), theme: isLight ? "light" : "dark" };
+  state.user.settings = settings;
+  render.applyTheme(); // применяем сразу, не дожидаясь ответа сервера
+  try {
+    await api.updateSettings(state.token, settings);
+  } catch (err) {
+    render.toast(err instanceof api.ApiError ? err.message : "Не удалось сохранить тему", "error");
+  }
 }
 
 /* ============================================================
@@ -181,8 +302,13 @@ export function initMouseControls() {
   render.$("account-chip").addEventListener("click", () => {
     quiz.openProfile();
   });
+
+  /* ---------- корона в титлбаре -> лидерборд друзей по баллам ---------- */
+  render.$("leaderboard-btn").addEventListener("click", () => {
+    friends.loadLeaderboard();
+  });
   render.$("profile-back-btn").addEventListener("click", () => {
-    quiz.closeProfile();
+    exitProfile();
   });
 
   /* ---------- кнопки "назад" — то же самое, что Esc, но не все хотят
@@ -295,12 +421,14 @@ export function initMouseControls() {
       device.openDevtools();
       return;
     }
-    if (e.target.closest(".friend-remove-btn")) {
-      const email = e.target.closest(".friend-remove-btn").dataset.email;
-      const settings = { ...(state.user.settings || {}) };
-      settings.friend_emails = (settings.friend_emails || []).filter((x) => x !== email);
-      try { const api = await import("./api.js"); state.user.settings = settings; await api.updateSettings(state.token, settings); render.renderProfile(state.user); render.toast("Друг удалён", "success"); }
-      catch { render.toast("Не удалось сохранить настройки", "error"); }
+    if (e.target.closest("[data-friend-action]")) {
+      const btn = e.target.closest("[data-friend-action]");
+      const friendshipId = Number(btn.closest(".friend-row")?.dataset.id);
+      if (!friendshipId) return;
+      const action = btn.dataset.friendAction;
+      if (action === "accept") friends.acceptFriendRequestById(friendshipId);
+      else if (action === "decline" || action === "cancel") friends.removeFriendshipById(friendshipId);
+      else if (action === "remove") friends.removeFriendshipById(friendshipId, { confirm: true });
       return;
     }
     if (e.target.closest("#profile-friend-add-btn")) {
@@ -308,30 +436,12 @@ export function initMouseControls() {
       const email = (input.value || "").trim().toLowerCase();
       const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
       if (!emailOk) { render.toast("Введите корректный email", "error"); return; }
-      const settings = { ...(state.user.settings || {}) };
-      const list = new Set(settings.friend_emails || []);
-      if (list.has(email)) { render.toast("Этот друг уже добавлен", "error"); return; }
-      list.add(email);
-      settings.friend_emails = Array.from(list);
-      try { const api = await import("./api.js"); state.user.settings = settings; await api.updateSettings(state.token, settings); input.value = ""; render.renderProfile(state.user); render.toast("Друг добавлен", "success"); }
-      catch { render.toast("Не удалось сохранить настройки", "error"); }
+      const ok = await friends.sendFriendRequestByEmail(email);
+      if (ok) input.value = "";
       return;
     }
-    if (e.target.closest("#profile-settings-save")) {
-      const file = render.$("profile-photo").files[0];
-      let photo = state.user?.settings?.profile_photo || null;
-      if (file) {
-        const img = new Image();
-        const url = URL.createObjectURL(file);
-        await new Promise((resolve) => { img.onload = resolve; img.src = url; });
-        URL.revokeObjectURL(url);
-        if (img.width > 1024 || img.height > 1024) { render.toast("Фото должно быть максимум 1024×1024", "error"); return; }
-        const reader = new FileReader();
-        photo = await new Promise((resolve, reject) => { reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); });
-      }
-      const settings = { ...(state.user.settings || {}), theme: render.$("profile-theme").value, profile_photo: photo };
-      try { const api = await import("./api.js"); state.user.settings = settings; await api.updateSettings(state.token, settings); render.applyTheme(); render.renderAccountChip(state.user); render.toast("Настройки сохранены", "success"); }
-      catch { render.toast("Не удалось сохранить настройки", "error"); }
+    if (e.target.closest("#avatar-upload-btn")) {
+      render.$("profile-photo-input").click();
       return;
     }
     if (e.target.closest("#license-add-btn")) {
@@ -347,6 +457,22 @@ export function initMouseControls() {
       admin.toggleBlockLicense(userId, row.classList.contains("blocked"));
     } else if (action === "license-reset-device") {
       admin.resetDeviceById(userId);
+    } else if (action === "license-delete") {
+      admin.deleteLicenseById(userId);
+    }
+  });
+
+  /* ---------- профиль: фото (выбор файла) и тема (свич) — оба сохраняются
+     сразу, без отдельной кнопки; делегирование работает, т.к. сам
+     #profile-card не пересоздаётся, меняется только его innerHTML ---------- */
+  render.$("profile-card").addEventListener("change", (e) => {
+    if (e.target.id === "profile-photo-input") {
+      const file = e.target.files[0];
+      if (file) saveProfilePhoto(file);
+      return;
+    }
+    if (e.target.id === "profile-theme-toggle") {
+      saveThemeChoice(e.target.checked);
     }
   });
 

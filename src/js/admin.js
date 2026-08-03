@@ -342,3 +342,10 @@ export async function resetDeviceById(userId) {
   try { await api.resetDevice(state.token, userId); render.toast("Устройство сброшено", "success"); }
   catch (err) { render.toast(err instanceof api.ApiError ? err.message : "Не удалось сбросить устройство", "error"); }
 }
+
+export async function deleteLicenseById(userId) {
+  const ok = await render.confirmDialog({ title: "Удалить пользователя?", text: "Необратимо: product key перестанет работать, доступ будет отозван немедленно.", confirmLabel: "Удалить", cancelLabel: "Отмена", danger: true });
+  if (!ok) return;
+  try { await api.deleteLicense(state.token, userId); render.toast("Пользователь удалён", "success"); await loadLicenses(); }
+  catch (err) { render.toast(err instanceof api.ApiError ? err.message : "Не удалось удалить пользователя", "error"); }
+}
