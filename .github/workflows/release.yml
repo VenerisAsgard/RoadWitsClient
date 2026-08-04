@@ -62,7 +62,6 @@ jobs:
         # видит, что проект на v2, и по умолчанию ставит себе CLI v1, который
         # запускает "tauri init --ci" (команду от v1) поверх v2-конфига —
         # именно это и было в логе сборки.
-        working-directory: RoadWitsClient
         run: npm install
 
       - name: build & publish
@@ -72,7 +71,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          projectPath: RoadWitsClient
+          projectPath: .
           tagName: ${{ github.ref_name }}
           releaseName: "Roadwits ${{ github.ref_name }}"
           releaseBody: "Автоматическая сборка из тега ${{ github.ref_name }}. Полный список изменений — в истории коммитов."
