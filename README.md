@@ -1,6 +1,5 @@
 # Roadwits — клиент
 
-
 Tauri 2 + чистый HTML/CSS/JS (ES-модули, без сборщика). Кросс-платформенно:
 Windows, macOS, Linux, Android, iOS — один и тот же frontend на всех.
 
