@@ -62,7 +62,7 @@ jobs:
         # видит, что проект на v2, и по умолчанию ставит себе CLI v1, который
         # запускает "tauri init --ci" (команду от v1) поверх v2-конфига —
         # именно это и было в логе сборки.
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: build & publish
         uses: tauri-apps/tauri-action@v0
