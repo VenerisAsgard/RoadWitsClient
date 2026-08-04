@@ -63,14 +63,15 @@ jobs:
         # запускает "tauri init --ci" (команду от v1) поверх v2-конфига —
         # именно это и было в логе сборки.
         #
-        # npm, который идёт в комплекте с node-version: 22, может падать с
-        # "Cannot read properties of null (reading 'matches')" — это баг
-        # самого npm CLI при резолвинге графа зависимостей, никак не связан
-        # с package.json. Лечится обновлением npm перед установкой.
+        # npm install (без лок-файла) периодически падал с
+        # "Cannot read properties of null (reading 'matches')" — известный
+        # баг @npmcli/arborist при построении дерева "с нуля", воспроизводился
+        # на всех трёх ОС даже с npm@latest. Лечится: пинуем конкретную версию
+        # npm и ставим строго из закоммиченного package-lock.json через
+        # npm ci — там этого пути резолвинга просто нет.
         run: |
-          npm install -g npm@latest
-          npm cache clean --force
-          npm install --legacy-peer-deps
+          npm install -g npm@10.9.2
+          npm ci --legacy-peer-deps
 
       - name: build & publish
         uses: tauri-apps/tauri-action@v0
