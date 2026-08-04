@@ -184,6 +184,23 @@ button.small {
   letter-spacing: 0.5px;
 }
 
+/* Ссылка-кнопка в духе "Забыли пароль?" — без фона и рамки, просто текст. */
+.text-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: calc(13px * var(--k));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+.text-link:hover {
+  color: var(--accent);
+}
+
 /* ---------- навигатор по вопросам (точки сверху — вместо прогресс-бара
    и кнопок prev/next во всех режимах: клик по точке — переход к вопросу) ---------- */
 .q-dots {
@@ -1251,7 +1268,7 @@ button.small {
 }
 
 /* ---------- добавлено в client3: индикатор соединения, стопка тостов, настройки профиля, светлая тема ---------- */
-.belarus-mark{display:flex;align-items:center;gap:10px;margin:0 0 10px;color:var(--muted);font-family:var(--font-mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase}.belarus-mark span:first-child{font-size:26px}.connection-status{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--muted)}.connection-status[data-status="ok"]{color:var(--green)}.connection-status[data-status="degraded"]{color:var(--amber)}.connection-status[data-status="offline"]{color:var(--red)}.toast-stack{position:fixed;right:18px;bottom:18px;z-index:130;display:flex;flex-direction:column;gap:8px;align-items:flex-end}.profile-settings{margin-top:22px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:10px}.profile-settings label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}:root[data-theme="light"]{--bg:#f4f5f7;--panel:#fff;--panel-2:#e9edf2;--ink:#18202a;--muted:#5d6875;--faint:#87919e;--line:#d1d8e0;color-scheme:light}:root[data-theme="light"] .q-image-wrap{background:#fff}
+.belarus-mark{display:flex;align-items:center;gap:10px;margin:0 0 10px;color:var(--muted);font-family:var(--font-mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase}.belarus-mark span:first-child{font-size:26px}.connection-status{font-family:var(--font-mono);font-size:11px;color:var(--muted)}.connection-status[data-status="ok"]{color:var(--green)}.connection-status[data-status="degraded"]{color:var(--amber)}.connection-status[data-status="offline"]{color:var(--red)}.toast-stack{position:fixed;right:18px;bottom:18px;z-index:130;display:flex;flex-direction:column;gap:8px;align-items:flex-end}.profile-settings{margin-top:22px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:10px}.profile-settings label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}:root[data-theme="light"]{--bg:#f4f5f7;--panel:#fff;--panel-2:#e9edf2;--ink:#18202a;--muted:#5d6875;--faint:#87919e;--line:#d1d8e0;color-scheme:light}:root[data-theme="light"] .q-image-wrap{background:#fff}
 /* ---------- добавлено в client4: индикатор фазы экзамена, счётчик ошибок ---------- */
 .phase-divider { flex-basis: 100%; color: var(--faint); font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; margin: 8px 0 0; }
 .q-phase { font-family: var(--font-mono); font-size: 12px; color: var(--amber); text-transform: uppercase; letter-spacing: .06em; }

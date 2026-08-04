@@ -20,7 +20,13 @@ export function applyTheme() { document.documentElement.dataset.theme = isLightT
 export function renderConnection(status, detail = "") {
   const el = $("connection-status"); if (!el) return;
   el.dataset.status = status;
-  el.textContent = status === "ok" ? "Сервер: онлайн" : status === "degraded" ? "Сервер: проблемы" : "Сервер: нет связи";
+  // При "offline" причиной часто оказывается включённый VPN, который рвёт
+  // соединение с сервером, — подсказку выводим прямо в тексте статуса
+  // (а не только в title), иначе её почти никто не замечает.
+  el.textContent =
+    status === "ok" ? "Сервер: онлайн" :
+    status === "degraded" ? "Сервер: проблемы" :
+    "Сервер: нет связи — попробуйте отключить VPN";
   el.title = detail;
 }
 

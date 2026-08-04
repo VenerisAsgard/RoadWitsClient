@@ -188,8 +188,36 @@ export function initKeyboardControls() {
  * (см. schemas/auth.py) с огромным запасом никогда не будет достигнуто. */
 const AVATAR_SIZE = 480;
 const AVATAR_JPEG_QUALITY = 0.85;
+// Тот же лимит, что и на бэкенде для profile_photo (см. MAX_PROFILE_PHOTO_LENGTH
+// в schemas/auth.py) — длина итоговой data URL строки, с запасом на "data:...;base64,".
+const MAX_PHOTO_DATA_URL_LENGTH = 2_000_000;
 
-function readPhotoAsDataUrl(file) {
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Не удалось прочитать файл"));
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Файл -> data URL, готовый под аватарку.
+ * GIF — особый случай: раньше ЛЮБОЕ фото (в т.ч. GIF) прогонялось через
+ * canvas.toDataURL("image/jpeg", ...), а canvas умеет нарисовать только
+ * один кадр — анимация схлопывалась в статичную картинку. Для GIF отдаем
+ * файл как есть (без кропа/сжатия, которые все равно её потушат), просто
+ * проверив, что он укладывается в лимит размера, который иначе проверял
+ * бы только сервер уже после загрузки. Остальные форматы, как и раньше,
+ * приводятся к квадратному JPEG нужного размера. */
+async function readPhotoAsDataUrl(file) {
+  if (file.type === "image/gif") {
+    const dataUrl = await readFileAsDataUrl(file);
+    if (dataUrl.length > MAX_PHOTO_DATA_URL_LENGTH) {
+      throw new Error("GIF слишком большой — попробуйте картинку поменьше (или другой формат)");
+    }
+    return dataUrl;
+  }
+
   return new Promise((resolve, reject) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);

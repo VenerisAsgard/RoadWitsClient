@@ -21,7 +21,9 @@
     <div class="titlebar" data-tauri-drag-region>
       <h1 class="title">Roadwits</h1>
 
-      <button class="icon-btn crown-btn hidden" id="leaderboard-btn" type="button" title="Лидерборд друзей">👑</button>
+      <!-- Порядок слева направо: аккаунт, корона (лидерборд, справа от аккаунта),
+           кнопка выйти — последняя в этой группе. Статус связи с сервером
+           живёт не здесь, а в status-bar внизу окна (см. ниже по файлу). -->
       <button class="account-chip hidden" id="account-chip" type="button">
         <span class="avatar" id="account-avatar">?</span>
         <span class="account-text">
@@ -29,7 +31,7 @@
           <span class="account-role" id="account-role">—</span>
         </span>
       </button>
-      <span id="connection-status" class="connection-status" data-status="checking">Сервер: проверка…</span>
+      <button class="icon-btn crown-btn hidden" id="leaderboard-btn" type="button" title="Лидерборд друзей">👑</button>
       <button id="logout-button" class="ghost small hidden">Выйти</button>
 
       <div class="window-buttons">
@@ -43,7 +45,7 @@
     <section id="login-view" class="view">
       <form id="login-form">
         <h1>Roadwits</h1>
-        <p class="hint">Введи Product Key лицензии — без пароля, без регистрации.</p>
+        <p class="hint">Введи Product Key лицензии.</p>
 
         <input
           id="product-key"
@@ -57,6 +59,10 @@
         <p id="login-error" class="error hidden"></p>
 
         <button id="login-submit" type="submit">Войти</button>
+
+        <!-- Пока без действия по клику (см. controls.js) — ссылка-заглушка
+             в духе "Забыли пароль?" на обычных сайтах, логика появится позже. -->
+        <button id="no-product-key-btn" type="button" class="text-link">Нет ключа продукта?</button>
       </form>
     </section>
 
@@ -171,6 +177,14 @@
       <footer class="hint-bar" id="hint-bar">
         <span class="hint-keys" id="hint-keys">↑↓ выбрать · Enter принять</span>
       </footer>
+    </div>
+
+    <!-- Полоска статуса связи с сервером — закреплена внизу окна, видна и
+         на экране логина, и в приложении (в отличие от прежнего места в
+         титлбаре). Подсказка про VPN подставляется сюда же, когда статус
+         "offline" (см. render.renderConnection). -->
+    <div class="status-bar" id="status-bar">
+      <span id="connection-status" class="connection-status" data-status="checking">Сервер: проверка…</span>
     </div>
 
     <!-- Модалка форм редактирования (глава/вопрос/лицензия) — один переиспользуемый

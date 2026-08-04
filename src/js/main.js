@@ -33,6 +33,11 @@ async function init() {
     auth.logout();
   });
 
+  // TODO: пока без действия — куда вести пользователя без ключа продукта
+  // (форма заявки? ссылка на сайт/поддержку?) ещё не решено. Кнопка уже
+  // кликабельна, чтобы верстка/стили можно было проверить уже сейчас.
+  render.$("no-product-key-btn").addEventListener("click", () => {});
+
   await auth.tryAutoLogin();
   device.setDevtoolsAllowed(state.user?.user_type === "admin");
   render.hideSplash();
