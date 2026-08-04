@@ -62,7 +62,15 @@ jobs:
         # видит, что проект на v2, и по умолчанию ставит себе CLI v1, который
         # запускает "tauri init --ci" (команду от v1) поверх v2-конфига —
         # именно это и было в логе сборки.
-        run: npm install --legacy-peer-deps
+        #
+        # npm, который идёт в комплекте с node-version: 22, может падать с
+        # "Cannot read properties of null (reading 'matches')" — это баг
+        # самого npm CLI при резолвинге графа зависимостей, никак не связан
+        # с package.json. Лечится обновлением npm перед установкой.
+        run: |
+          npm install -g npm@latest
+          npm cache clean --force
+          npm install --legacy-peer-deps
 
       - name: build & publish
         uses: tauri-apps/tauri-action@v0
