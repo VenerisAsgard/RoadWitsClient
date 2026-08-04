@@ -4,3 +4,5 @@ src-tauri/gen/apple/
 node_modules/
 .DS_Store
 *.log
+target/
+src-tauri/target/
