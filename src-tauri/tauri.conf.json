@@ -43,10 +43,10 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://github.com/ORG/REPO/releases/latest/download/latest.json"
+        "https://github.com/VenerisAsgard/RoadWitsClient/releases/latest/download/latest.json"
       ],
       "dialog": false,
-      "pubkey": "PASTE_YOUR_GENERATED_PUBLIC_KEY_HERE"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDkyOEE5MTUxQzY2RjgyQjQKUldTMGdtL0dVWkdLa29yQW5ETktDbDRLeUpWVlQ0dTduOTBJTkx5bEpVTjJhVUFFNkVXL3JNQ1QK"
     }
   }
 }

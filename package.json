@@ -1,0 +1,8 @@
+{
+  "name": "roadwits-client",
+  "private": true,
+  "description": "Не используется как сборщик фронтенда (тот — чистый JS без бандлера, см. src/), нужен только затем, чтобы tauri-action в CI видел версию @tauri-apps/cli и не откатывался на v1 по умолчанию.",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

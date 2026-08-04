@@ -40,6 +40,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22 # явно фиксируем, иначе раннер молча подставляет свою версию
+
       - name: install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -50,6 +55,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: install frontend deps
+        # У фронтенда своего бандлера нет — package.json тут ради одной
+        # единственной строчки: @tauri-apps/cli@2. Без неё tauri-action не
+        # видит, что проект на v2, и по умолчанию ставит себе CLI v1, который
+        # запускает "tauri init --ci" (команду от v1) поверх v2-конфига —
+        # именно это и было в логе сборки.
+        working-directory: RoadWitsClient
+        run: npm install
 
       - name: build & publish
         uses: tauri-apps/tauri-action@v0
