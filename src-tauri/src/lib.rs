@@ -109,6 +109,10 @@ fn clear_token(
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        // Self-update — см. Cargo.toml и tauri.conf.json (секция "plugins.updater")
+        // для настройки endpoint'а и публичного ключа.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             get_fingerprint,
             save_token,

@@ -1,0 +1,67 @@
+# Публикация новой версии клиента: push тега вида v1.2.3 запускает сборку
+# для Windows/macOS(intel+arm)/Linux, подписывает билды ключом апдейтера
+# и выкладывает их вместе с latest.json в GitHub Release с этим тегом —
+# именно оттуда tauri-plugin-updater (см. RoadWitsClient/src/js/update.js)
+# и берёт обновления.
+#
+# ПЕРЕД ПЕРВЫМ ЗАПУСКОМ:
+#   1. cargo tauri signer generate -w ~/.tauri/roadwits.key
+#      (или без -w, чтобы просто вывести пару в терминал)
+#   2. Публичный ключ → RoadWitsClient/src-tauri/tauri.conf.json,
+#      plugins.updater.pubkey (сейчас там заглушка PASTE_YOUR_...).
+#   3. Приватный ключ и его пароль → секреты репозитория:
+#      TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+#      (Settings → Secrets and variables → Actions).
+#   4. В tauri.conf.json → plugins.updater.endpoints подставить реальные
+#      org/repo вместо "ORG/REPO".
+# Без этого шаги подписи будут падать — это ожидаемо, пока ключи не заведены.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos-latest" # arm64 + intel одним джобом через --target
+            args: "--target universal-apple-darwin"
+          - platform: "ubuntu-22.04"
+            args: ""
+          - platform: "windows-latest"
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: install Linux system deps (webkit/gtk)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: build & publish
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: RoadWitsClient
+          tagName: ${{ github.ref_name }}
+          releaseName: "Roadwits ${{ github.ref_name }}"
+          releaseBody: "Автоматическая сборка из тега ${{ github.ref_name }}. Полный список изменений — в истории коммитов."
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

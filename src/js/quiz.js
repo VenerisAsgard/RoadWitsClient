@@ -18,6 +18,23 @@ function shuffle(arr) {
   return a;
 }
 
+/* Подсказки клавиш, общие для нескольких экранов — вынесены сюда, чтобы
+   не дублировать один и тот же массив в четырёх местах и не разойтись
+   в формулировках при правке. */
+const HINT_MENU = [
+  { keys: ["↑", "↓"], label: "выбрать" },
+  { keys: ["Enter"], label: "принять" },
+];
+const HINT_CHAPTERS = [
+  { keys: ["↑", "↓"], label: "выбрать" },
+  { keys: ["Space"], label: "отметить" },
+  { keys: ["Enter"], label: "начать" },
+];
+const HINT_RANDOM_COUNT = [
+  { keys: ["↑", "↓"], label: "количество" },
+  { keys: ["Enter"], label: "начать" },
+];
+
 /**
  * Пул вопросов по всем главам сразу — нужен режимам "random"/"exam".
  * Бэкенд не отдаёт вопросы одним запросом по всем главам разом
@@ -136,7 +153,13 @@ function startTimer(seconds) {
 }
 
 function updateQuestionHint() {
-  render.setHint("↑↓ вариант · 1-9 ответить · Enter подтвердить · Space пропустить · ←→ вопрос · Esc выйти");
+  render.setHint([
+    { keys: ["↑", "↓"], label: "вариант" },
+    { keys: ["1–9"], label: "ответить" },
+    { keys: ["Enter"], label: "подтвердить" },
+    { keys: ["Space"], label: "пропустить" },
+    { keys: ["←", "→"], label: "вопрос" },
+  ]);
 }
 
 export function answerMove(delta) {
@@ -285,7 +308,10 @@ export async function finishQuiz(forcedFail = false) {
 
   state.reviewIndex = 0;
   render.buildReview();
-  render.setHint("↑↓ или клик — разбор ответов · Enter — пройти ещё раз · Esc — в меню");
+  render.setHint([
+    { keys: ["↑", "↓"], label: "разбор ответов" },
+    { keys: ["Enter"], label: "пройти ещё раз" },
+  ]);
 }
 
 export function reviewMove(delta) {
@@ -343,12 +369,12 @@ export function menuConfirm() {
     state.checkedChapters = new Set();
     render.showScreen("chapters");
     render.renderChapters();
-    render.setHint("↑↓ выбрать · Space/клик по ☐ отметить · Enter начать · Esc в меню");
+    render.setHint(HINT_CHAPTERS);
     admin.refreshEditorQuestions();
   } else if (choice === "random") {
     render.showScreen("random-count");
     render.renderRandomCount();
-    render.setHint("↑↓ выбрать количество · Enter начать · Esc в меню");
+    render.setHint(HINT_RANDOM_COUNT);
   } else if (choice === "exam") {
     beginQuiz("exam");
   }
@@ -358,7 +384,7 @@ export function returnToMenu() {
   clearInterval(state.timerHandle);
   render.showScreen("menu");
   render.renderMenu();
-  render.setHint("↑↓ выбрать · Enter принять");
+  render.setHint(HINT_MENU);
 }
 
 /**
@@ -390,11 +416,11 @@ export function returnToOrigin() {
   if (origin === "chapters") {
     render.showScreen("chapters");
     render.renderChapters();
-    render.setHint("↑↓ выбрать · Space/клик по ☐ отметить · Enter начать · Esc в меню");
+    render.setHint(HINT_CHAPTERS);
   } else if (origin === "random-count") {
     render.showScreen("random-count");
     render.renderRandomCount();
-    render.setHint("↑↓ выбрать количество · Enter начать · Esc в меню");
+    render.setHint(HINT_RANDOM_COUNT);
   } else {
     returnToMenu();
   }
@@ -473,7 +499,7 @@ export function openProfile() {
   }
   render.showScreen("profile");
   render.renderProfile(state.user);
-  render.setHint("Esc — назад");
+  render.setHint([]); // отдельная кнопка "← Назад" уже видна на экране — Esc не рекламируем
   friends.loadFriends();
   if (state.user.user_type === "admin") {
     admin.loadLicenses();
@@ -483,8 +509,8 @@ export function openProfile() {
 export function closeProfile() {
   render.showScreen(state.profileReturnScreen);
   if (state.profileReturnScreen === "menu") {
-    render.setHint("↑↓ выбрать · Enter принять");
+    render.setHint(HINT_MENU);
   } else if (state.profileReturnScreen === "chapters") {
-    render.setHint("↑↓ выбрать · Space/клик по ☐ отметить · Enter начать · Esc в меню");
+    render.setHint(HINT_CHAPTERS);
   }
 }

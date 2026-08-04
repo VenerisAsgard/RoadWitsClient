@@ -87,7 +87,16 @@ export function initKeyboardControls() {
           quiz.chaptersConfirm();
         } else if (key === "Escape") {
           e.preventDefault();
-          quiz.returnToMenu();
+          // Если включён режим редактирования (виден ✏️/❌ у глав) — первый
+          // Esc просто выключает его, а не сразу выкидывает в меню; так
+          // человек не теряет место в списке, случайно нажав Esc посреди
+          // редактирования. Второй Esc (когда editMode уже выключен) —
+          // как и раньше, уходит в меню.
+          if (state.editMode) {
+            admin.toggleEditMode();
+          } else {
+            quiz.returnToMenu();
+          }
         }
         break;
       }
@@ -319,6 +328,23 @@ async function saveThemeChoice(isLight) {
    ============================================================ */
 
 export function initMouseControls() {
+  // Кнопки в приложении — не как на обычном сайте: почти вся навигация
+  // здесь идёт глобальными клавишами (стрелки/Enter/Space/цифры) через
+  // document-level обработчик выше, а не через фокус конкретного элемента.
+  // Если мелкая кнопка (✏️/❌/"режим редактирования"/"← Назад" и т.п.)
+  // остаётся сфокусированной после клика мышью, следующее нажатие
+  // Space/Enter достаётся браузерной активации ЭТОЙ кнопки вместо
+  // ожидаемого действия (отметить главу, подтвердить и т.д.) — именно
+  // это и стояло за жалобой "местами не работает". Снимаем фокус сразу
+  // после клика везде, кроме форм в модалках — там автофокус на первом
+  // поле нужен и его трогать не стоит.
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (btn && !render.$("modal-overlay").contains(btn)) {
+      btn.blur();
+    }
+  });
+
   render.$("menu-list").addEventListener("click", (e) => {
     const li = e.target.closest(".menu-item");
     if (!li) return;

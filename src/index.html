@@ -21,9 +21,9 @@
     <div class="titlebar" data-tauri-drag-region>
       <h1 class="title">Roadwits</h1>
 
-      <!-- Порядок слева направо: аккаунт, корона (лидерборд, справа от аккаунта),
-           кнопка выйти — последняя в этой группе. Статус связи с сервером
-           живёт не здесь, а в status-bar внизу окна (см. ниже по файлу). -->
+      <!-- Порядок слева направо: аккаунт, корона (лидерборд, справа от аккаунта).
+           Кнопка "Выйти" переехала на экран профиля (см. ниже по файлу), статус
+           связи с сервером — в status-bar внизу окна. -->
       <button class="account-chip hidden" id="account-chip" type="button">
         <span class="avatar" id="account-avatar">?</span>
         <span class="account-text">
@@ -32,7 +32,6 @@
         </span>
       </button>
       <button class="icon-btn crown-btn hidden" id="leaderboard-btn" type="button" title="Лидерборд друзей">👑</button>
-      <button id="logout-button" class="ghost small hidden">Выйти</button>
 
       <div class="window-buttons">
         <button class="traffic minimize" id="minimize"><span>−</span></button>
@@ -171,6 +170,11 @@
         <section class="screen hidden" id="screen-profile" data-screen="profile">
           <button class="ghost small profile-back" id="profile-back-btn" type="button">← Назад</button>
           <div class="profile-card" id="profile-card"></div>
+          <!-- Ниже — статичные, вне profile-card (которая целиком перерисовывается
+               innerHTML'ом): раньше здесь жила только кнопка "Выйти" (перенесена
+               из титлбара), теперь рядом ещё ручная проверка обновлений. -->
+          <button id="check-updates-btn" class="ghost small profile-footer-btn hidden" type="button">Проверить обновления</button>
+          <button id="logout-button" class="ghost logout-btn hidden">Выйти</button>
         </section>
       </main>
 

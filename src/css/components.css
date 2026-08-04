@@ -749,10 +749,54 @@ button.small {
 
 /* ---------- подсказка клавиш снизу ---------- */
 .hint-bar {
-  background: var(--panel);
-  border-top: 1px solid var(--line);
+  /* Раньше была своя серая панель (background + border-top) — это имело
+     смысл, пока hint-bar был самым нижним элементом окна. Теперь под ним
+     ещё есть status-bar (индикатор связи с сервером), и эта панель стала
+     видна как лишняя серая полоса прямо над ним. Возвращаем hint-bar
+     прозрачным фоном приложения — подсказка остаётся текстом без рамки. */
   font-family: var(--font-mono);
   font-size: calc(12px * var(--k));
+  color: var(--muted);
+}
+
+/* ---------- чипы подсказок клавиш (render.setHint) ----------
+   Раньше это была одна строка голого текста вида "↑↓ выбрать · Enter
+   принять · Esc в меню" — тесно, плохо читается, да ещё и Esc туда же
+   писали (хотя для него давно есть отдельная кнопка "← Назад"). Теперь
+   каждая группа "клавиша(и) + подпись" — свой аккуратный чип, Esc среди
+   них больше не упоминается вообще. */
+#hint-keys {
+  display: flex;
+  align-items: center;
+  gap: calc(14px * var(--k));
+  flex-wrap: wrap;
+}
+.hint-group {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(6px * var(--k));
+  white-space: nowrap;
+}
+.hint-group kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(20px * var(--k));
+  height: calc(20px * var(--k));
+  padding: 0 calc(6px * var(--k));
+  border-radius: calc(5px * var(--k));
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: calc(11px * var(--k));
+  line-height: 1;
+  box-shadow: 0 1px 0 var(--line);
+}
+.hint-group kbd + kbd {
+  margin-left: calc(3px * var(--k));
+}
+.hint-label {
   color: var(--muted);
 }
 
@@ -1148,6 +1192,20 @@ button.small {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   padding: calc(24px * var(--k));
+}
+.logout-btn {
+  align-self: stretch;
+  margin-top: calc(10px * var(--k));
+  color: var(--red);
+  border-color: var(--amber-dim);
+}
+.logout-btn:hover {
+  background: rgba(255, 77, 77, 0.1);
+  border-color: var(--red);
+}
+.profile-footer-btn {
+  align-self: stretch;
+  margin-top: calc(20px * var(--k));
 }
 .profile-head h2 {
   font-size: calc(20px * var(--k));

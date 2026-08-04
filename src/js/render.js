@@ -113,6 +113,7 @@ export function showLogin() {
   $("account-chip").classList.add("hidden");
   $("leaderboard-btn").classList.add("hidden");
   $("logout-button").classList.add("hidden");
+  $("check-updates-btn").classList.add("hidden");
   $("login-view").classList.remove("hidden");
 
   $("login-error").classList.add("hidden");
@@ -127,6 +128,7 @@ export function showApp() {
   $("account-chip").classList.remove("hidden");
   $("leaderboard-btn").classList.remove("hidden");
   $("logout-button").classList.remove("hidden");
+  $("check-updates-btn").classList.remove("hidden");
 }
 
 export function setLoginSubmitting(submitting) {
@@ -191,8 +193,26 @@ export function renderAccountChip(user) {
    Подсказка клавиш
    ============================================================ */
 
-export function setHint(text) {
-  $("hint-keys").textContent = state.screen === "menu" ? "" : text;
+/* ============================================================
+   Подсказка клавиш — рендерится как ряд "чипов" ⌨️ (клавиша(и) + подпись),
+   а не голым текстом с точками-разделителями. Esc сюда принципиально не
+   попадает: везде, где раньше писали "Esc — назад/в меню/выйти", уже есть
+   отдельная кнопка "← Назад"/"Выйти" для мыши/тача — Esc продолжает
+   работать как раньше (см. controls.js), просто не рекламируется текстом.
+   ============================================================ */
+
+export function setHint(groups) {
+  const el = $("hint-keys");
+  if (state.screen === "menu" || !groups || !groups.length) {
+    el.innerHTML = "";
+    return;
+  }
+  el.innerHTML = groups
+    .map(
+      ({ keys, label }) =>
+        `<span class="hint-group">${keys.map((k) => `<kbd>${escapeHtml(k)}</kbd>`).join("")}<span class="hint-label">${escapeHtml(label)}</span></span>`,
+    )
+    .join("");
 }
 
 /* ============================================================
@@ -243,7 +263,11 @@ export function renderMenuMeta() {
 function renderChaptersToolbar() {
   const editable = canEditContent();
   $("chapters-toolbar").classList.toggle("hidden", !editable);
-  $("chapter-add-btn").classList.toggle("hidden", !isAdmin()); // создавать главы — только admin
+  // Создание глав теперь разрешено и editor, и admin — см. POST /chapters
+  // на бэкенде (require_editor_or_admin). Раньше здесь стояло isAdmin(),
+  // из-за чего кнопка была не видна редактору, хотя бэкенд уже разрешал —
+  // теперь оба места согласованы.
+  $("chapter-add-btn").classList.toggle("hidden", !editable);
   const editToggle = $("chapters-edit-toggle");
   editToggle.classList.toggle("hidden", !editable);
   editToggle.classList.toggle("active", state.editMode);

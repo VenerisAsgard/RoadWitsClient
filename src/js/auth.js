@@ -16,7 +16,10 @@ async function enterApp(user) {
 
   state.menuIndex = 0;
   render.renderMenu();
-  render.setHint("↑↓ выбрать · Enter принять");
+  render.setHint([
+    { keys: ["↑", "↓"], label: "выбрать" },
+    { keys: ["Enter"], label: "принять" },
+  ]);
   render.showScreen("menu");
 
   await quiz.loadChapters();

@@ -7,6 +7,7 @@ import * as render from "./render.js";
 import * as auth from "./auth.js";
 import * as controls from "./controls.js";
 import * as api from "./api.js";
+import * as update from "./update.js";
 import { state } from "./state.js";
 import { HEALTHCHECK_POLL_MS } from "./config.js";
 
@@ -38,9 +39,19 @@ async function init() {
   // кликабельна, чтобы верстка/стили можно было проверить уже сейчас.
   render.$("no-product-key-btn").addEventListener("click", () => {});
 
+  render.$("check-updates-btn").addEventListener("click", () => {
+    update.checkForUpdates(false); // false — ручная проверка, показываем результат даже если обновлений нет
+  });
+
   await auth.tryAutoLogin();
   device.setDevtoolsAllowed(state.user?.user_type === "admin");
   render.hideSplash();
+
+  // Тихая проверка обновлений при старте — не блокирует запуск (без await
+  // в основном потоке init) и ничего не показывает, если обновлений нет
+  // или сервер обновлений недоступен. См. update.js про настройку.
+  update.checkForUpdates(true);
+
   const checkConnection = async () => {
     try { const data = await api.health(); render.renderConnection(data?.status === "ok" ? "ok" : "degraded", data?.status || "статус сервера не ok"); }
     catch (err) { render.renderConnection("offline", "Проблемы с подключением или сервером"); }
