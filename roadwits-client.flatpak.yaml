@@ -4,6 +4,7 @@ runtime-version: '25.08'
 sdk: org.freedesktop.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node22
 command: roadwits-client
 
 finish-args:
@@ -20,11 +21,10 @@ modules:
   - name: roadwits-client
     buildsystem: simple
     build-options:
-      append-path: /usr/lib/sdk/rust-stable/bin
+      append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
       build-args:
         - '--share=network'
     build-commands:
-      - npm install -g npm@10.9.2
       - npm ci --legacy-peer-deps                 # npm в корне (package.json там)
       - cd src-tauri && cargo build --release --bin roadwits-client  # cargo в src-tauri
       - install -Dm755 src-tauri/target/release/roadwits-client /app/bin/roadwits-client
