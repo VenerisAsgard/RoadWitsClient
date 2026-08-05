@@ -1,8 +1,8 @@
 [package]
 name = "roadwits-client"
-version = "0.1.0"
-description = "Roadwits — клиент лицензирования и обучения"
-authors = ["you"]
+version = "1.1.4"
+description = "Roadwits — клиент для изучения ПДД РБ"
+authors = ["VenerisAsgard <dev.va@icloud.com>"]
 edition = "2021"
 
 [build-dependencies]
@@ -15,10 +15,6 @@ serde_json = "1"
 tauri-plugin-opener = "2"
 uuid = { version = "1", features = ["v4"] }
 fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs" }
-# Self-update: апдейтер проверяет удалённый latest.json (см. endpoints в
-# tauri.conf.json), скачивает подписанный билд и ставит его; process нужен
-# только для relaunch() после установки — перезапустить приложение самому
-# tauri-plugin-updater не может.
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 
