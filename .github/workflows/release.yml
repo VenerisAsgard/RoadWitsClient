@@ -85,7 +85,7 @@ jobs:
           flatpak build-bundle repo com.roadwits.client.flatpak com.roadwits.client
 
       - name: Upload Flatpak artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: roadwits-client-flatpak
-          path: build-dir/com.roadwits.client.flatpak
+          path: com.roadwits.client.flatpak
