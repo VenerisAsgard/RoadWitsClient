@@ -1,0 +1,39 @@
+app-id: com.roadwits.client
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+command: roadwits-client
+
+finish-args:
+  - '--share=ipc'
+  - '--socket=x11'
+  - '--socket=wayland'
+  - '--device=dri'                # Критично: решает EGL_BAD_ALLOC на Arch/Hyprland
+  - '--filesystem=home'
+  - '--filesystem=xdg-config'
+  - '--filesystem=xdg-data'
+  - '--talk-name=org.freedesktop.Notifications'
+
+modules:
+  - name: roadwits-client
+    buildsystem: simple
+    build-commands:
+      - rustup default stable
+      - npm install -g npm@10.9.2
+      - npm ci --legacy-peer-deps                 # npm в корне (package.json там)
+      - cd src-tauri && cargo build --release --bin roadwits-client  # cargo в src-tauri
+      - install -Dm755 src-tauri/target/release/roadwits-client /app/bin/roadwits-client
+    sources:
+      - type: dir
+        path: .
+
+  - name: assets
+    buildsystem: simple
+    build-commands: |
+      mkdir -p /app/share/icons/hicolor/256x256/apps
+      mkdir -p /app/share/applications
+      install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/256x256/apps/com.roadwits.client.png
+      install -Dm644 roadwits-client.desktop /app/share/applications/com.roadwits.client.desktop
+    sources:
+      - type: file
+        path: roadwits-client.desktop

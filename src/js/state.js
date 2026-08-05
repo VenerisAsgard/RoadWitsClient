@@ -41,6 +41,7 @@ export const state = {
   timerSeconds: 0,
   timerHandle: null,
   connectionStatus: "checking",
+  appVersion: "", // версия приложения (Tauri, см. device.getAppVersion()) — показывается рядом со статусом сервера
   examErrors: 0,
   examFailed: false,
 

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Roadwits Client
+Comment=Tauri client for Roadwits
+Exec=roadwits-client
+Icon=com.roadwits.client
+Terminal=false
+Type=Application
+Categories=Utility;Network;

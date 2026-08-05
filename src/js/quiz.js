@@ -99,13 +99,13 @@ async function runQuiz(mode, chapterOrChapters, count) {
     questions = shuffle(pool).slice(0, Math.min(state.randomCount, pool.length));
     label = `Случайный билет · ${questions.length} вопр.`;
   } else if (mode === "exam") {
+    // Контрольный экзамен — ровно 10 билетов, без фаз (см. правку про экзамен).
     const pool = await getQuestionPool();
-    questions = shuffle(pool).slice(0, Math.min(20, pool.length));
+    questions = shuffle(pool).slice(0, Math.min(10, pool.length));
     label = "Контрольный экзамен";
   }
 
   state.questions = questions;
-  render.$("q-total").textContent = questions.length;
   render.$("q-chapter-label").textContent = label;
 
   const timerEl = render.$("q-timer");
@@ -172,7 +172,38 @@ export function answerMove(delta) {
 
 export function skipQuestion() {
   delete state.selected[state.questions[state.currentQ]?.id];
-  questionNext();
+  goToNextUnanswered();
+}
+
+/**
+ * "Продолжить" и Space — в отличие от обычного "следующий вопрос" (стрелки/
+ * клик по точке), ведут не строго по порядку, а к ближайшему неотвеченному
+ * вопросу дальше по списку (по кругу, если такие остались только позади).
+ * Если неотвеченных больше нет — тест закончен.
+ */
+export function goToNextUnanswered() {
+  const n = state.questions.length;
+  if (!n) return;
+  for (let step = 1; step <= n; step++) {
+    const idx = (state.currentQ + step) % n;
+    if (state.answers[state.questions[idx].id] === undefined) {
+      state.currentQ = idx;
+      render.renderQuestion();
+      return;
+    }
+  }
+  finishQuiz();
+}
+
+/** Стрелки навигации между фазами (по 10 вопросов) в топбаре — только random > 10 вопросов. */
+export function phaseMove(delta) {
+  if (state.mode !== "random" || state.questions.length <= 10) return;
+  const totalPhases = Math.ceil(state.questions.length / 10);
+  const currentPhase = Math.floor(state.currentQ / 10);
+  const nextPhase = Math.max(0, Math.min(totalPhases - 1, currentPhase + delta));
+  if (nextPhase === currentPhase) return;
+  state.currentQ = nextPhase * 10;
+  render.renderQuestion();
 }
 
 function firstUnanswered() {
@@ -296,6 +327,7 @@ export async function finishQuiz(forcedFail = false) {
   const total = state.questions.length;
   const pct = total ? Math.round((correct / total) * 100) : 0;
   const isExam = state.mode === "exam";
+  const isChapter = state.mode === "chapter";
   const passed = isExam ? !forcedFail && !state.examFailed && state.examErrors <= 1 : null; // экзамен: максимум одна ошибка
   const settings = state.user?.settings && typeof state.user.settings === "object" ? state.user.settings : {};
   const stats = settings.quiz_stats && typeof settings.quiz_stats === "object" ? settings.quiz_stats : {};
@@ -303,13 +335,22 @@ export async function finishQuiz(forcedFail = false) {
   stats[key] = { ...(stats[key] || {}), passed: (stats[key]?.passed || 0) + (passed === true ? 1 : 0), failed: (stats[key]?.failed || 0) + (passed === false ? 1 : 0), answered: (stats[key]?.answered || 0) + correct, unanswered: (stats[key]?.unanswered || 0) + (total - Object.keys(state.answers).length) };
   if (state.user) { state.user.settings = { ...settings, quiz_stats: stats }; api.updateSettings(state.token, state.user.settings).catch(() => {}); }
 
+  // Тренировка по главам — не тест: отдельного экрана с результатом (гейдж,
+  // разбор ответов) у неё нет, только короткий итог и возврат туда, откуда
+  // тренировку запустили (см. правку "никаких результатов там не должно быть").
+  if (isChapter) {
+    render.toast(`Готово: ${correct} из ${total} правильно`, "info", 6000);
+    returnToOrigin();
+    return;
+  }
+
   render.showScreen("result");
   render.renderResult({ correct, total, pct, passed, isExam });
 
   state.reviewIndex = 0;
   render.buildReview();
   render.setHint([
-    { keys: ["↑", "↓"], label: "разбор ответов" },
+    { keys: ["←", "→"], label: "разбор ответов" },
     { keys: ["Enter"], label: "пройти ещё раз" },
   ]);
 }
@@ -402,6 +443,24 @@ export async function requestExit() {
     danger: true,
   });
   if (ok) returnToOrigin();
+}
+
+/**
+ * Кнопка "Завершить" (теперь красная, у навигатора вопросов) — раньше
+ * заканчивала тест сразу по клику, без подтверждения. Кнопка стала заметнее
+ * и легче нажимается случайно, поэтому теперь так же подтверждается
+ * модалкой, как и выход по Esc (см. requestExit выше).
+ */
+export async function requestFinish() {
+  if (state.screen !== "question") return;
+  const ok = await render.confirmDialog({
+    title: "Завершить тест?",
+    text: "Вопросы без ответа будут засчитаны как неотвеченные.",
+    confirmLabel: "Да, завершить",
+    cancelLabel: "Остаться",
+    danger: true,
+  });
+  if (ok) finishQuiz();
 }
 
 /**

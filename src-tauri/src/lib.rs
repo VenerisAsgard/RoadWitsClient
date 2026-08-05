@@ -119,6 +119,25 @@ pub fn run() {
             load_token,
             clear_token
         ])
+        .setup(|app| {
+            // Окно создаётся скрытым (tauri.conf.json → windows[0].visible:
+            // false), чтобы не было короткого пустого/белого кадра до того,
+            // как webview успеет что-то отрисовать (см. main.js — там оно
+            // показывается сразу же, как только сплэш уже в DOM). Но если
+            // фронтенд по какой-то причине не успеет выполниться (упавший
+            // скрипт, медленная загрузка) — окно не должно остаться скрытым
+            // навсегда, поэтому здесь отдельный подстраховочный таймер: если
+            // окно всё ещё не показано через 3 секунды, показываем его сами.
+            if let Some(window) = app.get_webview_window("main") {
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    if let Ok(false) = window.is_visible() {
+                        let _ = window.show();
+                    }
+                });
+            }
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

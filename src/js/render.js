@@ -30,6 +30,18 @@ export function renderConnection(status, detail = "") {
   el.title = detail;
 }
 
+/**
+ * Версия приложения — отдельный элемент рядом со статусом сервера в
+ * status-bar (не часть его textContent: так своя стилизация и не нужно
+ * склеивать/расклеивать строку на каждый вызов renderConnection, который
+ * дёргается раз в HEALTHCHECK_POLL_MS). См. device.getAppVersion(), main.js.
+ */
+export function renderAppVersion(version) {
+  const el = $("app-version");
+  if (!el) return;
+  el.textContent = version ? `v${version}` : "";
+}
+
 /* ============================================================
    Всё, что пришло с бэкенда или было введено редактором, вставляется
    через innerHTML — значит, обязано экранироваться. Раньше этого не
@@ -203,7 +215,13 @@ export function renderAccountChip(user) {
 
 export function setHint(groups) {
   const el = $("hint-keys");
-  if (state.screen === "menu" || !groups || !groups.length) {
+  const bar = $("hint-bar");
+  const empty = state.screen === "menu" || !groups || !groups.length;
+  // Пустая плашка подсказок — просто серая полоса без смысла (см. правку
+  // "прятать hint-bar, если подсказок нет"): не просто чистим текст, а
+  // убираем саму панель из раскладки, чтобы она не занимала место.
+  if (bar) bar.classList.toggle("hidden", empty);
+  if (empty) {
     el.innerHTML = "";
     return;
   }
@@ -409,9 +427,20 @@ export function renderRandomCount() {
 export function renderQuestion() {
   const q = state.questions[state.currentQ];
   if (!q) return;
-  $("q-current").textContent = state.currentQ + 1;
   const phase = $("q-phase");
-  if (phase) phase.textContent = state.mode === "random" && state.questions.length > 10 ? `Фаза ${Math.floor(state.currentQ / 10) + 1}` : "";
+  const phaseNav = $("q-phase-nav");
+  const showPhaseNav = state.mode === "random" && state.questions.length > 10;
+  if (phaseNav) phaseNav.classList.toggle("hidden", !showPhaseNav);
+  if (phase) {
+    const totalPhases = Math.ceil(state.questions.length / 10);
+    phase.textContent = showPhaseNav ? `Фаза ${Math.floor(state.currentQ / 10) + 1} из ${totalPhases}` : "";
+  }
+  if (showPhaseNav) {
+    const totalPhases = Math.ceil(state.questions.length / 10);
+    const currentPhase = Math.floor(state.currentQ / 10);
+    $("q-phase-prev").disabled = currentPhase === 0;
+    $("q-phase-next").disabled = currentPhase === totalPhases - 1;
+  }
 
   const imgWrap = $("q-image-wrap");
   if (q.image) {
@@ -455,13 +484,42 @@ export function renderQuestion() {
     explainEl.textContent = "";
   }
 
-  renderQuestionDots();
+  // Продолжить — заменяет собой прежнюю постоянную кнопку "Завершить" под
+  // вопросом: появляется только когда на текущий вопрос уже есть
+  // подтверждённый ответ, а не с самого начала (см. правку про кнопки).
+  const continueBtn = $("q-btn-continue");
+  if (continueBtn) continueBtn.classList.toggle("hidden", confirmed === undefined);
+
+  renderQuestionNav();
 }
 
-function renderQuestionDots() {
-  const wrap = $("q-dots");
-  wrap.innerHTML = "";
-  state.questions.forEach((q, i) => {
+/**
+ * Навигация под топбаром — ровно один из двух вариантов одновременно:
+ *  - "вкладки" (точки) для random/exam — но не все сразу: только точки
+ *    текущей "фазы" из 10 вопросов, следующие 10 подменяют их, когда
+ *    прохождение до них доходит (currentQ переходит в следующий десяток).
+ *  - для chapter — простые стрелки назад/вперёд со счётчиком "N / всего",
+ *    без вкладок и без результата в конце (см. quiz.finishQuiz).
+ */
+function renderQuestionNav() {
+  const dotsWrap = $("q-dots");
+  const arrowNav = $("q-arrow-nav");
+  const isChapter = state.mode === "chapter";
+
+  arrowNav.classList.toggle("hidden", !isChapter);
+  dotsWrap.classList.toggle("hidden", isChapter);
+
+  if (isChapter) {
+    $("q-arrow-counter").textContent = `${state.currentQ + 1} / ${state.questions.length}`;
+    $("q-prev-btn").disabled = state.currentQ === 0;
+    return;
+  }
+
+  dotsWrap.innerHTML = "";
+  const start = Math.floor(state.currentQ / 10) * 10;
+  const end = Math.min(start + 10, state.questions.length);
+  for (let i = start; i < end; i++) {
+    const q = state.questions[i];
     const answerIdx = state.answers[q.id];
     const revealed = state.mode !== "exam";
 
@@ -470,18 +528,6 @@ function renderQuestionDots() {
       squareState = revealed ? (answerIdx === q.correctIndex ? "correct" : "wrong") : "answered";
     }
 
-    if (i % 10 === 0 && i > 0) {
-      const divider = document.createElement("span");
-      divider.className = "phase-divider";
-      divider.textContent = `Фаза ${Math.floor(i / 10) + 1}`;
-      wrap.appendChild(divider);
-    }
-    if (i % 10 === 0 && i > 0) {
-      const divider = document.createElement("span");
-      divider.className = "phase-divider";
-      divider.textContent = "Фаза " + (Math.floor(i / 10) + 1);
-      wrap.appendChild(divider);
-    }
     const dot = document.createElement("button");
     dot.type = "button";
     dot.className = "q-dot" + (i === state.currentQ ? " current" : "");
@@ -489,8 +535,8 @@ function renderQuestionDots() {
     dot.dataset.index = String(i);
     dot.title = `Вопрос ${i + 1}`;
     dot.textContent = String(i + 1);
-    wrap.appendChild(dot);
-  });
+    dotsWrap.appendChild(dot);
+  }
 }
 
 export function updateTimerDisplay() {
@@ -527,62 +573,81 @@ export function renderResult({ correct, total, pct, passed, isExam }) {
   $("result-summary").textContent = `Правильно: ${correct} из ${total}`;
 }
 
+/**
+ * Разбор ответов на экране результата — переиспользует те же классы
+ * (.q-dot/.q-body/.q-options и т.д.), что и сам экран прохождения теста,
+ * чтобы визуально это выглядело продолжением того же интерфейса, а не
+ * отдельным экраном (см. разметку #screen-result в index.html).
+ */
 export function buildReview() {
   const grid = $("review-grid");
   grid.innerHTML = "";
   state.questions.forEach((q, i) => {
     const userIdx = state.answers[q.id];
-    const squareState =
-      userIdx === undefined ? "unanswered" : userIdx === q.correctIndex ? "correct" : "wrong";
+    const squareState = userIdx === undefined ? "empty" : userIdx === q.correctIndex ? "correct" : "wrong";
 
-    const sq = document.createElement("button");
-    sq.type = "button";
-    sq.className = "review-square" + (i === state.reviewIndex ? " active" : "");
-    sq.dataset.index = String(i);
-    sq.dataset.state = squareState;
-    sq.title = `Вопрос ${i + 1}`;
-    sq.textContent = String(i + 1);
-    grid.appendChild(sq);
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "q-dot" + (i === state.reviewIndex ? " current" : "");
+    dot.dataset.state = squareState;
+    dot.dataset.index = String(i);
+    dot.title = `Вопрос ${i + 1}`;
+    dot.textContent = String(i + 1);
+    grid.appendChild(dot);
   });
   renderReviewDetail();
 }
 
 function renderReviewDetail() {
   const q = state.questions[state.reviewIndex];
-  const wrap = $("review-detail");
-  if (!q) {
-    wrap.innerHTML = "";
-    return;
-  }
+  if (!q) return;
   const userIdx = state.answers[q.id];
-  const correct = userIdx === q.correctIndex;
-  const userLine =
-    userIdx === undefined
-      ? `<p class="rev-wrong">Ответ не выбран</p>`
-      : correct
-        ? `<p class="rev-correct">Ваш ответ: ${userIdx + 1}) ${escapeHtml(q.options[userIdx])} — верно</p>`
-        : `<p class="rev-wrong">Ваш ответ: ${userIdx + 1}) ${escapeHtml(q.options[userIdx])}</p>`;
-  const correctLine = !correct && q.correctIndex >= 0
-    ? `<p class="rev-correct">Верно: ${q.correctIndex + 1}) ${escapeHtml(q.options[q.correctIndex])}</p>`
-    : "";
-  wrap.innerHTML = `
-    <p class="rev-q">${state.reviewIndex + 1}. ${escapeHtml(q.text)}</p>
-    ${userLine}
-    ${correctLine}
-    <p class="rev-explain">${escapeHtml(q.explanation)}</p>
-  `;
+
+  const imgWrap = $("review-image-wrap");
+  if (q.image) {
+    imgWrap.classList.remove("hidden");
+    $("review-image").src = q.image;
+  } else {
+    imgWrap.classList.add("hidden");
+  }
+
+  $("review-text").textContent = `${state.reviewIndex + 1}. ${q.text}`;
+
+  const optsWrap = $("review-options");
+  optsWrap.innerHTML = "";
+  q.options.forEach((opt, i) => {
+    const li = document.createElement("li");
+    li.className = "q-option";
+    li.dataset.index = String(i);
+    if (i === q.correctIndex) li.classList.add("correct");
+    else if (i === userIdx) li.classList.add("wrong");
+    li.innerHTML = `<span class="o-key">${i + 1}</span><span>${escapeHtml(opt)}</span>`;
+    optsWrap.appendChild(li);
+  });
+
+  $("review-answer-line").textContent =
+    userIdx === undefined ? "ОТВЕТ НЕ ВЫБРАН" : `ВАШ ОТВЕТ: ${userIdx + 1}`;
+
+  const explainEl = $("review-explain");
+  if (q.explanation) {
+    explainEl.textContent = q.explanation;
+    explainEl.classList.remove("hidden");
+  } else {
+    explainEl.classList.add("hidden");
+    explainEl.textContent = "";
+  }
 }
 
 export function scrollActiveReviewIntoView() {
-  const active = $("review-grid").querySelector(".review-square.active");
+  const active = $("review-grid").querySelector(".q-dot.current");
   if (active) active.scrollIntoView({ block: "nearest" });
 }
 
-/** Для навигации (стрелки/клик) — не перестраивает всю сетку, только активный квадрат + деталь. */
+/** Для навигации (стрелки/клик) — не перестраивает всю сетку, только активную точку + деталь. */
 export function updateReviewActive() {
   const grid = $("review-grid");
-  grid.querySelectorAll(".review-square").forEach((sq) => {
-    sq.classList.toggle("active", Number(sq.dataset.index) === state.reviewIndex);
+  grid.querySelectorAll(".q-dot").forEach((dot) => {
+    dot.classList.toggle("current", Number(dot.dataset.index) === state.reviewIndex);
   });
   renderReviewDetail();
 }

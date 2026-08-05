@@ -148,10 +148,10 @@ export function initKeyboardControls() {
       }
 
       case "result": {
-        if (key === "ArrowUp") {
+        if (key === "ArrowLeft") {
           e.preventDefault();
           quiz.reviewMove(-1);
-        } else if (key === "ArrowDown") {
+        } else if (key === "ArrowRight") {
           e.preventDefault();
           quiz.reviewMove(1);
         } else if (key === "Enter") {
@@ -452,7 +452,12 @@ export function initMouseControls() {
     render.openImageViewer(render.$("q-image").getAttribute("src"));
   });
   render.$("image-viewer").addEventListener("click", () => render.closeImageViewer());
-  render.$("q-btn-finish").addEventListener("click", () => quiz.finishQuiz());
+  render.$("q-btn-finish").addEventListener("click", () => quiz.requestFinish());
+  render.$("q-btn-continue").addEventListener("click", () => quiz.goToNextUnanswered());
+  render.$("q-prev-btn").addEventListener("click", () => quiz.questionPrev());
+  render.$("q-next-btn").addEventListener("click", () => quiz.questionNext());
+  render.$("q-phase-prev").addEventListener("click", () => quiz.phaseMove(-1));
+  render.$("q-phase-next").addEventListener("click", () => quiz.phaseMove(1));
   render.$("q-dots").addEventListener("click", (e) => {
     const dot = e.target.closest(".q-dot");
     if (!dot) return;
@@ -460,9 +465,14 @@ export function initMouseControls() {
   });
 
   render.$("review-grid").addEventListener("click", (e) => {
-    const sq = e.target.closest(".review-square");
-    if (!sq) return;
-    quiz.reviewJumpTo(Number(sq.dataset.index));
+    const dot = e.target.closest(".q-dot");
+    if (!dot) return;
+    quiz.reviewJumpTo(Number(dot.dataset.index));
+  });
+  // Клик по иллюстрации в разборе ответов — тоже открывается во весь экран,
+  // как и во время самого прохождения теста (см. q-image-wrap выше).
+  render.$("review-image-wrap").addEventListener("click", () => {
+    render.openImageViewer(render.$("review-image").getAttribute("src"));
   });
 
   /* ---------- результат ---------- */

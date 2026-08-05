@@ -51,6 +51,20 @@ export async function clearToken() {
   }
 }
 
+/**
+ * Версия приложения (из tauri.conf.json/Cargo.toml) — показывается в
+ * status-bar рядом со статусом сервера, чтобы было видно, какая сборка
+ * запущена, не открывая "О программе". Требует core:app:allow-version
+ * в capabilities/default.json.
+ */
+export async function getAppVersion() {
+  try {
+    return await window.__TAURI__.app.getVersion();
+  } catch (err) {
+    return "";
+  }
+}
+
 /* ============================================================
    Управление окном (кастомный титлбар, decorations:false)
    ============================================================ */

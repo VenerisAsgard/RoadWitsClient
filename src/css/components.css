@@ -206,6 +206,7 @@ button.small {
 .q-dots {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: calc(6px * var(--k));
   margin-bottom: 18px;
 }
@@ -506,11 +507,6 @@ button.small {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-.q-progress {
-  font-family: var(--font-mono);
-  font-size: calc(13px * var(--k));
-  color: var(--ink);
-}
 .q-timer {
   font-family: var(--font-mono);
   font-size: calc(16px * var(--k));
@@ -651,15 +647,15 @@ button.small {
 }
 .gauge-score {
   font-family: var(--font-mono);
-  font-size: calc(28px * var(--k));
+  font-size: calc(16px * var(--k));
   font-weight: 700;
   white-space: nowrap;
 }
 .gauge-verdict {
   font-family: var(--font-display);
-  font-size: calc(13px * var(--k));
+  font-size: calc(9.5px * var(--k));
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   color: var(--muted);
 }
 
@@ -669,83 +665,14 @@ button.small {
   color: var(--ink);
   margin: 0 0 10px;
 }
-.result-hint {
-  font-family: var(--font-mono);
-  font-size: calc(12px * var(--k));
-  color: var(--faint);
-  margin: 0 0 14px;
-}
 .result-actions {
   display: flex;
   gap: calc(10px * var(--k));
 }
 
-.review-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(calc(32px * var(--k)), 1fr));
-  gap: calc(6px * var(--k));
-  max-height: calc(190px * var(--k));
-  overflow-y: auto;
-  padding: calc(6px * var(--k));
-  border: 1px solid var(--line);
-  background: var(--panel);
-}
-.review-square {
-  aspect-ratio: 1;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
-  font-size: calc(11px * var(--k));
-  font-weight: 700;
-  color: var(--bg);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform var(--transition-fast);
-}
-.review-square:hover {
-  transform: scale(1.1);
-}
-.review-square[data-state="correct"] {
-  background: var(--green);
-}
-.review-square[data-state="wrong"] {
-  background: var(--red);
-}
-.review-square[data-state="unanswered"] {
-  background: var(--amber);
-}
-.review-square.active {
-  outline: 2px solid var(--ink);
-  outline-offset: 1px;
-}
-
-.review-detail {
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
-  overflow-y: auto;
-}
-.review-detail .rev-q {
-  font-family: var(--font-display);
-  font-size: calc(15px * var(--k));
-  font-weight: 600;
-  margin: 0 0 6px;
-}
-.review-detail p {
-  margin: 3px 0;
-  font-size: calc(13px * var(--k));
-}
-.review-detail .rev-correct {
-  color: var(--green);
-}
-.review-detail .rev-wrong {
-  color: var(--red);
-}
-.review-detail .rev-explain {
-  color: var(--muted);
-  font-style: italic;
-}
+/* Разбор ответов (#screen-result) переиспользует .q-dots/.q-body/.q-options
+   и т.д. напрямую (см. index.html) — отдельных .review-*/.rev-* стилей
+   больше не нужно. */
 
 /* ---------- подсказка клавиш снизу ---------- */
 .hint-bar {
@@ -800,13 +727,135 @@ button.small {
   color: var(--muted);
 }
 
-/* ---------- кнопка "Завершить" под вопросом — единственный способ
-   принудительно закончить тест раньше времени (мышь/тач) ---------- */
+/* ---------- ряд навигации под топбаром: "Завершить" слева (красная,
+   принудительно заканчивает тест раньше времени), а справа — либо
+   вкладки-точки (random/exam), либо стрелки со счётчиком (chapter);
+   вкладки центрируются в оставшемся месте, а не прижаты к краю ---------- */
+.q-nav-row {
+  display: flex;
+  align-items: center;
+  gap: calc(16px * var(--k));
+  margin-bottom: 18px;
+}
+.q-nav-row .q-dots {
+  flex: 1;
+  justify-content: center;
+  margin-bottom: 0;
+}
+.q-btn-finish {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: calc(12.5px * var(--k));
+  padding: calc(9px * var(--k)) calc(16px * var(--k));
+  border: 1px solid var(--red);
+  background: var(--panel);
+  color: var(--red);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+.q-btn-finish:hover {
+  background: var(--red);
+  color: var(--bg);
+}
+
+/* ---------- тренировка по главам: стрелки + счётчик вместо вкладок ---------- */
+.q-arrow-nav {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(20px * var(--k));
+}
+.q-arrow-btn {
+  width: calc(38px * var(--k));
+  height: calc(38px * var(--k));
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: calc(19px * var(--k));
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast),
+    opacity var(--transition-fast);
+}
+.q-arrow-btn:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  transform: translateY(-1px);
+}
+.q-arrow-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.94);
+}
+.q-arrow-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.q-arrow-counter {
+  font-family: var(--font-mono);
+  font-size: calc(14px * var(--k));
+  color: var(--ink);
+  min-width: 6ch;
+  text-align: center;
+}
+
+/* ---------- стрелки навигации между фазами (случайный билет > 10 вопросов),
+   рядом с надписью "Фаза X из Y" в топбаре — компактнее, чем q-arrow-btn,
+   вписаны в высоту топбара ---------- */
+.q-phase-nav {
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--k));
+}
+.q-phase-arrow {
+  width: calc(20px * var(--k));
+  height: calc(20px * var(--k));
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: calc(13px * var(--k));
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+.q-phase-arrow:hover:not(:disabled) {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: var(--bg);
+}
+.q-phase-arrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ---------- "Продолжить" под вопросом — появляется вместо прежней
+   постоянной кнопки "Завершить" здесь, только когда на текущий вопрос
+   уже есть подтверждённый ответ (см. render.renderQuestion) ---------- */
 .q-actions {
   display: flex;
   margin-top: 14px;
+  min-height: calc(38px * var(--k)); /* держит место, чтобы кнопка не дёргала раскладку при появлении */
 }
-.q-btn-finish {
+.q-btn-continue {
   font-family: var(--font-mono);
   font-size: calc(12.5px * var(--k));
   padding: calc(9px * var(--k)) calc(16px * var(--k));
@@ -816,22 +865,18 @@ button.small {
   cursor: pointer;
   transition: background var(--transition-fast);
 }
-.q-btn-finish:hover {
+.q-btn-continue:hover {
   background: rgba(255, 176, 32, 0.1);
 }
 
 /* ---------- тонкие скроллбары для внутренних списков ---------- */
 .chapter-list::-webkit-scrollbar,
 .split-detail::-webkit-scrollbar,
-.review-grid::-webkit-scrollbar,
-.review-detail::-webkit-scrollbar,
 .q-options::-webkit-scrollbar {
   width: calc(7px * var(--k));
 }
 .chapter-list::-webkit-scrollbar-thumb,
 .split-detail::-webkit-scrollbar-thumb,
-.review-grid::-webkit-scrollbar-thumb,
-.review-detail::-webkit-scrollbar-thumb,
 .q-options::-webkit-scrollbar-thumb {
   background: var(--line);
 }
@@ -1326,9 +1371,8 @@ button.small {
 }
 
 /* ---------- добавлено в client3: индикатор соединения, стопка тостов, настройки профиля, светлая тема ---------- */
-.belarus-mark{display:flex;align-items:center;gap:10px;margin:0 0 10px;color:var(--muted);font-family:var(--font-mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase}.belarus-mark span:first-child{font-size:26px}.connection-status{font-family:var(--font-mono);font-size:11px;color:var(--muted)}.connection-status[data-status="ok"]{color:var(--green)}.connection-status[data-status="degraded"]{color:var(--amber)}.connection-status[data-status="offline"]{color:var(--red)}.toast-stack{position:fixed;right:18px;bottom:18px;z-index:130;display:flex;flex-direction:column;gap:8px;align-items:flex-end}.profile-settings{margin-top:22px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:10px}.profile-settings label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}:root[data-theme="light"]{--bg:#f4f5f7;--panel:#fff;--panel-2:#e9edf2;--ink:#18202a;--muted:#5d6875;--faint:#87919e;--line:#d1d8e0;color-scheme:light}:root[data-theme="light"] .q-image-wrap{background:#fff}
+.belarus-mark{display:flex;align-items:center;gap:10px;margin:0 0 10px;color:var(--muted);font-family:var(--font-mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase}.belarus-mark span:first-child{font-size:26px}.connection-status{font-family:var(--font-mono);font-size:11px;color:var(--muted)}.connection-status[data-status="ok"]{color:var(--green)}.connection-status[data-status="degraded"]{color:var(--amber)}.connection-status[data-status="offline"]{color:var(--red)}.app-version{font-family:var(--font-mono);font-size:11px;color:var(--faint);margin-left:10px;padding-left:10px;border-left:1px solid var(--line)}.toast-stack{position:fixed;right:18px;bottom:18px;z-index:130;display:flex;flex-direction:column;gap:8px;align-items:flex-end}.profile-settings{margin-top:22px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:10px}.profile-settings label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}:root[data-theme="light"]{--bg:#f4f5f7;--panel:#fff;--panel-2:#e9edf2;--ink:#18202a;--muted:#5d6875;--faint:#87919e;--line:#d1d8e0;color-scheme:light}:root[data-theme="light"] .q-image-wrap{background:#fff}
 /* ---------- добавлено в client4: индикатор фазы экзамена, счётчик ошибок ---------- */
-.phase-divider { flex-basis: 100%; color: var(--faint); font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; margin: 8px 0 0; }
 .q-phase { font-family: var(--font-mono); font-size: 12px; color: var(--amber); text-transform: uppercase; letter-spacing: .06em; }
 .result-errors { font-family: var(--font-mono); font-size: 12px; color: var(--red); margin: 0 0 12px; }
 .toast-info { border-left-color: var(--amber); }

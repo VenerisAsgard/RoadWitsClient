@@ -2857,7 +2857,7 @@ dependencies = [
 
 [[package]]
 name = "roadwits-client"
-version = "0.1.0"
+version = "1.1.5"
 dependencies = [
  "fix-path-env",
  "serde",

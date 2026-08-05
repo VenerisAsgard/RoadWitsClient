@@ -115,11 +115,27 @@
         <section class="screen hidden" id="screen-question" data-screen="question">
           <div class="q-topbar">
             <span class="q-chapter" id="q-chapter-label">Глава 1</span>
-            <span class="q-progress"><span id="q-current">1</span>/<span id="q-total">5</span></span>
-            <span class="q-phase" id="q-phase"></span>
+            <div class="q-phase-nav hidden" id="q-phase-nav">
+              <button class="q-phase-arrow" id="q-phase-prev" type="button" title="Предыдущая фаза">‹</button>
+              <span class="q-phase" id="q-phase"></span>
+              <button class="q-phase-arrow" id="q-phase-next" type="button" title="Следующая фаза">›</button>
+            </div>
             <span class="q-timer hidden" id="q-timer">15:00</span>
           </div>
-          <div class="q-dots" id="q-dots"></div>
+
+          <!-- Завершить — всегда слева; справа от неё либо точки-вкладки
+               (случайный билет/экзамен), либо стрелки + счётчик (тренировка
+               по главам, см. render.renderQuestionNav) — ровно одно из двух
+               видно одновременно. -->
+          <div class="q-nav-row">
+            <button class="q-btn-finish" id="q-btn-finish" type="button">Завершить</button>
+            <div class="q-dots" id="q-dots"></div>
+            <div class="q-arrow-nav hidden" id="q-arrow-nav">
+              <button class="q-arrow-btn" id="q-prev-btn" type="button" title="Предыдущий вопрос">‹</button>
+              <span class="q-arrow-counter" id="q-arrow-counter">1 / 10</span>
+              <button class="q-arrow-btn" id="q-next-btn" type="button" title="Следующий вопрос">›</button>
+            </div>
+          </div>
 
           <div class="q-body">
             <div class="q-image-wrap hidden" id="q-image-wrap">
@@ -131,13 +147,20 @@
               <p class="q-answer-line">ВАШ ОТВЕТ: <span id="q-answer-value">_</span></p>
               <p class="q-explain hidden" id="q-explain"></p>
               <div class="q-actions">
-                <button class="q-btn-finish" id="q-btn-finish" type="button">Завершить</button>
+                <!-- Продолжить — появляется вместо прежней постоянной кнопки
+                     "Завершить" здесь, только когда на текущий вопрос уже
+                     есть подтверждённый ответ (см. render.renderQuestion). -->
+                <button class="q-btn-continue hidden" id="q-btn-continue" type="button">Продолжить</button>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- RESULT -->
+        <!-- RESULT — сознательно переиспользует вёрстку/классы экрана вопроса
+             (q-dots/q-body/q-options и т.д.), чтобы разбор ответов выглядел
+             как продолжение прохождения теста, а не отдельный незнакомый
+             экран; гейдж/итог/кнопки сверху — то, что относится именно
+             к результату. -->
         <section class="screen hidden" id="screen-result" data-screen="result">
           <div class="result-top">
             <div class="gauge-wrap">
@@ -153,16 +176,25 @@
             <div class="result-info">
               <p class="result-summary" id="result-summary">—</p>
               <p class="result-errors hidden" id="result-errors"></p>
-              <p class="result-hint">↑↓ или клик — разбор ответов · Enter — пройти ещё раз · Esc — в меню</p>
               <div class="result-actions">
                 <button id="result-retry-btn" type="button">Пройти ещё раз</button>
                 <button class="ghost" id="result-menu-btn" type="button">В меню</button>
               </div>
             </div>
           </div>
-          <div class="review-wrap">
-            <div class="review-grid" id="review-grid"></div>
-            <div class="review-detail" id="review-detail"></div>
+
+          <div class="q-dots" id="review-grid"></div>
+
+          <div class="q-body">
+            <div class="q-image-wrap hidden" id="review-image-wrap">
+              <img id="review-image" alt="Иллюстрация к вопросу" title="Нажми, чтобы увеличить" />
+            </div>
+            <div class="q-content">
+              <p class="q-text" id="review-text">—</p>
+              <ul class="q-options" id="review-options"></ul>
+              <p class="q-answer-line" id="review-answer-line"></p>
+              <p class="q-explain" id="review-explain"></p>
+            </div>
           </div>
         </section>
 
@@ -189,6 +221,7 @@
          "offline" (см. render.renderConnection). -->
     <div class="status-bar" id="status-bar">
       <span id="connection-status" class="connection-status" data-status="checking">Сервер: проверка…</span>
+      <span id="app-version" class="app-version"></span>
     </div>
 
     <!-- Модалка форм редактирования (глава/вопрос/лицензия) — один переиспользуемый

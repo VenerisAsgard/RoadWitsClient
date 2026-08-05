@@ -48,16 +48,14 @@ async function reloadChapters() {
 }
 
 function chapterFormHtml(chapter) {
+  // Описание теперь редактируется точно так же, как при создании —
+  // и для новой главы, и для существующей это одно и то же поле формы.
   return `
     <form id="chapter-form">
       <label>Название
         <input name="title" required value="${escapeAttr(chapter?.title ?? "")}" />
       </label>
-      ${
-        chapter
-          ? "" // editor может менять только title — бэкенд остальное отклонит (см. PATCH /chapters/{id})
-          : `<label>Описание<textarea name="description" rows="3"></textarea></label>`
-      }
+      <label>Описание<textarea name="description" rows="3">${escapeHtml(chapter?.description ?? "")}</textarea></label>
       <div class="modal-actions">
         <button type="button" class="ghost" data-action="modal-cancel">Отмена</button>
         <button type="submit">${chapter ? "Сохранить" : "Создать"}</button>
@@ -72,11 +70,23 @@ function wireChapterForm(chapter) {
     e.preventDefault();
     const title = form.title.value.trim();
     if (!title) return;
+    const description = form.description.value.trim();
     try {
       if (chapter) {
-        await api.updateChapterTitle(state.token, chapter.id, title);
+        try {
+          await api.updateChapter(state.token, chapter.id, { title, description });
+        } catch (err) {
+          // Роль editor: бэкенд разрешает менять только title (см. api.js) —
+          // если запрос с description отклонён именно поэтому, тихо
+          // повторяем без него, чтобы хотя бы название сохранилось.
+          if (err instanceof api.ApiError && err.status === 403) {
+            await api.updateChapterTitle(state.token, chapter.id, title);
+            render.toast("Название сохранено, описание может менять только администратор", "info");
+          } else {
+            throw err;
+          }
+        }
       } else {
-        const description = form.description.value.trim();
         await api.createChapter(state.token, { title, description });
       }
       render.closeModal();

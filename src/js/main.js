@@ -12,6 +12,15 @@ import { state } from "./state.js";
 import { HEALTHCHECK_POLL_MS } from "./config.js";
 
 async function init() {
+  // Показываем окно, как только это можно сделать (сразу после того, как
+  // сплэш уже нарисован статичной вёрсткой) — окно создаётся скрытым
+  // (tauri.conf.json → windows[0].visible: false) именно для этого: раньше
+  // окно появлялось сразу в момент создания, ДО того, как webview успевал
+  // хоть что-то отрисовать, из-за чего был короткий пустой/белый кадр и
+  // ощущение, что приложение "подвисло" при запуске. Индикатора загрузки
+  // при этом не было никакого — теперь пользователь сразу видит сплэш.
+  window.__TAURI__?.window?.getCurrentWindow?.().show().catch(() => {});
+
   device.disableWebDefaults();
   controls.initProductKeyFormatting();
   controls.initKeyboardControls();
@@ -43,14 +52,18 @@ async function init() {
     update.checkForUpdates(false); // false — ручная проверка, показываем результат даже если обновлений нет
   });
 
+  // Версия приложения — в status-bar рядом со статусом сервера (см.
+  // render.renderConnection); не блокирует остальной init.
+  device.getAppVersion().then((v) => { state.appVersion = v; render.renderAppVersion(v); });
+
   await auth.tryAutoLogin();
   device.setDevtoolsAllowed(state.user?.user_type === "admin");
   render.hideSplash();
 
-  // Тихая проверка обновлений при старте — не блокирует запуск (без await
-  // в основном потоке init) и ничего не показывает, если обновлений нет
-  // или сервер обновлений недоступен. См. update.js про настройку.
-  update.checkForUpdates(true);
+  // Автопроверки обновлений при старте больше нет — только вручную, кнопкой
+  // "Проверить обновления" в профиле (см. обработчик выше). Апдейтер молча
+  // качал и накатывал обновление в фоне без какого-либо индикатора — теперь
+  // человек сам решает, когда обновляться.
 
   const checkConnection = async () => {
     try { const data = await api.health(); render.renderConnection(data?.status === "ok" ? "ok" : "degraded", data?.status || "статус сервера не ok"); }
