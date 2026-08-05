@@ -81,8 +81,8 @@ jobs:
         run: |
           mkdir build-dir
           # flatpak-builder берёт roadwits-client.flatpak.yaml из корня репозитория
-          flatpak-builder --force-clean --user build-dir roadwits-client.flatpak.yaml
-          flatpak build-bundle --user build-dir com.roadwits.client.flatpak com.roadwits.client
+          flatpak-builder --force-clean --user --repo=repo build-dir roadwits-client.flatpak.yaml
+          flatpak build-bundle repo com.roadwits.client.flatpak com.roadwits.client
 
       - name: Upload Flatpak artifact
         uses: actions/upload-artifact@v4
