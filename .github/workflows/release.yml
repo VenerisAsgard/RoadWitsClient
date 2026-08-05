@@ -66,7 +66,7 @@ jobs:
   release-flatpak:
     name: Build Flatpak
     runs-on: ubuntu-22.04
-    # Можно запускать параллельно с release, без зависимости
+    needs: release   # ждём, пока tauri-action создаст черновик релиза
     steps:
       - uses: actions/checkout@v7
 
@@ -89,3 +89,8 @@ jobs:
         with:
           name: roadwits-client-flatpak
           path: com.roadwits.client.flatpak
+
+      - name: Attach Flatpak to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" com.roadwits.client.flatpak --clobber

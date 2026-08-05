@@ -821,7 +821,7 @@ button.small {
 .q-phase-arrow {
   width: calc(20px * var(--k));
   height: calc(20px * var(--k));
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--line);
   background: transparent;
   color: var(--muted);
@@ -836,6 +836,11 @@ button.small {
     background var(--transition-fast),
     color var(--transition-fast),
     border-color var(--transition-fast);
+}
+.q-phase-arrow svg {
+  width: calc(11px * var(--k));
+  height: calc(11px * var(--k));
+  display: block;
 }
 .q-phase-arrow:hover:not(:disabled) {
   background: var(--amber);
