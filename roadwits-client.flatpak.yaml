@@ -37,9 +37,12 @@ modules:
     build-commands:
       - mkdir -p /app/share/icons/hicolor/256x256/apps
       - mkdir -p /app/share/applications
-      - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/256x256/apps/com.roadwits.client.png
+      - install -Dm644 128x128.png /app/share/icons/hicolor/256x256/apps/com.roadwits.client.png
       - install -Dm644 roadwits-client.desktop /app/share/applications/com.roadwits.client.desktop
     sources:
       - type: file
         path: roadwits-client.desktop
+      - type: file
+        path: src-tauri/icons/128x128.png
+        dest-filename: 128x128.png
 
