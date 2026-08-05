@@ -24,10 +24,10 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
 
@@ -68,14 +68,14 @@ jobs:
     runs-on: ubuntu-22.04
     # Можно запускать параллельно с release, без зависимости
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Flatpak & flatpak-builder
         run: |
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder
           flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user -y org.freedesktop.Sdk org.freedesktop.Platform
+          flatpak install --user -y --noninteractive flathub org.freedesktop.Sdk//25.08 org.freedesktop.Platform//25.08 org.freedesktop.Sdk.Extension.rust-stable//25.08
 
       - name: Build Flatpak bundle
         run: |

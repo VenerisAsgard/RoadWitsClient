@@ -4,6 +4,9 @@ TAURI_CONFIG="src-tauri/tauri.conf.json"
 CARGO_FILE="src-tauri/Cargo.toml"
 
 
+git fetch origin
+
+
 # Проверяем наличие файлов
 if [ ! -f "$TAURI_CONFIG" ]; then
     echo "Ошибка: нет файла $TAURI_CONFIG"
@@ -92,7 +95,7 @@ fi
 
 
 # Git commit
-git add "$TAURI_CONFIG" "$CARGO_FILE"
+git add -A
 
 git commit -m "Release v$new_version"
 
@@ -102,8 +105,8 @@ git tag -a "v$new_version" \
     -m "Release v$new_version"
 
 
-# Отправляем
-git push origin main
+# Отправляем (хардово перезаписываем main локальной версией)
+git push origin main --force-with-lease
 
 git push origin "v$new_version"
 
