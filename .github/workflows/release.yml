@@ -80,13 +80,30 @@ jobs:
           mkdir build-dir
           # манифест теперь лежит в flatpak_data/
           flatpak-builder --force-clean --user --repo=repo build-dir flatpak_data/roadwits-client.flatpak.yaml
-          flatpak build-bundle repo com.roadwits.client.flatpak com.roadwits.client
+          # --repo-url зашивает адрес OSTree-репозитория в сам бандл: после
+          # `flatpak install --user *.flatpak` remote добавится сам, и
+          # `flatpak update` будет реально знать, где искать новые версии.
+          flatpak build-bundle repo com.roadwits.client.flatpak com.roadwits.client \
+            --repo-url=https://venerisasgard.github.io/RoadWitsClient/repo
 
       - name: Upload Flatpak artifact
         uses: actions/upload-artifact@v6
         with:
           name: roadwits-client-flatpak
           path: com.roadwits.client.flatpak
+
+      - name: Publish OSTree repo to GitHub Pages
+        run: |
+          sudo apt-get install -y ostree
+          # summary обязателен — по нему flatpak update узнаёт о новых коммитах/версиях
+          ostree summary -u --repo=repo
+        # gh-pages ветка — статика, которую раздаёт GitHub Pages по URL выше
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./repo
+          publish_branch: gh-pages
+          keep_files: false
 
       - name: Wait for release draft to exist
         env:
