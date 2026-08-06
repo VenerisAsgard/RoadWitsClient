@@ -371,25 +371,11 @@ body {
   gap: 8px 16px;
   margin: 0;
 }
-.admin-panel {
-  margin-top: 24px;
-  border-top: 1px solid var(--line);
-  padding-top: 16px;
-}
-.admin-licenses {
-  display: flex;
-  flex-direction: column;
-  gap: calc(6px * var(--k));
-  max-height: calc(240px * var(--k));
-  overflow-y: auto;
-  margin-bottom: 12px;
-}
-.license-row {
-  display: flex;
-  align-items: center;
-  gap: calc(10px * var(--k));
-  padding: calc(8px * var(--k)) calc(10px * var(--k));
-}
+/* .admin-panel/.admin-licenses/.license-row (флекс-версия) убраны — с
+   переездом администрирования на отдельный экран (screen-admin) панель
+   в профиле больше не рендерится, а .license-row теперь строка <tr> в
+   таблице (см. css/components.css, блок "ЭКРАН АДМИНИСТРИРОВАНИЕ") —
+   старое display:flex здесь ломало бы табличную раскладку. */
 
 /* ---------- сплэш (оверлей внутри главного окна, не отдельное Tauri-окно) ---------- */
 .splash {

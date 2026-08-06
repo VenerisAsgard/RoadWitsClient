@@ -1543,3 +1543,160 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
   color: var(--accent);
   font-size: calc(12.5px * var(--k));
 }
+
+/* ============================================================
+   ЭКРАН "АДМИНИСТРИРОВАНИЕ" — отдельный экран (screen-admin), не часть
+   профиля: список лицензий таблицей с сортировкой по клику на заголовок,
+   поиском и копированием product key. См. js/render.js renderLicenseList,
+   js/admin.js (фильтр/сортировка), js/controls.js (делегирование кликов).
+   ============================================================ */
+#screen-admin {
+  max-width: min(calc(1320px * var(--k)), 95vw);
+}
+.admin-page {
+  display: flex;
+  flex-direction: column;
+  gap: calc(16px * var(--k));
+  min-height: 0;
+}
+.admin-page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: calc(12px * var(--k));
+}
+.admin-page-head h2 {
+  margin: 2px 0 0;
+  font-size: calc(24px * var(--k));
+}
+.admin-toolbar {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--k));
+}
+.admin-toolbar input[type="search"] {
+  width: calc(240px * var(--k));
+  max-width: 40vw;
+}
+.admin-toolbar .chapter-start {
+  /* .chapter-start обычно живёт одна в вертикальной колонке (деталь главы) —
+     margin-top/align-self оттуда здесь не нужны, кнопка в общем ряду тулбара. */
+  margin-top: 0;
+  align-self: auto;
+}
+
+/* ---------- таблица ---------- */
+.admin-table-wrap {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  overflow: auto;
+  max-height: min(calc(560px * var(--k)), 62vh);
+}
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: calc(12.5px * var(--k));
+  white-space: nowrap;
+}
+.admin-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel-2);
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: calc(11px * var(--k));
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: left;
+  padding: calc(10px * var(--k)) calc(12px * var(--k));
+  border-bottom: 1px solid var(--line);
+  user-select: none;
+}
+.admin-table th.sortable {
+  cursor: pointer;
+}
+.admin-table th.sortable:hover {
+  color: var(--ink);
+}
+.admin-table th.sorted {
+  color: var(--amber);
+}
+.admin-table .sort-arrow {
+  margin-left: 4px;
+  font-size: calc(9px * var(--k));
+}
+.admin-table th.admin-actions-head {
+  text-align: right;
+}
+.admin-table tbody td {
+  padding: calc(10px * var(--k)) calc(12px * var(--k));
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  vertical-align: middle;
+}
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.admin-table tbody tr:hover td {
+  background: var(--panel-2);
+}
+.admin-table tbody tr.blocked td {
+  opacity: 0.55;
+}
+.admin-table .license-id {
+  color: var(--faint);
+  font-family: var(--font-mono);
+}
+.admin-table .license-key {
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--k));
+}
+.admin-table .license-key-text {
+  font-family: var(--font-mono);
+  color: var(--ink);
+}
+.admin-table .license-role {
+  text-transform: uppercase;
+  font-size: calc(11px * var(--k));
+  letter-spacing: 0.04em;
+}
+.admin-table .license-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: calc(4px * var(--k));
+}
+.status-pill {
+  display: inline-block;
+  padding: calc(2px * var(--k)) calc(8px * var(--k));
+  border-radius: 999px;
+  font-size: calc(11px * var(--k));
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.status-pill.active {
+  color: var(--green);
+  background: rgba(58, 203, 110, 0.12);
+}
+.status-pill.blocked {
+  color: var(--red);
+  background: rgba(255, 77, 77, 0.12);
+}
+.admin-table-wrap .loading {
+  padding: calc(24px * var(--k));
+  text-align: center;
+  color: var(--faint);
+}
+.admin-table-wrap::-webkit-scrollbar,
+.admin-table-wrap::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.admin-table-wrap::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}

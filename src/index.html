@@ -212,6 +212,32 @@
           <button id="check-updates-btn" class="ghost small profile-footer-btn hidden" type="button">Проверить обновления</button>
           <button id="logout-button" class="ghost logout-btn hidden">Выйти</button>
         </section>
+
+        <!-- ADMIN — отдельный экран (не часть профиля): список лицензий
+             с сортировкой по столбцам, поиском и копированием ключа.
+             Доступен только admin, попасть можно только кнопкой из
+             профиля (см. render.renderProfile) — экран сам прав не
+             проверяет, как и раньше это не проверял встроенный блок. -->
+        <section class="screen hidden" id="screen-admin" data-screen="admin">
+          <button class="ghost small screen-back" id="admin-back-btn" type="button">← Профиль</button>
+          <div class="admin-page">
+            <div class="admin-page-head">
+              <div>
+                <p class="panel-label">Администрирование</p>
+                <h2>Лицензии</h2>
+              </div>
+              <div class="admin-toolbar">
+                <input id="admin-search" type="search" placeholder="Поиск: ключ, email, имя…" autocomplete="off" spellcheck="false" />
+                <button class="icon-btn" id="admin-refresh-btn" type="button" title="Обновить список">↻</button>
+                <button class="chapter-start" id="admin-license-add-btn" type="button">➕ Выдать лицензию</button>
+              </div>
+            </div>
+            <div class="admin-table-wrap" id="admin-table-wrap">
+              <p class="loading">Загрузка лицензий…</p>
+            </div>
+            <button class="ghost small" id="admin-devtools-btn" type="button">Открыть DevTools</button>
+          </div>
+        </section>
       </main>
 
       <footer class="hint-bar" id="hint-bar">

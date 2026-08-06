@@ -9,7 +9,7 @@ export const state = {
   user: null, // { id, email, first_name, last_name, license_until, user_type, is_blocked, settings, profile_photo }
 
   // --- навигация по экранам после входа ---
-  screen: "menu", // "menu" | "chapters" | "random-count" | "question" | "result" | "profile"
+  screen: "menu", // "menu" | "chapters" | "random-count" | "question" | "result" | "profile" | "admin"
   profileReturnScreen: "menu", // куда вернуться из профиля по Esc/кнопке "назад"
   originScreen: "menu", // куда вернуться, если выйти из ТЕКУЩЕГО теста незавершённым
   // (не путать с profileReturnScreen — это конкретно про "откуда начали тест":
@@ -28,6 +28,11 @@ export const state = {
   // --- редактирование контента (editor/admin) ---
   editMode: false, // переключатель "режима редактирования" на экране глав
   editorQuestions: [], // вопросы выбранной главы при просмотре её как editor/admin (не как прохождение теста)
+
+  // --- панель администрирования (экран "admin", только admin) ---
+  licenses: [], // сырой список с бэкенда (GET /admin/licenses) — несортированный, нефильтрованный
+  licenseFilter: "", // текст поиска (ключ/email/имя), см. admin.setLicenseFilter()
+  licenseSort: { field: "created_at", dir: "desc" }, // текущая сортировка таблицы, см. admin.setLicenseSort()
 
   // --- прохождение теста ---
   mode: null, // "chapter" | "random" | "exam"

@@ -171,6 +171,14 @@ export function initKeyboardControls() {
         }
         break;
       }
+
+      case "admin": {
+        if (key === "Escape") {
+          e.preventDefault();
+          render.showScreen("profile");
+        }
+        break;
+      }
     }
   });
 }
@@ -479,10 +487,10 @@ export function initMouseControls() {
   render.$("result-retry-btn").addEventListener("click", () => quiz.retryQuiz());
   render.$("result-menu-btn").addEventListener("click", () => quiz.returnToMenu());
 
-  /* ---------- профиль: панель администрирования (только admin) ---------- */
+  /* ---------- профиль: вход в панель администрирования (только admin) ---------- */
   render.$("profile-card").addEventListener("click", async (e) => {
-    if (e.target.closest("#devtools-open-btn") && state.user?.user_type === "admin") {
-      device.openDevtools();
+    if (e.target.closest("#admin-open-btn") && state.user?.user_type === "admin") {
+      quiz.openAdmin();
       return;
     }
     if (e.target.closest("[data-friend-action]")) {
@@ -506,12 +514,49 @@ export function initMouseControls() {
     }
     if (e.target.closest("#avatar-upload-btn")) {
       render.$("profile-photo-input").click();
+    }
+  });
+
+  /* ---------- админка: поиск, сортировка, копирование, действия над
+     лицензиями — всё делегировано на статичный контейнер экрана, сама
+     таблица (#admin-table-wrap) перерисовывается целиком при каждом
+     изменении (см. render.renderLicenseList). ---------- */
+  render.$("admin-back-btn").addEventListener("click", () => {
+    render.showScreen("profile");
+  });
+  render.$("admin-refresh-btn").addEventListener("click", () => {
+    admin.loadLicenses();
+  });
+  render.$("admin-license-add-btn").addEventListener("click", () => {
+    admin.promptCreateLicense();
+  });
+  render.$("admin-devtools-btn").addEventListener("click", () => {
+    if (state.user?.user_type === "admin") device.openDevtools();
+  });
+
+  let searchDebounce = null;
+  render.$("admin-search").addEventListener("input", (e) => {
+    // Небольшой дебаунс: сортировка/фильтр чисто клиентские и мгновенные,
+    // но без него перерисовка целой таблицы на каждый символ дёргает
+    // курсор фокуса и заметно на длинных списках.
+    window.clearTimeout(searchDebounce);
+    const value = e.target.value;
+    searchDebounce = window.setTimeout(() => admin.setLicenseFilter(value), 150);
+  });
+
+  render.$("admin-table-wrap").addEventListener("click", (e) => {
+    const sortHeader = e.target.closest("[data-sort]");
+    if (sortHeader) {
+      admin.setLicenseSort(sortHeader.dataset.sort);
       return;
     }
-    if (e.target.closest("#license-add-btn")) {
-      admin.promptCreateLicense();
+
+    const copyBtn = e.target.closest("[data-copy]");
+    if (copyBtn) {
+      admin.copyLicenseKey(copyBtn.dataset.copy);
       return;
     }
+
     const row = e.target.closest(".license-row");
     if (!row) return;
     const userId = Number(row.dataset.id);

@@ -237,7 +237,7 @@ export function setHint(groups) {
    Переключение экранов внутри app-shell
    ============================================================ */
 
-const SCREENS = ["menu", "chapters", "random-count", "question", "result", "profile"];
+const SCREENS = ["menu", "chapters", "random-count", "question", "result", "profile", "admin"];
 
 export function showScreen(name) {
   state.screen = name;
@@ -701,8 +701,10 @@ export function renderProfile(user) {
         <button type="button" class="icon-btn friend-add-btn" id="profile-friend-add-btn" title="Добавить друга">+</button>
       </div>
     </div>
-    ${isAdmin() ? `<div class="admin-panel" id="admin-panel"><p class="panel-label">Администрирование</p><div class="admin-licenses" id="admin-licenses"><p class="loading">Загрузка лицензий…</p></div><button class="chapter-start" id="license-add-btn" type="button">➕ Выдать лицензию</button>
-      <button class="ghost" id="devtools-open-btn" type="button">Открыть DevTools</button></div>` : ""}
+    ${isAdmin() ? `<div class="profile-settings">
+      <p class="panel-label">Администрирование</p>
+      <button class="chapter-start" id="admin-open-btn" type="button">🛠️ Панель администрирования</button>
+    </div>` : ""}
   `;
   paintAvatar($("profile-avatar"), user);
 }
@@ -765,31 +767,72 @@ export function renderFriends({ incoming, outgoing, accepted }) {
   }</ul>`;
 }
 
+/* Столбцы таблицы лицензий: field — по чему сортируем (см.
+ * admin.setLicenseSort), может не совпадать 1:1 с полем бэкенда (например,
+ * "Имя" сортирует по first_name) — сортировка чисто клиентская, бэкенд
+ * ничего об этом не знает. */
+const LICENSE_COLUMNS = [
+  { field: "id", label: "#" },
+  { field: "product_key", label: "Product key" },
+  { field: "user_type", label: "Роль" },
+  { field: "email", label: "Email" },
+  { field: "first_name", label: "Имя" },
+  { field: "license_until", label: "Годен до" },
+  { field: "is_blocked", label: "Статус" },
+  { field: "created_at", label: "Создана" },
+];
+
+function sortArrow(field) {
+  if (state.licenseSort.field !== field) return "";
+  return `<span class="sort-arrow">${state.licenseSort.dir === "asc" ? "▲" : "▼"}</span>`;
+}
+
+/** Таблица лицензий — экран "Администрирование" (#admin-table-wrap).
+ * `licenses` приходит уже отфильтрованным/отсортированным (см. admin.js) —
+ * этот модуль сам ничего не фильтрует и не сортирует, только рисует. */
 export function renderLicenseList(licenses) {
-  const wrap = $("admin-licenses");
+  const wrap = $("admin-table-wrap");
   if (!wrap) return;
+
   if (!licenses.length) {
-    wrap.innerHTML = `<p class="loading">Лицензий пока нет.</p>`;
+    wrap.innerHTML = state.licenseFilter.trim()
+      ? `<p class="loading">Ничего не найдено по запросу «${escapeHtml(state.licenseFilter)}».</p>`
+      : `<p class="loading">Лицензий пока нет.</p>`;
     return;
   }
-  wrap.innerHTML = "";
-  licenses.forEach((lic) => {
-    const row = document.createElement("div");
-    row.className = "license-row" + (lic.is_blocked ? " blocked" : "");
-    row.dataset.id = String(lic.id);
-    row.innerHTML = `
-      <span class="license-key">${escapeHtml(lic.product_key)}</span>
-      <span class="license-role">${ROLE_LABELS[lic.user_type] || lic.user_type}</span>
-      <span class="license-until">до ${formatDate(lic.license_until)}</span>
-      <span class="license-controls">
-        <button class="icon-btn tiny" data-action="license-extend" title="Продлить на 30 дней">+30д</button>
-        <button class="icon-btn tiny danger" data-action="license-reset-device" title="Сбросить устройство">↻</button>
-        <button class="icon-btn tiny" data-action="license-toggle-block" title="${lic.is_blocked ? "Разблокировать" : "Заблокировать"}">${lic.is_blocked ? "🔓" : "🔒"}</button>
-        <button class="icon-btn tiny danger" data-action="license-delete" title="Удалить пользователя">🗑</button>
-      </span>
-    `;
-    wrap.appendChild(row);
-  });
+
+  const head = `<tr>${LICENSE_COLUMNS.map(
+    (c) =>
+      `<th class="sortable${state.licenseSort.field === c.field ? " sorted" : ""}" data-sort="${c.field}">${c.label}${sortArrow(c.field)}</th>`,
+  ).join("")}<th class="admin-actions-head">Действия</th></tr>`;
+
+  const rows = licenses
+    .map((lic) => {
+      const fullName = [lic.first_name, lic.last_name].filter(Boolean).join(" ");
+      return `
+        <tr class="license-row${lic.is_blocked ? " blocked" : ""}" data-id="${lic.id}">
+          <td class="license-id">${lic.id ?? "—"}</td>
+          <td class="license-key">
+            <span class="license-key-text">${escapeHtml(lic.product_key)}</span>
+            <button type="button" class="icon-btn tiny" data-copy="${escapeHtml(lic.product_key)}" title="Скопировать ключ">📋</button>
+          </td>
+          <td class="license-role">${ROLE_LABELS[lic.user_type] || lic.user_type || "—"}</td>
+          <td class="license-email">${lic.email ? escapeHtml(lic.email) : "—"}</td>
+          <td class="license-name">${fullName ? escapeHtml(fullName) : "—"}</td>
+          <td class="license-until">${lic.license_until ? formatDate(lic.license_until) : "—"}</td>
+          <td class="license-status"><span class="status-pill${lic.is_blocked ? " blocked" : " active"}">${lic.is_blocked ? "Заблокирован" : "Активна"}</span></td>
+          <td class="license-created">${lic.created_at ? formatDate(lic.created_at) : "—"}</td>
+          <td class="license-controls">
+            <button class="icon-btn tiny" data-action="license-extend" title="Продлить на 30 дней">+30д</button>
+            <button class="icon-btn tiny danger" data-action="license-reset-device" title="Сбросить устройство">↻</button>
+            <button class="icon-btn tiny" data-action="license-toggle-block" title="${lic.is_blocked ? "Разблокировать" : "Заблокировать"}">${lic.is_blocked ? "🔓" : "🔒"}</button>
+            <button class="icon-btn tiny danger" data-action="license-delete" title="Удалить пользователя">🗑</button>
+          </td>
+        </tr>`;
+    })
+    .join("");
+
+  wrap.innerHTML = `<table class="admin-table"><thead>${head}</thead><tbody>${rows}</tbody></table>`;
 }
 
 /* ============================================================

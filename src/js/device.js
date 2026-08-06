@@ -137,7 +137,7 @@ export function disableWebDefaults() {
   });
 
   // DevTools открываются только кнопкой в панели администратора
-  // (см. controls.js #devtools-open-btn) — нигде больше, включая
+  // (см. controls.js #admin-devtools-btn) — нигде больше, включая
   // сочетания клавиш, даже для admin (devtoolsAllowed управляет только
   // тем, доступна ли сама кнопка, а не сочетания клавиш).
   document.addEventListener("keydown", (e) => {

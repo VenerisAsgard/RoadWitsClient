@@ -560,9 +560,18 @@ export function openProfile() {
   render.renderProfile(state.user);
   render.setHint([]); // отдельная кнопка "← Назад" уже видна на экране — Esc не рекламируем
   friends.loadFriends();
-  if (state.user.user_type === "admin") {
-    admin.loadLicenses();
-  }
+}
+
+/** Панель администрирования — отдельный экран, попасть можно только
+ * кнопкой из профиля (см. render.renderProfile → #admin-open-btn), сама
+ * функция прав не проверяет: кнопка и так видна только isAdmin(). Лицензии
+ * грузятся именно здесь, а не при открытии профиля — раньше грузились
+ * всегда вместе с профилем, даже когда админ просто зашёл посмотреть
+ * своё имя, не разворачивая панель. */
+export function openAdmin() {
+  render.showScreen("admin");
+  render.setHint([]);
+  admin.loadLicenses();
 }
 
 export function closeProfile() {

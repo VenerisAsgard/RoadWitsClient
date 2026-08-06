@@ -275,12 +275,76 @@ export async function confirmDeleteQuestion(questionId) {
    ЛИЦЕНЗИИ (панель администрирования в профиле, только admin)
    ============================================================ */
 
+/** Применяет текущие поиск (state.licenseFilter) и сортировку
+ * (state.licenseSort) к сырому списку с бэкенда — обе чисто клиентские,
+ * повторный запрос к серверу не нужен ни при вводе в поиск, ни при
+ * клике по заголовку столбца, см. setLicenseFilter/setLicenseSort. */
+function visibleLicenses() {
+  const q = state.licenseFilter.trim().toLowerCase();
+  let list = state.licenses;
+  if (q) {
+    list = list.filter((lic) =>
+      [lic.product_key, lic.email, lic.first_name, lic.last_name]
+        .filter(Boolean)
+        .some((field) => String(field).toLowerCase().includes(q)),
+    );
+  }
+
+  const { field, dir } = state.licenseSort;
+  const sign = dir === "asc" ? 1 : -1;
+  return [...list].sort((a, b) => {
+    let av = a[field];
+    let bv = b[field];
+    if (field === "is_blocked") { av = av ? 1 : 0; bv = bv ? 1 : 0; }
+    if (av == null) av = "";
+    if (bv == null) bv = "";
+    if (typeof av === "string") av = av.toLowerCase();
+    if (typeof bv === "string") bv = bv.toLowerCase();
+    if (av < bv) return -1 * sign;
+    if (av > bv) return 1 * sign;
+    return 0;
+  });
+}
+
 export async function loadLicenses() {
+  // Плейсхолдер "Загрузка лицензий…" уже стоит статикой в разметке
+  // (index.html #admin-table-wrap) — ничего туда не рендерим до ответа
+  // сервера, иначе на секунду мелькнёт "Лицензий пока нет".
   try {
-    const licenses = await api.listLicenses(state.token);
-    render.renderLicenseList(licenses);
+    state.licenses = await api.listLicenses(state.token);
+    render.renderLicenseList(visibleLicenses());
+  } catch (err) {
+    state.licenses = [];
+    render.toast(err instanceof api.ApiError ? err.message : "Не удалось загрузить список лицензий", "error");
+    render.renderLicenseList([]);
+  }
+}
+
+/** Поиск по ключу/email/имени — вызывается на каждый ввод в поле поиска
+ * (см. controls.js), сравнивается со state.licenseFilter, чтобы её же
+ * (пустую строку) отличать в render.js от "искали — ничего не нашли". */
+export function setLicenseFilter(text) {
+  state.licenseFilter = text;
+  render.renderLicenseList(visibleLicenses());
+}
+
+/** Клик по заголовку столбца: тот же столбец — разворачиваем направление,
+ * другой — сортируем по нему по возрастанию. */
+export function setLicenseSort(field) {
+  if (state.licenseSort.field === field) {
+    state.licenseSort = { field, dir: state.licenseSort.dir === "asc" ? "desc" : "asc" };
+  } else {
+    state.licenseSort = { field, dir: "asc" };
+  }
+  render.renderLicenseList(visibleLicenses());
+}
+
+export async function copyLicenseKey(productKey) {
+  try {
+    await navigator.clipboard.writeText(productKey);
+    render.toast("Ключ скопирован", "success");
   } catch {
-    // панель администрирования не критична для остального приложения — тихо пропускаем
+    render.toast("Не удалось скопировать — скопируйте вручную", "error");
   }
 }
 
