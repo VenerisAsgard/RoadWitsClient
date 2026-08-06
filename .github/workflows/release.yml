@@ -51,8 +51,6 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: .
           tagName: ${{ github.ref_name }}
@@ -80,8 +78,8 @@ jobs:
       - name: Build Flatpak bundle
         run: |
           mkdir build-dir
-          # flatpak-builder берёт roadwits-client.flatpak.yaml из корня репозитория
-          flatpak-builder --force-clean --user --repo=repo build-dir roadwits-client.flatpak.yaml
+          # манифест теперь лежит в flatpak_data/
+          flatpak-builder --force-clean --user --repo=repo build-dir flatpak_data/roadwits-client.flatpak.yaml
           flatpak build-bundle repo com.roadwits.client.flatpak com.roadwits.client
 
       - name: Upload Flatpak artifact

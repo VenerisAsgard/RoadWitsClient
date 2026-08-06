@@ -105,19 +105,74 @@ fn clear_token(
 }
 
 
+#[tauri::command]
+fn is_flatpak() -> bool {
+    // Flatpak всегда кладёт этот файл-маркер внутрь песочницы приложения.
+    std::path::Path::new("/.flatpak-info").exists()
+}
+
+/// Скачивает установщик по прямой ссылке (ассет GitHub Release) и
+/// запускает его — «стандартный» способ обновления вместо тихой
+/// самозамены бинарника. После запуска установщика фронтенд сам
+/// закрывает приложение (см. src/js/update.js), чтобы установщик мог
+/// без помех перезаписать файлы.
+///
+/// Не вызывается и не имеет смысла под Flatpak — там /app доступен
+/// только на чтение, поэтому Linux-версия обновляется через
+/// `flatpak update`, а не через эту команду (см. is_flatpak выше).
+#[tauri::command]
+async fn download_and_run_installer(url: String, filename: String) -> Result<(), String> {
+    let response = reqwest::get(&url)
+        .await
+        .map_err(|e| format!("Не удалось скачать установщик: {e}"))?;
+
+    if !response.status().is_success() {
+        return Err(format!("Сервер вернул ошибку: {}", response.status()));
+    }
+
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| format!("Не удалось прочитать загруженный файл: {e}"))?;
+
+    let mut path = std::env::temp_dir();
+    path.push(&filename);
+
+    fs::write(&path, &bytes).map_err(|e| format!("Не удалось сохранить установщик: {e}"))?;
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new(&path)
+            .spawn()
+            .map_err(|e| format!("Не удалось запустить установщик: {e}"))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        // .dmg нельзя запустить напрямую — открываем через Finder,
+        // дальше пользователь сам перетаскивает .app в Applications
+        // (стандартный способ установки на macOS).
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Не удалось открыть установщик: {e}"))?;
+    }
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        // Self-update — см. Cargo.toml и tauri.conf.json (секция "plugins.updater")
-        // для настройки endpoint'а и публичного ключа.
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             get_fingerprint,
             save_token,
             load_token,
-            clear_token
+            clear_token,
+            is_flatpak,
+            download_and_run_installer
         ])
         .setup(|app| {
             // Окно создаётся скрытым (tauri.conf.json → windows[0].visible:

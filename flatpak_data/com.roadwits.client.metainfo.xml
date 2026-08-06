@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+  <id>com.roadwits.client</id>
+  <name>RoadWits Client</name>
+  <summary>Клиентское приложение для RoadWits</summary>
+  <description>
+    <p>
+      RoadWits Client — кроссплатформенное приложение на базе Tauri для работы с сервисом RoadWits.
+      Предоставляет удобный интерфейс для взаимодействия с API, управления задачами и просмотра данных.
+    </p>
+    <p>
+      Основные возможности:
+    </p>
+    <ul>
+      <li>Авторизация и управление профилями</li>
+      <li>Просмотр задач и статусов</li>
+      <li>Экспорт отчётов в CSV/PDF</li>
+      <li>Локальное кэширование данных для офлайн‑работы</li>
+    </ul>
+  </description>
+
+  <url type="homepage">https://github.com/VenerisAsgard/RoadWitsClient</url>
+  <url type="bugtracker">https://github.com/VenerisAsgard/RoadWitsClient/issues</url>
+  <url type="help">https://github.com/VenerisAsgard/RoadWitsClient/wiki</url>
+
+  <developer_name>Veneris</developer_name>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="1.1.20" date="2026-08-05">
+      <description>
+        <p>Основные изменения в версии 1.1.7:</p>
+        <ul>
+          <li>Исправлены ошибки при работе с PostgreSQL через SQLAlchemy</li>
+          <li>Улучшена обработка миграций Alembic</li>
+          <li>Добавлена поддержка самоподписанных HTTPS‑сертификатов</li>
+        </ul>
+      </description>
+    </release>
+    <!-- Добавляй новые релизы сюда при каждом теге -->
+  </releases>
+
+  <screenshots>
+    <!-- Рекомендуемый формат: PNG, 16:9, ширина ≥ 620 px -->
+    <screenshot type="default">
+      <image>screenshots/roadwits_main.png</image>
+      <caption>Главный экран с перечнем задач</caption>
+    </screenshot>
+    <screenshot type="default">
+      <image>screenshots/roadwits_details.png</image>
+      <caption>Экран деталей задачи с комментариями и вложениями</caption>
+    </screenshot>
+    <screenshot type="default">
+      <image>screenshots/roadwits_settings.png</image>
+      <caption>Настройки подключения и учётные данные</caption>
+    </screenshot>
+  </screenshots>
+
+  <keywords>
+    <keyword>roadwits</keyword>
+    <keyword>client</keyword>
+    <keyword>tauri</keyword>
+    <keyword>rust</keyword>
+  </keywords>
+
+  <launchable type="desktop-id">com.roadwits.client.desktop</launchable>
+</component>

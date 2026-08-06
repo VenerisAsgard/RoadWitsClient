@@ -11,7 +11,8 @@ finish-args:
   - '--share=ipc'
   - '--socket=x11'
   - '--socket=wayland'
-  - '--device=dri'                # Критично: решает EGL_BAD_ALLOC на Arch/Hyprland
+  - '--device=dri'
+  - '--share=network'
   - '--filesystem=home'
   - '--filesystem=xdg-config'
   - '--filesystem=xdg-data'
@@ -30,19 +31,23 @@ modules:
       - install -Dm755 src-tauri/target/release/roadwits-client /app/bin/roadwits-client
     sources:
       - type: dir
-        path: .
+        path: ..                                  # корень репозитория (манифест теперь в flatpak_data/)
 
   - name: assets
     buildsystem: simple
     build-commands:
       - mkdir -p /app/share/icons/hicolor/256x256/apps
       - mkdir -p /app/share/applications
+      - mkdir -p /app/share/metainfo
       - install -Dm644 128x128.png /app/share/icons/hicolor/256x256/apps/com.roadwits.client.png
       - install -Dm644 roadwits-client.desktop /app/share/applications/com.roadwits.client.desktop
+      - install -Dm644 com.roadwits.client.metainfo.xml /app/share/metainfo/com.roadwits.client.metainfo.xml
     sources:
       - type: file
         path: roadwits-client.desktop
       - type: file
-        path: src-tauri/icons/128x128.png
+        path: com.roadwits.client.metainfo.xml
+      - type: file
+        path: ../src-tauri/icons/128x128.png
         dest-filename: 128x128.png
 
