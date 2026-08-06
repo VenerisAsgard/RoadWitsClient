@@ -9,7 +9,12 @@ permissions:
   contents: write
 
 jobs:
-  # --- Стандартные сборки Tauri (macOS, Ubuntu, Windows) ---
+  # --- Стандартные сборки Tauri (macOS, Windows). Linux — только через
+  # Flatpak (см. job release-flatpak ниже): bundle.targets в
+  # tauri.conf.json ("nsis", "app", "dmg") под Linux всё равно ничего не
+  # даёт, а сборка deb/rpm/appimage тут раньше приводила к дублированию
+  # артефактов (Roadwits_* vs roadwits_*, из-за расхождения productName
+  # и имени Cargo-пакета) и ошибке "No artifacts were found" в tauri-action.
   release:
     strategy:
       fail-fast: false
@@ -17,8 +22,6 @@ jobs:
         include:
           - platform: "macos-latest"
             args: "--target universal-apple-darwin"
-          - platform: "ubuntu-22.04"
-            args: ""
           - platform: "windows-latest"
             args: ""
 
@@ -35,12 +38,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-
-      - name: install Linux system deps (webkit/gtk)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: install frontend deps
         run: |
