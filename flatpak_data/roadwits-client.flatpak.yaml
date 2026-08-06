@@ -7,6 +7,11 @@ sdk-extensions:
   - org.freedesktop.Sdk.Extension.node22
 command: roadwits-client
 
+# appstream-compose убрали из SDK начиная с GNOME 47+ (переход на
+# appstreamcli compose на хосте). Нам это не нужно — приложение не
+# публикуется на Flathub, метаданные для витрины не собираем.
+appstream-compose: false
+
 finish-args:
   - '--share=ipc'
   - '--socket=x11'
@@ -38,15 +43,11 @@ modules:
     build-commands:
       - mkdir -p /app/share/icons/hicolor/256x256/apps
       - mkdir -p /app/share/applications
-      - mkdir -p /app/share/metainfo
       - install -Dm644 128x128.png /app/share/icons/hicolor/256x256/apps/com.roadwits.client.png
       - install -Dm644 roadwits-client.desktop /app/share/applications/com.roadwits.client.desktop
-      - install -Dm644 com.roadwits.client.metainfo.xml /app/share/metainfo/com.roadwits.client.metainfo.xml
     sources:
       - type: file
         path: roadwits-client.desktop
-      - type: file
-        path: com.roadwits.client.metainfo.xml
       - type: file
         path: ../src-tauri/icons/128x128.png
         dest-filename: 128x128.png
