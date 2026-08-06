@@ -83,8 +83,11 @@ jobs:
           # --repo-url зашивает адрес OSTree-репозитория в сам бандл: после
           # `flatpak install --user *.flatpak` remote добавится сам, и
           # `flatpak update` будет реально знать, где искать новые версии.
+          # ВАЖНО: publish_dir: ./repo ниже кладёт содержимое repo/ в КОРЕНЬ
+          # ветки gh-pages, поэтому сам репозиторий будет жить в корне сайта
+          # (.../RoadWitsClient/), а не в .../RoadWitsClient/repo
           flatpak build-bundle repo com.roadwits.client.flatpak com.roadwits.client \
-            --repo-url=https://venerisasgard.github.io/RoadWitsClient/repo
+            --repo-url=https://venerisasgard.github.io/RoadWitsClient/
 
       - name: Upload Flatpak artifact
         uses: actions/upload-artifact@v6
