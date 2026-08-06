@@ -4,6 +4,19 @@ on:
   push:
     tags:
       - "v*"
+  # Ручной запуск (кнопка "Run workflow" на вкладке Actions → Release).
+  # Полезно, когда пуш тега по какой-то причине не создаёт автозапуск —
+  # см. обсуждение выше. ВАЖНО: "Use workflow from" в диалоге запуска
+  # выбирает, ИЗ КАКОЙ ВЕТКИ/ТЕГА брать код (checkout) — это отдельная
+  # настройка, а поле tag ниже только задаёт имя тега/релиза, который
+  # соберёт tauri-action. Если тега с таким именем ещё не существует на
+  # GitHub, он будет создан автоматически и указывать на выбранную ветку.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Версия релиза, например v1.1.27 (без тега — просто соберёт под этим именем)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -50,9 +63,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: .
-          tagName: ${{ github.ref_name }}
-          releaseName: "Roadwits ${{ github.ref_name }}"
-          releaseBody: "Автоматическая сборка из тега ${{ github.ref_name }}. Полный список изменений — в истории коммитов."
+          tagName: ${{ inputs.tag || github.ref_name }}
+          releaseName: "Roadwits ${{ inputs.tag || github.ref_name }}"
+          releaseBody: "Автоматическая сборка из тега ${{ inputs.tag || github.ref_name }}. Полный список изменений — в истории коммитов."
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
@@ -128,7 +141,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           for i in $(seq 1 30); do
-            if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
+            if gh release view "${{ inputs.tag || github.ref_name }}" >/dev/null 2>&1; then
               echo "Черновик релиза найден"
               exit 0
             fi
@@ -141,4 +154,4 @@ jobs:
       - name: Attach Flatpak to GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ github.ref_name }}" com.roadwits.client.flatpak --clobber
+        run: gh release upload "${{ inputs.tag || github.ref_name }}" com.roadwits.client.flatpak --clobber
