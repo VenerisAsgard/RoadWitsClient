@@ -1,64 +1,181 @@
-app-id: com.roadwits.client
-runtime: org.gnome.Platform
-runtime-version: '50'
-sdk: org.gnome.Sdk
-sdk-extensions:
-  - org.freedesktop.Sdk.Extension.rust-stable
-  - org.freedesktop.Sdk.Extension.node22
-command: roadwits-client
+name: Release
 
-# appstream-compose (встроенный шаг flatpak-builder, дёргающий бинарь
-# appstream-compose из SDK) не используем: его убрали из SDK начиная с
-# GNOME 47+. Метаданные всё равно нужны (иначе `flatpak update` пишет
-# "No such ref 'appstream.../x86_64'" и `flatpak list` не показывает
-# версию) — поэтому composed через `appstreamcli compose` на ХОСТЕ
-# раннера (пакет appstream, ставится в CI), отдельным шагом
-# `flatpak build-update-repo --appstream-compose` после сборки — см.
-# release.yml, джоба release-flatpak. metainfo.xml для этого лежит
-# рядом (com.roadwits.client.metainfo.xml) и ставится в assets ниже.
-appstream-compose: false
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Версия релиза, например v1.1.27 (без тега — просто соберёт под этим именем)'
+        required: true
+        type: string
 
-finish-args:
-  - '--share=ipc'
-  - '--socket=x11'
-  - '--socket=wayland'
-  - '--device=dri'
-  - '--share=network'
-  - '--filesystem=home'
-  - '--filesystem=xdg-config'
-  - '--filesystem=xdg-data'
-  - '--talk-name=org.freedesktop.Notifications'
+permissions:
+  contents: write
 
-modules:
-  - name: roadwits-client
-    buildsystem: simple
-    build-options:
-      append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
-      build-args:
-        - '--share=network'
-    build-commands:
-      - npm ci --legacy-peer-deps                 # npm в корне (package.json там)
-      - cd src-tauri && cargo build --release --bin roadwits-client  # cargo в src-tauri
-      - install -Dm755 src-tauri/target/release/roadwits-client /app/bin/roadwits-client
-    sources:
-      - type: dir
-        path: ..                                  # корень репозитория (манифест теперь в flatpak_data/)
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos-latest"
+            args: "--target universal-apple-darwin"
+          - platform: "windows-latest"
+            args: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v7
 
-  - name: assets
-    buildsystem: simple
-    build-commands:
-      - mkdir -p /app/share/icons/hicolor/256x256/apps
-      - mkdir -p /app/share/applications
-      - mkdir -p /app/share/metainfo
-      - install -Dm644 128x128.png /app/share/icons/hicolor/256x256/apps/com.roadwits.client.png
-      - install -Dm644 roadwits-client.desktop /app/share/applications/com.roadwits.client.desktop
-      - install -Dm644 com.roadwits.client.metainfo.xml /app/share/metainfo/com.roadwits.client.metainfo.xml
-    sources:
-      - type: file
-        path: roadwits-client.desktop
-      - type: file
-        path: ../src-tauri/icons/128x128.png
-        dest-filename: 128x128.png
-      - type: file
-        path: com.roadwits.client.metainfo.xml
+      - name: install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
 
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: install frontend deps
+        run: |
+          npm install -g npm@10.9.2
+          npm ci --legacy-peer-deps
+
+      - name: build & publish
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: .
+          tagName: ${{ inputs.tag || github.ref_name }}
+          releaseName: "Roadwits ${{ inputs.tag || github.ref_name }}"
+          releaseBody: "Автоматическая сборка из тега ${{ inputs.tag || github.ref_name }}. Полный список изменений — в истории коммитов."
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+  release-flatpak:
+    name: Build Flatpak
+    runs-on: ubuntu-22.04
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: true
+    env:
+      REPO_URL: https://venerisasgard.github.io/RoadWitsClient/
+      FLATPAK_GPG_KEY_ID: "73FF792B1A23F54503D8C32A851DA500255C90DA"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install Flatpak, flatpak-builder & appstream
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder appstream gnupg2 pinentry-curses
+          flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y --noninteractive flathub org.gnome.Sdk//50 org.gnome.Platform//50 org.freedesktop.Sdk.Extension.rust-stable//25.08 org.freedesktop.Sdk.Extension.node22//25.08
+
+      - name: Import GPG signing key
+        env:
+          GPG_PASSPHRASE: ${{ secrets.FLATPAK_GPG_PASSPHRASE }}
+        run: |
+          mkdir -p gpg-homedir && chmod 700 gpg-homedir
+          echo "GPG_TTY=$(tty)" >> $GITHUB_ENV
+          echo "GNUPGHOME=$(pwd)/gpg-homedir" >> $GITHUB_ENV
+
+          # flatpak-builder/flatpak sign via GPGME -> gpg-agent, which by
+          # default tries to pop up an interactive pinentry. On a headless
+          # runner that fails with "Pinentry: No such file or directory".
+          # Configure loopback pinentry so a cached/piped passphrase works
+          # instead of a UI prompt.
+          cat > gpg-homedir/gpg-agent.conf <<EOF
+          allow-loopback-pinentry
+          pinentry-program /usr/bin/pinentry-curses
+          default-cache-ttl 3600
+          max-cache-ttl 7200
+          EOF
+          cat > gpg-homedir/gpg.conf <<EOF
+          pinentry-mode loopback
+          EOF
+          gpgconf --homedir gpg-homedir --kill gpg-agent || true
+
+          echo "${{ secrets.FLATPAK_GPG_PRIVATE_KEY }}" | base64 -d > private-key.asc
+          echo "$GPG_PASSPHRASE" | gpg --homedir gpg-homedir --batch --pinentry-mode loopback --passphrase-fd 0 --import private-key.asc
+          rm private-key.asc
+
+          # Seed gpg-agent's passphrase cache now, in this same job/agent
+          # session, so the later non-interactive calls from
+          # flatpak-builder/flatpak don't need to prompt at all.
+          # NOTE: the data to sign must come from a file, not stdin -
+          # --passphrase-fd 0 already claims stdin for the passphrase,
+          # so reusing stdin for the signed payload too would clobber it.
+          echo "warmup" > warmup.txt
+          echo "$GPG_PASSPHRASE" | gpg --homedir gpg-homedir --batch --pinentry-mode loopback --passphrase-fd 0 \
+            --local-user "$FLATPAK_GPG_KEY_ID" --detach-sign --output /dev/null warmup.txt
+          rm warmup.txt
+
+      - name: Fill releases & screenshots into metainfo.xml
+        run: python3 flatpak_data/generate_metainfo.py
+
+      - name: Build Flatpak bundle
+        run: |
+          mkdir build-dir
+          flatpak-builder --force-clean --user \
+            --gpg-sign="$FLATPAK_GPG_KEY_ID" --gpg-homedir=gpg-homedir \
+            --repo=repo build-dir flatpak_data/roadwits-client.flatpak.yaml
+
+          flatpak build-update-repo \
+            --gpg-sign="$FLATPAK_GPG_KEY_ID" --gpg-homedir=gpg-homedir \
+            repo
+
+          flatpak build-bundle repo com.roadwits.client.flatpak com.roadwits.client \
+            --gpg-sign="$FLATPAK_GPG_KEY_ID" --gpg-homedir=gpg-homedir \
+            --repo-url="$REPO_URL"
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: roadwits-client-flatpak
+          path: com.roadwits.client.flatpak
+
+      - name: Generate .flatpakrepo file
+        run: |
+          PUBKEY_B64=$(gpg --homedir gpg-homedir --export "$FLATPAK_GPG_KEY_ID" | base64 -w0)
+          cat > repo/roadwits-client.flatpakrepo <<EOF
+          [Flatpak Repo]
+          Title=Roadwits Client Updates
+          Url=$REPO_URL
+          Comment=Обновления клиента Roadwits
+          Description=Репозиторий обновлений Tauri-клиента Roadwits
+          GPGKey=$PUBKEY_B64
+          EOF
+
+      - name: Publish OSTree repo to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./repo
+          publish_branch: gh-pages
+          keep_files: false
+
+      - name: Wait for release draft to exist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for i in $(seq 1 30); do
+            if gh release view "${{ inputs.tag || github.ref_name }}" >/dev/null 2>&1; then
+              echo "Черновик релиза найден"
+              exit 0
+            fi
+            echo "Жду, пока tauri-action создаст черновик релиза... ($i/30)"
+            sleep 20
+          done
+          echo "Черновик релиза так и не появился за 10 минут" >&2
+          exit 1
+
+      - name: Attach Flatpak to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ inputs.tag || github.ref_name }}" com.roadwits.client.flatpak --clobber
