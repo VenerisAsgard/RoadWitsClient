@@ -126,8 +126,7 @@ jobs:
             --gpg-sign="$FLATPAK_GPG_KEY_ID" --gpg-homedir=gpg-homedir \
             --repo=repo build-dir flatpak_data/roadwits-client.flatpak.yaml
 
-          flatpak build-update-repo --appstream-compose \
-            --gpg-sign="$FLATPAK_GPG_KEY_ID" --gpg-homedir=gpg-homedir \
+          flatpak build-update-repo --gpg-sign="$FLATPAK_GPG_KEY_ID" --gpg-homedir=gpg-homedir \
             repo
 
           flatpak build-bundle repo com.roadwits.client.flatpak com.roadwits.client \

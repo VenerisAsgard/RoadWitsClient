@@ -7,16 +7,7 @@ sdk-extensions:
   - org.freedesktop.Sdk.Extension.node22
 command: roadwits-client
 
-# appstream-compose (встроенный шаг flatpak-builder, дёргающий бинарь
-# appstream-compose из SDK) не используем: его убрали из SDK начиная с
-# GNOME 47+. Метаданные всё равно нужны (иначе `flatpak update` пишет
-# "No such ref 'appstream.../x86_64'" и `flatpak list` не показывает
-# версию) — поэтому composed через `appstreamcli compose` на ХОСТЕ
-# раннера (пакет appstream, ставится в CI), отдельным шагом
-# `flatpak build-update-repo --appstream-compose` после сборки — см.
-# release.yml, джоба release-flatpak. metainfo.xml для этого лежит
-# рядом (com.roadwits.client.metainfo.xml) и ставится в assets ниже.
-appstream-compose: false
+
 
 finish-args:
   - '--share=ipc'
