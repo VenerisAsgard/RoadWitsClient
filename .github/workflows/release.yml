@@ -73,7 +73,7 @@ jobs:
       - name: Install Flatpak, flatpak-builder & appstream
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder appstream
+          sudo apt-get install -y flatpak flatpak-builder appstream gnupg2 pinentry-curses
           flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install --user -y --noninteractive flathub org.gnome.Sdk//50 org.gnome.Platform//50 org.freedesktop.Sdk.Extension.rust-stable//25.08 org.freedesktop.Sdk.Extension.node22//25.08
 
@@ -83,9 +83,33 @@ jobs:
         run: |
           mkdir -p gpg-homedir && chmod 700 gpg-homedir
           echo "GPG_TTY=$(tty)" >> $GITHUB_ENV
+          echo "GNUPGHOME=$(pwd)/gpg-homedir" >> $GITHUB_ENV
+
+          # flatpak-builder/flatpak sign via GPGME -> gpg-agent, which by
+          # default tries to pop up an interactive pinentry. On a headless
+          # runner that fails with "Pinentry: No such file or directory".
+          # Configure loopback pinentry so a cached/piped passphrase works
+          # instead of a UI prompt.
+          cat > gpg-homedir/gpg-agent.conf <<EOF
+          allow-loopback-pinentry
+          pinentry-program /usr/bin/pinentry-curses
+          default-cache-ttl 3600
+          max-cache-ttl 7200
+          EOF
+          cat > gpg-homedir/gpg.conf <<EOF
+          pinentry-mode loopback
+          EOF
+          gpgconf --homedir gpg-homedir --kill gpg-agent || true
+
           echo "${{ secrets.FLATPAK_GPG_PRIVATE_KEY }}" | base64 -d > private-key.asc
-          echo "$GPG_PASSPHRASE" | gpg --homedir gpg-homedir --batch --passphrase-fd 0 --import private-key.asc
+          echo "$GPG_PASSPHRASE" | gpg --homedir gpg-homedir --batch --pinentry-mode loopback --passphrase-fd 0 --import private-key.asc
           rm private-key.asc
+
+          # Seed gpg-agent's passphrase cache now, in this same job/agent
+          # session, so the later non-interactive calls from
+          # flatpak-builder/flatpak don't need to prompt at all.
+          echo "$GPG_PASSPHRASE" | gpg --homedir gpg-homedir --batch --pinentry-mode loopback --passphrase-fd 0 \
+            --local-user "$FLATPAK_GPG_KEY_ID" --detach-sign --output /dev/null <<< "warmup"
 
       - name: Fill releases & screenshots into metainfo.xml
         run: python3 flatpak_data/generate_metainfo.py
@@ -150,5 +174,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "${{ inputs.tag || github.ref_name }}" com.roadwits.client.flatpak --clobber
-
-
