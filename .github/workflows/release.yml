@@ -93,29 +93,68 @@ jobs:
     concurrency:
       group: pages-deploy
       cancel-in-progress: true
+    env:
+      REPO_URL: https://venerisasgard.github.io/RoadWitsClient/
+      # ID ключа не секретный (это публичная информация — публичный ключ и
+      # так публикуется в репозитории), секретна только приватная половина
+      # в FLATPAK_GPG_PRIVATE_KEY (Settings → Secrets and variables → Actions).
+      FLATPAK_GPG_KEY_ID: "73FF792B1A23F54503D8C32A851DA500255C90DA"
     steps:
       - uses: actions/checkout@v7
+        with:
+          # fetch-depth: 0 — нужна полная история и все теги, иначе
+          # generate_metainfo.py не увидит прошлые версии для <releases>
+          fetch-depth: 0
 
-      - name: Install Flatpak & flatpak-builder
+      - name: Install Flatpak, flatpak-builder & appstream
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
+          # appstream даёт appstreamcli — им compose'им AppStream-каталог
+          # на хосте (в SDK начиная с GNOME 47+ этого бинаря больше нет,
+          # см. комментарий про appstream-compose: false в манифесте).
+          sudo apt-get install -y flatpak flatpak-builder appstream
           flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install --user -y --noninteractive flathub org.gnome.Sdk//50 org.gnome.Platform//50 org.freedesktop.Sdk.Extension.rust-stable//25.08 org.freedesktop.Sdk.Extension.node22//25.08
+
+      - name: Import GPG signing key
+        run: |
+          mkdir -p gpg-homedir && chmod 700 gpg-homedir
+          echo "${{ secrets.FLATPAK_GPG_PRIVATE_KEY }}" | base64 -d | \
+            gpg --homedir gpg-homedir --batch --import
+
+      - name: Fill releases & screenshots into metainfo.xml
+        # GITHUB_REPOSITORY (owner/repo) уже задан GitHub Actions сам,
+        # отдельно передавать не нужно — см. generate_metainfo.py
+        run: python3 flatpak_data/generate_metainfo.py
 
       - name: Build Flatpak bundle
         run: |
           mkdir build-dir
           # манифест теперь лежит в flatpak_data/
-          flatpak-builder --force-clean --user --repo=repo build-dir flatpak_data/roadwits-client.flatpak.yaml
+          flatpak-builder --force-clean --user \
+            --gpg-sign="$FLATPAK_GPG_KEY_ID" --gpg-homedir=gpg-homedir \
+            --repo=repo build-dir flatpak_data/roadwits-client.flatpak.yaml
+
+          # Compose AppStream-каталог (appstream/x86_64, appstream2/x86_64)
+          # из metainfo.xml, установленного в /app/share/metainfo внутри
+          # сборки, плюс пересобирает summary — без этого `flatpak update`
+          # ругался "No such ref 'appstream.../x86_64'", а `flatpak list`
+          # не показывал версию приложения.
+          flatpak build-update-repo --appstream-compose \
+            --gpg-sign="$FLATPAK_GPG_KEY_ID" --gpg-homedir=gpg-homedir \
+            repo
+
           # --repo-url зашивает адрес OSTree-репозитория в сам бандл: после
           # `flatpak install --user *.flatpak` remote добавится сам, и
           # `flatpak update` будет реально знать, где искать новые версии.
+          # --gpg-sign здесь же встраивает в бандл и публичный ключ, чтобы
+          # автодобавленный remote сразу был доверенным (без --no-gpg-verify).
           # ВАЖНО: publish_dir: ./repo ниже кладёт содержимое repo/ в КОРЕНЬ
           # ветки gh-pages, поэтому сам репозиторий будет жить в корне сайта
           # (.../RoadWitsClient/), а не в .../RoadWitsClient/repo
           flatpak build-bundle repo com.roadwits.client.flatpak com.roadwits.client \
-            --repo-url=https://venerisasgard.github.io/RoadWitsClient/
+            --gpg-sign="$FLATPAK_GPG_KEY_ID" --gpg-homedir=gpg-homedir \
+            --repo-url="$REPO_URL"
 
       - name: Upload Flatpak artifact
         uses: actions/upload-artifact@v6
@@ -123,13 +162,26 @@ jobs:
           name: roadwits-client-flatpak
           path: com.roadwits.client.flatpak
 
-      - name: Publish OSTree repo to GitHub Pages
+      - name: Generate .flatpakrepo file
         run: |
-          sudo apt-get install -y ostree
-          # summary обязателен — по нему flatpak update узнаёт о новых коммитах/версиях
-          ostree summary -u --repo=repo
+          # Позволяет пользователю добавить remote одной командой, без
+          # ручного --no-gpg-verify: публичный ключ зашит тут же (base64
+          # сырого, не armored, экспорта), flatpak сам проверит подпись.
+          PUBKEY_B64=$(gpg --homedir gpg-homedir --export "$FLATPAK_GPG_KEY_ID" | base64 -w0)
+          cat > repo/roadwits-client.flatpakrepo <<EOF
+          [Flatpak Repo]
+          Title=Roadwits Client Updates
+          Url=$REPO_URL
+          Comment=Обновления клиента Roadwits
+          Description=Репозиторий обновлений Tauri-клиента Roadwits
+          GPGKey=$PUBKEY_B64
+          EOF
+
+      - name: Publish OSTree repo to GitHub Pages
+        # summary/appstream уже пересобраны шагом build-update-repo выше —
+        # отдельный `ostree summary -u` тут больше не нужен.
         # gh-pages ветка — статика, которую раздаёт GitHub Pages по URL выше
-      - uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./repo

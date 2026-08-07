@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.roadwits.client</id>
+  <name>Roadwits Client</name>
+  <summary>Tauri client for Roadwits</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Proprietary</project_license>
+  <developer id="com.roadwits">
+    <name>Roadwits</name>
+  </developer>
+  <description>
+    <p>
+      Roadwits — тренажёр для подготовки к экзамену по ПДД. Клиент на Tauri,
+      кроссплатформенный (Windows, macOS, Linux).
+    </p>
+  </description>
+  <launchable type="desktop-id">com.roadwits.client.desktop</launchable>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="1.1.32" date="2026-08-07" />
+  </releases>
+  <url type="homepage">https://venerisasgard.github.io/RoadWitsClient/</url>
+</component>

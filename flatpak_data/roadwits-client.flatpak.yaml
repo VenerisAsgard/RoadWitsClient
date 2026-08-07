@@ -7,9 +7,15 @@ sdk-extensions:
   - org.freedesktop.Sdk.Extension.node22
 command: roadwits-client
 
-# appstream-compose убрали из SDK начиная с GNOME 47+ (переход на
-# appstreamcli compose на хосте). Нам это не нужно — приложение не
-# публикуется на Flathub, метаданные для витрины не собираем.
+# appstream-compose (встроенный шаг flatpak-builder, дёргающий бинарь
+# appstream-compose из SDK) не используем: его убрали из SDK начиная с
+# GNOME 47+. Метаданные всё равно нужны (иначе `flatpak update` пишет
+# "No such ref 'appstream.../x86_64'" и `flatpak list` не показывает
+# версию) — поэтому composed через `appstreamcli compose` на ХОСТЕ
+# раннера (пакет appstream, ставится в CI), отдельным шагом
+# `flatpak build-update-repo --appstream-compose` после сборки — см.
+# release.yml, джоба release-flatpak. metainfo.xml для этого лежит
+# рядом (com.roadwits.client.metainfo.xml) и ставится в assets ниже.
 appstream-compose: false
 
 finish-args:
@@ -43,12 +49,16 @@ modules:
     build-commands:
       - mkdir -p /app/share/icons/hicolor/256x256/apps
       - mkdir -p /app/share/applications
+      - mkdir -p /app/share/metainfo
       - install -Dm644 128x128.png /app/share/icons/hicolor/256x256/apps/com.roadwits.client.png
       - install -Dm644 roadwits-client.desktop /app/share/applications/com.roadwits.client.desktop
+      - install -Dm644 com.roadwits.client.metainfo.xml /app/share/metainfo/com.roadwits.client.metainfo.xml
     sources:
       - type: file
         path: roadwits-client.desktop
       - type: file
         path: ../src-tauri/icons/128x128.png
         dest-filename: 128x128.png
+      - type: file
+        path: com.roadwits.client.metainfo.xml
 
