@@ -108,8 +108,13 @@ jobs:
           # Seed gpg-agent's passphrase cache now, in this same job/agent
           # session, so the later non-interactive calls from
           # flatpak-builder/flatpak don't need to prompt at all.
+          # NOTE: the data to sign must come from a file, not stdin -
+          # --passphrase-fd 0 already claims stdin for the passphrase,
+          # so reusing stdin for the signed payload too would clobber it.
+          echo "warmup" > warmup.txt
           echo "$GPG_PASSPHRASE" | gpg --homedir gpg-homedir --batch --pinentry-mode loopback --passphrase-fd 0 \
-            --local-user "$FLATPAK_GPG_KEY_ID" --detach-sign --output /dev/null <<< "warmup"
+            --local-user "$FLATPAK_GPG_KEY_ID" --detach-sign --output /dev/null warmup.txt
+          rm warmup.txt
 
       - name: Fill releases & screenshots into metainfo.xml
         run: python3 flatpak_data/generate_metainfo.py
