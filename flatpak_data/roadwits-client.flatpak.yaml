@@ -7,7 +7,17 @@ sdk-extensions:
   - org.freedesktop.Sdk.Extension.node22
 command: roadwits-client
 
-
+# appstream-compose: true (по умолчанию) — flatpak-builder сам зовёт
+# `appstreamcli compose` на ХОСТЕ раннера и кладёт составленные
+# appstream-метаданные + иконку в экспортируемое дерево, откуда их
+# потом подхватывает `flatpak build-update-repo`, формируя ветку
+# appstream/ARCH (по ней `flatpak update`/`flatpak list` показывают
+# версию и описание). Работает только с flatpak-builder >= 1.4 —
+# в apt на ubuntu-22.04 версия 1.2.2, которая ещё пытается звать
+# старый бинарь appstream-compose, убранный из SDK начиная с GNOME 47+,
+# и падает с "bwrap: execvp appstream-compose: No such file or
+# directory". Поэтому в CI (см. release.yml, шаг "Install Flatpak")
+# flatpak и flatpak-builder ставятся не из apt, а из ppa:flatpak/stable.
 
 finish-args:
   - '--share=ipc'
