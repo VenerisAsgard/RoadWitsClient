@@ -1,7 +1,8 @@
 # Roadwits — клиент
 
-Tauri 2 + чистый HTML/CSS/JS (ES-модули, без сборщика). Кросс-платформенно:
-Windows, macOS, Linux, Android, iOS — один и тот же frontend на всех.
+flatpak remote-add --user --no-gpg-verify roadwits-client https://venerisasgard.github.io/RoadWitsClient/
+flatpak install --user roadwits-client com.roadwits.client
+todo: gpg, AppStream-метаданные
 
 ## Требования
 
