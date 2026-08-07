@@ -1,8 +1,8 @@
 # Roadwits — клиент
 
-flatpak remote-add --user --no-gpg-verify roadwits-client https://venerisasgard.github.io/RoadWitsClient/
+flatpak remote-add --user roadwits-client https://venerisasgard.github.io/RoadWitsClient/roadwits-client.flatpakrepo
+
 flatpak install --user roadwits-client com.roadwits.client
-todo: gpg, AppStream-метаданные
 
 ## Требования
 
