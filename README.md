@@ -104,8 +104,10 @@ sudo apt install libwebkit2gtk-4.1-dev libsoup-3.0-dev \
 Для сборки Flatpak-пакета — см. [flatpak_data/roadwits-client.flatpak.yaml](flatpak_data/roadwits-client.flatpak.yaml) и [.github/workflows/release.yml](.github/workflows/release.yml) (используются `flatpak`/`flatpak-builder` из `ppa:flatpak/stable`, а не устаревшие версии из `apt`).
 
 </details>
+### 📱 Mobile
 
-### 🤖 Android
+<details>
+<summary><b>🤖 Android</b></summary>
 
 - **[Android Studio](https://developer.android.com/studio)** с установленными:
   - Android SDK Platform (актуальная API-версия)
@@ -126,7 +128,10 @@ sudo apt install libwebkit2gtk-4.1-dev libsoup-3.0-dev \
   ```
   На Windows — те же переменные (`ANDROID_HOME`, `NDK_HOME`, `JAVA_HOME`) через "Переменные среды" в свойствах системы.
 
-### 📱 iOS
+</details>
+
+<details>
+<summary><b>🍏 iOS</b></summary>
 
 - Только **macOS** + **[Xcode](https://apps.apple.com/app/xcode/id497799835)** (полная версия, не только Command Line Tools)
 - [CocoaPods](https://cocoapods.org/): `sudo gem install cocoapods`
@@ -135,6 +140,8 @@ sudo apt install libwebkit2gtk-4.1-dev libsoup-3.0-dev \
   rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
   ```
 - Аккаунт Apple Developer — для запуска на физическом устройстве и подписи сборки
+
+</details>
 
 ---
 
