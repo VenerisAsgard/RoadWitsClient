@@ -104,6 +104,7 @@ sudo apt install libwebkit2gtk-4.1-dev libsoup-3.0-dev \
 Для сборки Flatpak-пакета — см. [flatpak_data/roadwits-client.flatpak.yaml](flatpak_data/roadwits-client.flatpak.yaml) и [.github/workflows/release.yml](.github/workflows/release.yml) (используются `flatpak`/`flatpak-builder` из `ppa:flatpak/stable`, а не устаревшие версии из `apt`).
 
 </details>
+
 ### 📱 Mobile
 
 <details>
