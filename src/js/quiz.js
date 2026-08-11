@@ -8,6 +8,8 @@ import * as api from "./api.js";
 import * as render from "./render.js";
 import * as admin from "./admin.js";
 import * as friends from "./friends.js";
+import * as cache from "./cache.js";
+import { loadChapterQuestions } from "./questions.js";
 
 function shuffle(arr) {
   const a = arr.slice();
@@ -39,15 +41,17 @@ const HINT_RANDOM_COUNT = [
  * Пул вопросов по всем главам сразу — нужен режимам "random"/"exam".
  * Бэкенд не отдаёт вопросы одним запросом по всем главам разом
  * (только по одной главе за раз), поэтому тянем главы параллельно
- * и складываем в один массив. Кэшируем на сессию, чтобы не дёргать
- * сеть повторно при каждом заходе в "random"/"exam".
+ * и складываем в один массив — через loadChapterQuestions (кэш +
+ * офлайн-подстраховка, см. выше). Кэшируем ещё и на сессию в
+ * state.questionPoolCache, чтобы не пересобирать пул повторно при
+ * каждом заходе в "random"/"exam" в рамках одного запуска приложения.
  */
 async function getQuestionPool() {
   if (state.questionPoolCache) return state.questionPoolCache;
 
   const chapters = state.chapters.length ? state.chapters : await api.listChapters(state.token);
   const perChapter = await Promise.all(
-    chapters.map((c) => api.listQuestions(state.token, c.id).catch(() => [])),
+    chapters.map((c) => loadChapterQuestions(c.id).catch(() => [])),
   );
   const pool = perChapter.flat();
   state.questionPoolCache = pool;
@@ -59,6 +63,13 @@ async function getQuestionPool() {
  * chapterOrChapters — для "chapter": один объект главы ИЛИ массив глав
  * (мультивыбор через чекбоксы, см. toggleChapterCheck/chaptersConfirm).
  * count — для "random": сколько вопросов взять (см. randomCountConfirm).
+ *
+ * Экран билета показывается СРАЗУ, ещё до того, как вопросы вообще
+ * загружены (см. render.showQuestionLoading) — раньше beginQuiz ждал
+ * сеть/кэш и только потом переключал экран, и на медленном или только что
+ * протухшем кэше это выглядело так, будто нажатие "Начать" зависло.
+ * Теперь пользователь сразу видит билет с анимацией загрузки внутри, а
+ * реальные вопросы подставляются, как только они готовы.
  */
 async function runQuiz(mode, chapterOrChapters, count) {
   state.mode = mode;
@@ -67,6 +78,7 @@ async function runQuiz(mode, chapterOrChapters, count) {
   state.selected = {};
   state.examErrors = 0;
   state.examFailed = false;
+  state.questions = [];
 
   // Откуда вернуться, если выйти из теста незавершённым (см. controls.js
   // exit-confirm) — не всегда корень меню: если тест начали с экрана глав
@@ -74,27 +86,45 @@ async function runQuiz(mode, chapterOrChapters, count) {
   state.originScreen =
     mode === "chapter" ? "chapters" : mode === "random" ? "random-count" : "menu";
 
-  let questions = [];
+  // Лейбл известен сразу (глава/количество выбраны до сети) — показываем
+  // его уже на экране загрузки, чтобы не мигать пустым топбаром.
   let label = "";
+  if (mode === "chapter") {
+    label = Array.isArray(chapterOrChapters)
+      ? `Главы: ${chapterOrChapters.map((c) => c.num ?? "?").join(", ")}`
+      : chapterOrChapters.title;
+  } else if (mode === "random") {
+    state.randomCount = count || state.randomCount || 10;
+    label = `Случайный билет · ${state.randomCount} вопр.`;
+  } else if (mode === "exam") {
+    label = "Контрольный экзамен";
+  }
+  render.$("q-chapter-label").textContent = label;
 
+  const timerEl = render.$("q-timer");
+  timerEl.classList.add("hidden");
+  clearInterval(state.timerHandle);
+
+  state.questionsLoading = true;
+  render.showScreen("question");
+  render.showQuestionLoading();
+
+  let questions = [];
   if (mode === "chapter") {
     if (Array.isArray(chapterOrChapters)) {
       // Мультивыбор: тянем вопросы каждой отмеченной главы и объединяем.
       const lists = await Promise.all(
-        chapterOrChapters.map((c) => api.listQuestions(state.token, c.id)),
+        chapterOrChapters.map((c) => loadChapterQuestions(c.id)),
       );
       questions = shuffle(lists.flat());
       state.chapterId = null;
       state.multiChapterIds = chapterOrChapters.map((c) => c.id);
-      label = `Главы: ${chapterOrChapters.map((c) => c.num ?? "?").join(", ")}`;
     } else {
-      questions = await api.listQuestions(state.token, chapterOrChapters.id);
+      questions = await loadChapterQuestions(chapterOrChapters.id);
       state.chapterId = chapterOrChapters.id;
       state.multiChapterIds = null;
-      label = chapterOrChapters.title;
     }
   } else if (mode === "random") {
-    state.randomCount = count || state.randomCount || 10;
     const pool = await getQuestionPool();
     questions = shuffle(pool).slice(0, Math.min(state.randomCount, pool.length));
     label = `Случайный билет · ${questions.length} вопр.`;
@@ -102,22 +132,18 @@ async function runQuiz(mode, chapterOrChapters, count) {
     // Контрольный экзамен — ровно 10 билетов, без фаз (см. правку про экзамен).
     const pool = await getQuestionPool();
     questions = shuffle(pool).slice(0, Math.min(10, pool.length));
-    label = "Контрольный экзамен";
   }
 
+  state.questionsLoading = false;
   state.questions = questions;
   render.$("q-chapter-label").textContent = label;
 
-  const timerEl = render.$("q-timer");
   if (mode === "exam") {
     timerEl.classList.remove("hidden");
     startTimer(900);
-  } else {
-    timerEl.classList.add("hidden");
-    clearInterval(state.timerHandle);
   }
 
-  render.showScreen("question");
+  render.hideQuestionLoading();
   render.renderQuestion();
   updateQuestionHint();
 }
@@ -132,6 +158,7 @@ export async function beginQuiz(mode, chapterOrChapters, count) {
   try {
     await runQuiz(mode, chapterOrChapters, count);
   } catch (err) {
+    state.questionsLoading = false;
     const msg = err instanceof api.ApiError ? err.message : "Не удалось загрузить вопросы";
     render.toast(msg, "error");
     returnToOrigin();
@@ -495,9 +522,20 @@ export async function loadChapters() {
   // то есть упавший на минуту бэкенд стирал сохранённую сессию.
   try {
     state.chapters = await api.listChapters(state.token);
+    cache.setChapters(state.chapters);
   } catch (err) {
-    state.chapters = [];
-    render.toast(err instanceof api.ApiError ? err.message : "Нет связи с сервером", "error");
+    // Сети нет (или сервер лёг) — приложение всё равно должно уметь
+    // работать оффлайн на том, что уже когда-то было закэшировано на этом
+    // ПК под этим же аккаунтом (см. js/cache.js), а не просто показать
+    // пустое меню.
+    const offline = cache.getChaptersStale();
+    if (offline) {
+      state.chapters = offline;
+      render.toast("Нет связи с сервером — показаны сохранённые данные (офлайн)", "info");
+    } else {
+      state.chapters = [];
+      render.toast(err instanceof api.ApiError ? err.message : "Нет связи с сервером", "error");
+    }
   }
   state.questionPoolCache = null; // главы обновились — старый кэш пула вопросов больше не актуален
   render.renderMenuMeta();

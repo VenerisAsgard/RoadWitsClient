@@ -196,6 +196,18 @@ body {
   min-height: 0; /* без этого flex-ребёнок не сжимается меньше контента — скролл не заработает */
 }
 
+/* ---------- анимация загрузки билета (см. render.showQuestionLoading) ---------- */
+.q-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(18px * var(--k));
+  min-height: 0;
+  padding: calc(20px * var(--k));
+}
+
 /* Список вариантов ответа — единственное, что скроллится внутри вопроса.
    Текст вопроса/ответ/пояснение остаются на месте, вариантов может быть
    разное количество и они не всегда помещаются целиком по высоте. */
@@ -292,6 +304,7 @@ body {
   align-items: center;
   gap: calc(10px * var(--k));
   padding: calc(8px * var(--k)) calc(10px * var(--k));
+  position: relative; /* якорь для .eq-tooltip */
 }
 
 /* ---------- модалка ---------- */
@@ -340,6 +353,82 @@ body {
   justify-content: flex-end;
   gap: calc(8px * var(--k));
   margin-top: 4px;
+}
+.modal-actions-spacer {
+  flex: 1;
+}
+
+/* ---------- превью вопроса в форме редактора (см. admin.js questionFormHtml) ---------- */
+.question-preview {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8px * var(--k));
+  padding: calc(12px * var(--k));
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg);
+}
+/* .q-image-wrap задаёт себе большие фиксированные размеры под весь экран
+   вопроса (min-height 360px, до 52% ширины) — тут переопределяем под
+   компактную модалку. */
+.question-preview .qp-image-wrap {
+  min-height: 0;
+  max-width: 100%;
+  max-height: calc(180px * var(--k));
+}
+.question-preview .qp-image-wrap img {
+  max-height: calc(180px * var(--k));
+  object-fit: contain;
+}
+.question-preview .q-options {
+  overflow: visible;
+}
+
+/* ---------- поиск вопроса по всем главам (admin.openQuestionSearch) ---------- */
+.question-search {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--k));
+}
+.question-search-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--k));
+  max-height: calc(320px * var(--k));
+  overflow-y: auto;
+}
+.question-search-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: calc(4px * var(--k)) calc(8px * var(--k));
+  padding: calc(8px * var(--k)) calc(10px * var(--k));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg);
+}
+.qs-chapter {
+  font-family: var(--font-mono);
+  font-size: calc(11px * var(--k));
+  color: var(--faint);
+  flex: 0 0 auto;
+}
+.qs-text {
+  flex: 1 1 100%;
+  font-size: calc(13px * var(--k));
+  color: var(--ink);
+}
+.qs-badge {
+  font-family: var(--font-mono);
+  font-size: calc(10.5px * var(--k));
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+.qs-badge.exact {
+  color: var(--red);
 }
 .answers-editor {
   display: flex;

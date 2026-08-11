@@ -7,6 +7,7 @@ import * as api from "./api.js";
 import * as device from "./device.js";
 import * as render from "./render.js";
 import * as quiz from "./quiz.js";
+import * as cache from "./cache.js";
 
 async function enterApp(user) {
   state.user = { ...user, settings: user.settings && typeof user.settings === "object" ? user.settings : {} };
@@ -33,12 +34,35 @@ export async function tryAutoLogin() {
     return;
   }
 
+  // Нужен и для нормальной работы, и как часть ключа дискового кэша
+  // (см. js/cache.js) — получаем его до api.me(), а не после, потому что
+  // офлайн-ветка ниже опирается именно на него.
+  state.fingerprint = await device.getFingerprint();
+
   try {
     const user = await api.me(token);
     state.token = token;
+    cache.setCachedUser(state.fingerprint, user);
     await enterApp(user);
-  } catch {
-    // токен невалиден/истёк/лицензия заблокирована — сбрасываем и просим войти заново
+  } catch (err) {
+    // status === 0 — именно сетевая ошибка (см. api.js request(): нет
+    // соединения/таймаут), а не "сервер ответил и отверг токен". В этом
+    // случае, если раньше уже был успешный вход на этом устройстве,
+    // приложение должно уметь работать оффлайн на сохранённых данных, а
+    // не разлогинивать пользователя только из-за того, что сервер сейчас
+    // недоступен.
+    const offline = err instanceof api.ApiError && err.status === 0;
+    const cachedUser = offline ? cache.getCachedUser(state.fingerprint) : null;
+
+    if (offline && cachedUser) {
+      state.token = token;
+      render.toast("Нет связи с сервером — офлайн-режим на сохранённых данных", "info");
+      await enterApp(cachedUser);
+      return;
+    }
+
+    // Токен невалиден/истёк/лицензия заблокирована (сервер ответил и
+    // отверг) — сбрасываем и просим войти заново.
     await device.clearToken();
     render.showLogin();
   }
@@ -53,6 +77,8 @@ export async function submitLogin(productKey) {
 
     const user = await api.me(access_token);
     state.token = access_token;
+    state.fingerprint = fingerprint;
+    cache.setCachedUser(fingerprint, user);
     await enterApp(user);
   } catch (err) {
     render.showLoginError(
@@ -69,6 +95,7 @@ export async function logout() {
   await device.clearToken();
   state.token = null;
   state.user = null;
+  state.fingerprint = null;
   state.chapters = [];
   state.questionPoolCache = null;
   render.showLogin();

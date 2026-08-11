@@ -143,6 +143,11 @@ function normalizeQuestion(raw) {
     image: raw.image_base64
       ? `data:${detectImageMime(raw.image_base64)};base64,${raw.image_base64}`
       : null,
+    // Автор/дата создания — бэкенд их и так отдаёт (см. QuestionOut на
+    // сервере), раньше клиент их просто не читал. Нужны для подсказки при
+    // наведении в списке вопросов редактора (см. render.renderEditorQuestionList).
+    createdByEmail: raw.created_by_email ?? null,
+    createdAt: raw.created_at ?? null,
   };
 }
 

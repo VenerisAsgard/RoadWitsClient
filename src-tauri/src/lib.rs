@@ -1,71 +1,148 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use serde::{Deserialize, Serialize};
+use aes_gcm::{
+    aead::{Aead, AeadCore, KeyInit, OsRng},
+    Aes256Gcm, Key, Nonce,
+};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
+use sha2::{Digest, Sha256};
 use std::fs;
-use std::path::PathBuf;
 use tauri::Manager;
+use tauri_plugin_store::StoreExt;
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Default)]
-struct SessionData {
-    fingerprint: Option<String>,
-    token: Option<String>,
+/* ============================================================
+   Хранение сессии (fingerprint устройства, JWT).
+
+   Сам файл хранилища ведёт tauri-plugin-store (JSON на диске, как у
+   любого другого приложения на Tauri), но значения под ключами
+   "fingerprint"/"token" в нём — не читаемый текст, а AES-256-GCM
+   шифротекст. Ключ шифрования нигде не сохраняется: он каждый раз
+   заново выводится из ID устройства (derive_key), поэтому просто
+   скопировать файл хранилища на другой ПК недостаточно, чтобы
+   прочитать из него токен — расшифровать его получится только на
+   том же устройстве, где он был создан.
+   ============================================================ */
+
+const STORE_FILE: &str = "roadwits_session.store.json";
+const KEY_FINGERPRINT: &str = "fingerprint";
+const KEY_TOKEN: &str = "token";
+
+/// Вшитая в бинарник "соль" — не секрет сама по себе (как и любая
+/// константа в клиентском приложении), но не даёт ключу шифрования
+/// совпасть с голым machine id устройства.
+const APP_SALT: &[u8] = b"roadwits-client-session-v1";
+
+fn derive_key() -> Result<[u8; 32], String> {
+    let machine_id = machine_uid::get()
+        .map_err(|e| format!("Не удалось определить ID устройства: {e}"))?;
+
+    let mut hasher = Sha256::new();
+    hasher.update(machine_id.as_bytes());
+    hasher.update(APP_SALT);
+    Ok(hasher.finalize().into())
 }
 
-fn session_file_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Не удалось определить директорию данных приложения: {e}"))?;
+fn encrypt(plaintext: &str) -> Result<String, String> {
+    let key_bytes = derive_key()?;
+    let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
+    let cipher = Aes256Gcm::new(key);
 
-    fs::create_dir_all(&dir)
-        .map_err(|e| format!("Не удалось создать директорию данных: {e}"))?;
+    let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+    let ciphertext = cipher
+        .encrypt(&nonce, plaintext.as_bytes())
+        .map_err(|_| "Не удалось зашифровать данные сессии".to_string())?;
 
-    Ok(dir.join("roadwits_session.json"))
+    // nonce (12 байт) храним прямо перед шифротекстом — он не секрет,
+    // просто должен быть под рукой при расшифровке того же значения.
+    let mut combined = nonce.to_vec();
+    combined.extend_from_slice(&ciphertext);
+    Ok(STANDARD.encode(combined))
 }
 
-fn read_session(app: &tauri::AppHandle) -> Result<SessionData, String> {
-    let path = session_file_path(app)?;
+fn decrypt(payload: &str) -> Result<String, String> {
+    let key_bytes = derive_key()?;
+    let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
+    let cipher = Aes256Gcm::new(key);
 
-    if !path.exists() {
-        return Ok(SessionData::default());
+    let combined = STANDARD
+        .decode(payload)
+        .map_err(|_| "Повреждённые данные сессии".to_string())?;
+    if combined.len() < 12 {
+        return Err("Повреждённые данные сессии".to_string());
     }
+    let (nonce_bytes, ciphertext) = combined.split_at(12);
+    let nonce = Nonce::from_slice(nonce_bytes);
 
-    let raw = fs::read_to_string(&path)
-        .map_err(|e| format!("Не удалось прочитать файл сессии: {e}"))?;
+    let plaintext = cipher
+        .decrypt(nonce, ciphertext)
+        // Сюда же попадает случай "файл хранилища скопирован с другого
+        // устройства": ключ не совпадёт, и это просто ошибка расшифровки,
+        // а не паника — вызывающий код трактует её как "данных нет".
+        .map_err(|_| "Не удалось расшифровать данные сессии".to_string())?;
 
-    serde_json::from_str(&raw)
-        .map_err(|e| format!("Файл сессии повреждён: {e}"))
+    String::from_utf8(plaintext).map_err(|_| "Повреждённые данные сессии".to_string())
 }
 
-fn write_session(
-    app: &tauri::AppHandle,
-    data: &SessionData,
-) -> Result<(), String> {
-    let path = session_file_path(app)?;
+fn store_get_string(app: &tauri::AppHandle, key: &str) -> Result<Option<String>, String> {
+    let store = app
+        .store(STORE_FILE)
+        .map_err(|e| format!("Не удалось открыть хранилище сессии: {e}"))?;
 
-    let raw = serde_json::to_string_pretty(data)
-        .map_err(|e| format!("Ошибка сериализации: {e}"))?;
+    let encrypted = match store.get(key) {
+        Some(value) => value.as_str().map(str::to_string),
+        None => None,
+    };
 
-    fs::write(&path, raw)
-        .map_err(|e| format!("Не удалось записать файл сессии: {e}"))
+    match encrypted {
+        None => Ok(None),
+        Some(enc) => match decrypt(&enc) {
+            Ok(plain) => Ok(Some(plain)),
+            Err(_) => {
+                // Нечитаемое значение (файл хранилища перенесён с другого
+                // устройства, повреждён, или ключ сменился) — не роняем
+                // вызывающий код ошибкой, а стираем протухшую запись и
+                // ведём себя так, будто сохранённых данных не было.
+                store.delete(key);
+                let _ = store.save();
+                Ok(None)
+            }
+        },
+    }
+}
+
+fn store_set_string(app: &tauri::AppHandle, key: &str, value: &str) -> Result<(), String> {
+    let store = app
+        .store(STORE_FILE)
+        .map_err(|e| format!("Не удалось открыть хранилище сессии: {e}"))?;
+
+    let enc = encrypt(value)?;
+    store.set(key, serde_json::Value::String(enc));
+    store
+        .save()
+        .map_err(|e| format!("Не удалось сохранить хранилище сессии: {e}"))
+}
+
+fn store_delete(app: &tauri::AppHandle, key: &str) -> Result<(), String> {
+    let store = app
+        .store(STORE_FILE)
+        .map_err(|e| format!("Не удалось открыть хранилище сессии: {e}"))?;
+
+    store.delete(key);
+    store
+        .save()
+        .map_err(|e| format!("Не удалось сохранить хранилище сессии: {e}"))
 }
 
 
 #[tauri::command]
 fn get_fingerprint(app: tauri::AppHandle) -> Result<String, String> {
-    let mut session = read_session(&app)?;
-
-    if let Some(fp) = &session.fingerprint {
-        return Ok(fp.clone());
+    if let Some(fp) = store_get_string(&app, KEY_FINGERPRINT)? {
+        return Ok(fp);
     }
 
     let generated = Uuid::new_v4().to_string();
-
-    session.fingerprint = Some(generated.clone());
-
-    write_session(&app, &session)?;
-
+    store_set_string(&app, KEY_FINGERPRINT, &generated)?;
     Ok(generated)
 }
 
@@ -75,11 +152,7 @@ fn save_token(
     app: tauri::AppHandle,
     token: String,
 ) -> Result<(), String> {
-    let mut session = read_session(&app)?;
-
-    session.token = Some(token);
-
-    write_session(&app, &session)
+    store_set_string(&app, KEY_TOKEN, &token)
 }
 
 
@@ -87,9 +160,7 @@ fn save_token(
 fn load_token(
     app: tauri::AppHandle,
 ) -> Result<Option<String>, String> {
-    let session = read_session(&app)?;
-
-    Ok(session.token)
+    store_get_string(&app, KEY_TOKEN)
 }
 
 
@@ -97,11 +168,7 @@ fn load_token(
 fn clear_token(
     app: tauri::AppHandle,
 ) -> Result<(), String> {
-    let mut session = read_session(&app)?;
-
-    session.token = None;
-
-    write_session(&app, &session)
+    store_delete(&app, KEY_TOKEN)
 }
 
 
@@ -166,6 +233,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             get_fingerprint,
             save_token,

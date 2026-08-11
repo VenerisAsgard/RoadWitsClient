@@ -917,6 +917,72 @@ button.small {
   }
 }
 
+/* ---------- анимация загрузки билета (тест/экзамен, см. render.showQuestionLoading) ---------- */
+.q-loading-spinner {
+  width: calc(40px * var(--k));
+  height: calc(40px * var(--k));
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+.q-loading-text {
+  font-family: var(--font-display);
+  font-size: calc(14px * var(--k));
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.q-skeleton {
+  width: 100%;
+  max-width: calc(420px * var(--k));
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--k));
+}
+.q-skeleton-line,
+.q-skeleton-opt {
+  border-radius: calc(6px * var(--k));
+  background: linear-gradient(90deg, var(--panel-2) 25%, var(--line) 50%, var(--panel-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.q-skeleton-line {
+  height: calc(14px * var(--k));
+}
+.q-skeleton-line.w80 {
+  width: 80%;
+}
+.q-skeleton-line.w55 {
+  width: 55%;
+  margin-bottom: calc(6px * var(--k));
+}
+.q-skeleton-opt {
+  height: calc(40px * var(--k));
+  width: 100%;
+}
+/* Каждый следующий вариант чуть отстаёт по фазе — билет "собирается"
+   построчно, а не мигает всем скелетоном разом одинаково. */
+.q-skeleton-opt:nth-child(3) {
+  animation-delay: 0.05s;
+}
+.q-skeleton-opt:nth-child(4) {
+  animation-delay: 0.1s;
+}
+.q-skeleton-opt:nth-child(5) {
+  animation-delay: 0.15s;
+}
+.q-skeleton-opt:nth-child(6) {
+  animation-delay: 0.2s;
+}
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 /* ---------- оверлей "поверни устройство" ---------- */
 .rotate-overlay {
   background: var(--bg);
@@ -1161,6 +1227,34 @@ button.small {
   color: var(--muted);
 }
 
+/* Подсказка "автор · дата" по наведению на вопрос (см.
+   render.renderEditorQuestionList) — всплывающий пузырёк над строкой,
+   а не нативный title: нативные тултипы в Tauri-вебвью выглядят
+   по-разному на разных ОС и не вписываются в тему приложения. */
+.eq-tooltip {
+  position: absolute;
+  left: calc(10px * var(--k));
+  bottom: calc(100% + 6px * var(--k));
+  z-index: 5;
+  padding: calc(5px * var(--k)) calc(9px * var(--k));
+  border-radius: var(--radius-sm, 6px);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: calc(11px * var(--k));
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.editor-question-item:hover .eq-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 /* ---------- модалка ---------- */
 .modal-overlay {
   background: rgba(0, 0, 0, 0.6);
@@ -1227,6 +1321,17 @@ button.small {
   font-size: calc(12px * var(--k));
   color: var(--faint);
   margin: 0;
+}
+
+/* ---------- предупреждение о дубликате при создании вопроса (см. admin.js checkDuplicates) ---------- */
+.question-dup-warning {
+  font-size: calc(12.5px * var(--k));
+  line-height: 1.4;
+  padding: calc(8px * var(--k)) calc(10px * var(--k));
+  border: 1px solid var(--amber-dim);
+  border-radius: var(--radius-sm, 6px);
+  background: rgba(255, 176, 32, 0.08);
+  color: var(--amber);
 }
 
 /* ---------- кнопка "назад" — переиспользуется на chapters/profile ---------- */

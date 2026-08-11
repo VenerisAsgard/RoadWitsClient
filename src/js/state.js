@@ -7,6 +7,13 @@ export const state = {
   // --- auth ---
   token: null,
   user: null, // { id, email, first_name, last_name, license_until, user_type, is_blocked, settings, profile_photo }
+  fingerprint: null, // ID устройства (см. device.getFingerprint()) — используется как часть ключа
+  // дискового кэша вопросов (js/cache.js), чтобы кэш не был валиден на другом ПК/аккаунте.
+
+  // --- прохождение теста: идёт ли сейчас первая загрузка вопросов билета
+  // (см. quiz.beginQuiz/runQuiz) — отдельно от questions.length === 0,
+  // чтобы отличить "вопросы ещё грузятся" от "вопросов в главе нет".
+  questionsLoading: false,
 
   // --- навигация по экранам после входа ---
   screen: "menu", // "menu" | "chapters" | "random-count" | "question" | "result" | "profile" | "admin"

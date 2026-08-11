@@ -281,6 +281,10 @@ export function renderMenuMeta() {
 function renderChaptersToolbar() {
   const editable = canEditContent();
   $("chapters-toolbar").classList.toggle("hidden", !editable);
+  // Поиск вопроса по всем главам (см. admin.openQuestionSearch) — та же
+  // видимость, что и у остальных инструментов редактора: обычному
+  // пользователю чужой контент искать незачем, он и так его не редактирует.
+  $("chapter-search-btn").classList.toggle("hidden", !editable);
   // Создание глав теперь разрешено и editor, и admin — см. POST /chapters
   // на бэкенде (require_editor_or_admin). Раньше здесь стояло isAdmin(),
   // из-за чего кнопка была не видна редактору, хотя бэкенд уже разрешал —
@@ -374,6 +378,18 @@ export function renderChapterDetail() {
   `;
 }
 
+/** "email автора · дд.мм.гггг" — для подсказки при наведении в списке
+ * вопросов редактора (см. renderEditorQuestionList). created_by может
+ * быть не задан у вопросов, созданных до этого поля/удалённым автором. */
+function formatQuestionMeta(q) {
+  const who = q.createdByEmail || "автор неизвестен";
+  if (!q.createdAt) return who;
+  const d = new Date(q.createdAt);
+  if (Number.isNaN(d.getTime())) return who;
+  const when = d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return `${who} · ${when}`;
+}
+
 export function renderEditorQuestionList(questions) {
   const list = $("editor-question-list");
   if (!list) return; // деталь главы уже перерисована на что-то другое — не наш случай
@@ -389,6 +405,7 @@ export function renderEditorQuestionList(questions) {
     li.innerHTML = `
       <span class="eq-num">${i + 1}</span>
       <span class="eq-text">${escapeHtml(q.text)}</span>
+      <span class="eq-tooltip">${escapeHtml(formatQuestionMeta(q))}</span>
       <span class="eq-controls">
         <button class="icon-btn tiny" data-action="edit-question" title="Редактировать">✏️</button>
         <button class="icon-btn tiny danger" data-action="delete-question" title="Удалить">❌</button>
@@ -423,6 +440,29 @@ export function renderRandomCount() {
 /* ============================================================
    QUESTION (прохождение теста)
    ============================================================ */
+
+/**
+ * Показывается сразу по нажатию "Начать" — ещё до того, как вопросы
+ * реально загружены (см. quiz.runQuiz). Прячет и q-content, и картинку,
+ * показывает скелетон-анимацию внутри самого билета; hideQuestionLoading()
+ * возвращает всё обратно перед первым renderQuestion().
+ */
+export function showQuestionLoading() {
+  $("q-loading").classList.remove("hidden");
+  $("q-content").classList.add("hidden");
+  $("q-image-wrap").classList.add("hidden");
+  $("q-dots").innerHTML = "";
+  $("q-arrow-nav").classList.add("hidden");
+  const finishBtn = $("q-btn-finish");
+  if (finishBtn) finishBtn.disabled = true;
+}
+
+export function hideQuestionLoading() {
+  $("q-loading").classList.add("hidden");
+  $("q-content").classList.remove("hidden");
+  const finishBtn = $("q-btn-finish");
+  if (finishBtn) finishBtn.disabled = false;
+}
 
 export function renderQuestion() {
   const q = state.questions[state.currentQ];

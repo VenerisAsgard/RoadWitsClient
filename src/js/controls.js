@@ -413,7 +413,10 @@ export function initMouseControls() {
     admin.refreshEditorQuestions();
   });
 
-  /* ---------- тулбар над списком глав: добавить / режим редактирования ---------- */
+  /* ---------- тулбар над списком глав: поиск / добавить / режим редактирования ---------- */
+  render.$("chapter-search-btn").addEventListener("click", () => {
+    admin.openQuestionSearch();
+  });
   render.$("chapter-add-btn").addEventListener("click", () => {
     admin.promptCreateChapter();
   });

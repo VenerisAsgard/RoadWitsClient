@@ -90,6 +90,7 @@
               <div class="panel-header">
                 <p class="panel-label">Выберите главу</p>
                 <div class="panel-actions hidden" id="chapters-toolbar">
+                  <button class="icon-btn hidden" id="chapter-search-btn" type="button" title="Поиск вопроса по всем главам">🔍</button>
                   <button class="icon-btn hidden" id="chapter-add-btn" type="button" title="Добавить главу">+</button>
                   <button class="icon-btn hidden" id="chapters-edit-toggle" type="button" title="Режим редактирования">✏️</button>
                 </div>
@@ -142,10 +143,22 @@
           </div>
 
           <div class="q-body">
+            <div class="q-loading hidden" id="q-loading">
+              <div class="q-loading-spinner"></div>
+              <p class="q-loading-text">Загружаем билет…</p>
+              <div class="q-skeleton">
+                <div class="q-skeleton-line w80"></div>
+                <div class="q-skeleton-line w55"></div>
+                <div class="q-skeleton-opt"></div>
+                <div class="q-skeleton-opt"></div>
+                <div class="q-skeleton-opt"></div>
+                <div class="q-skeleton-opt"></div>
+              </div>
+            </div>
             <div class="q-image-wrap hidden" id="q-image-wrap">
               <img id="q-image" alt="Иллюстрация к вопросу" title="Нажми, чтобы увеличить" />
             </div>
-            <div class="q-content">
+            <div class="q-content" id="q-content">
               <p class="q-text" id="q-text">Загрузка вопроса…</p>
               <ul class="q-options" id="q-options"></ul>
               <p class="q-answer-line">ВАШ ОТВЕТ: <span id="q-answer-value">_</span></p>
