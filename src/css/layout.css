@@ -304,7 +304,6 @@ body {
   align-items: center;
   gap: calc(10px * var(--k));
   padding: calc(8px * var(--k)) calc(10px * var(--k));
-  position: relative; /* якорь для .eq-tooltip */
 }
 
 /* ---------- модалка ---------- */
@@ -379,6 +378,32 @@ body {
 .question-preview .qp-image-wrap img {
   max-height: calc(180px * var(--k));
   object-fit: contain;
+}
+
+/* Миниатюра уже прикреплённого фото прямо в форме редактирования вопроса
+   (см. admin.js questionFormHtml) — раньше текущее фото вообще нигде не
+   было видно, пока не открыть отдельный "Предпросмотр"; теперь оно видно
+   сразу, с кнопкой удаления поверх. */
+.qf-image-wrap {
+  position: relative;
+  max-width: calc(220px * var(--k));
+  max-height: calc(140px * var(--k));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+  background: var(--bg);
+}
+.qf-image-wrap img {
+  display: block;
+  width: 100%;
+  max-height: calc(140px * var(--k));
+  object-fit: contain;
+}
+.qf-image-wrap #qf-image-remove {
+  position: absolute;
+  top: calc(4px * var(--k));
+  right: calc(4px * var(--k));
+  background: rgba(11, 13, 16, 0.75); /* поверх фото любой яркости — иначе прозрачная по умолчанию .icon-btn теряется на светлых снимках */
 }
 .question-preview .q-options {
   overflow: visible;

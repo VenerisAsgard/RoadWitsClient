@@ -13,6 +13,7 @@ import {
   isAdmin,
   isLightTheme,
 } from "./state.js";
+import * as cache from "./cache.js";
 
 export const $ = (id) => document.getElementById(id);
 
@@ -402,10 +403,14 @@ export function renderEditorQuestionList(questions) {
     const li = document.createElement("li");
     li.className = "editor-question-item";
     li.dataset.id = String(q.id);
+    // Текст подсказки — в data-атрибуте, а не в собственном всегда-в-DOM
+    // элементе внутри строки: сам всплывающий блок теперь один общий на
+    // всё приложение и позиционируется через showEditorTooltip() по
+    // наведению (см. controls.js), чтобы не обрезаться скроллом списка.
+    li.dataset.meta = formatQuestionMeta(q);
     li.innerHTML = `
       <span class="eq-num">${i + 1}</span>
       <span class="eq-text">${escapeHtml(q.text)}</span>
-      <span class="eq-tooltip">${escapeHtml(formatQuestionMeta(q))}</span>
       <span class="eq-controls">
         <button class="icon-btn tiny" data-action="edit-question" title="Редактировать">✏️</button>
         <button class="icon-btn tiny danger" data-action="delete-question" title="Удалить">❌</button>
@@ -413,6 +418,48 @@ export function renderEditorQuestionList(questions) {
     `;
     list.appendChild(li);
   });
+}
+
+let eqTooltipEl = null;
+function eqTooltip() {
+  if (!eqTooltipEl) {
+    eqTooltipEl = document.createElement("div");
+    eqTooltipEl.className = "eq-tooltip-float hidden";
+    document.body.appendChild(eqTooltipEl);
+  }
+  return eqTooltipEl;
+}
+
+/** Показать подсказку "автор · дата" рядом со строкой вопроса редактора
+ * (см. controls.js — навешивается по mouseover на .editor-question-item).
+ * anchorRect — getBoundingClientRect() строки, под которую подстраивается
+ * позиция; сам тултип — один общий элемент в конце <body>, поэтому не
+ * обрезается overflow:auto списка вопросов (см. .eq-tooltip-float в
+ * components.css). */
+export function showEditorTooltip(text, anchorRect) {
+  const el = eqTooltip();
+  el.textContent = text;
+  el.classList.remove("hidden");
+  // Сначала показать (но прозрачным — opacity даёт transition), чтобы
+  // offsetWidth/offsetHeight ниже посчитались по реальному содержимому.
+  const margin = 6;
+  let top = anchorRect.top - el.offsetHeight - margin;
+  if (top < margin) top = anchorRect.bottom + margin; // сверху не влезает (первая строка списка) — показываем снизу
+  let left = anchorRect.left;
+  const maxLeft = window.innerWidth - el.offsetWidth - margin;
+  if (left > maxLeft) left = Math.max(margin, maxLeft);
+  el.style.top = `${top}px`;
+  el.style.left = `${left}px`;
+  // classList.add в следующем кадре — иначе браузер схлопывает переход
+  // opacity/transform в один и тот же кадр, что "показать" и что менять
+  // положение, и transition попросту не проигрывается.
+  requestAnimationFrame(() => el.classList.add("visible"));
+}
+
+export function hideEditorTooltip() {
+  if (!eqTooltipEl) return;
+  eqTooltipEl.classList.remove("visible");
+  eqTooltipEl.classList.add("hidden");
 }
 
 /* ============================================================
@@ -453,6 +500,11 @@ export function showQuestionLoading() {
   $("q-image-wrap").classList.add("hidden");
   $("q-dots").innerHTML = "";
   $("q-arrow-nav").classList.add("hidden");
+  // Фаза/счётчик билета — от ПРЕДЫДУЩЕГО теста в этой же сессии (см.
+  // quiz.retryQuiz), их тоже прячем на время загрузки, а не только скелетон
+  // вопроса — иначе на экране загрузки повисает "Фаза 2 из 3" от прошлой
+  // попытки, которая к новому билету уже не относится.
+  $("q-phase-nav").classList.add("hidden");
   const finishBtn = $("q-btn-finish");
   if (finishBtn) finishBtn.disabled = true;
 }
@@ -550,7 +602,17 @@ function renderQuestionNav() {
   dotsWrap.classList.toggle("hidden", isChapter);
 
   if (isChapter) {
-    $("q-arrow-counter").textContent = `${state.currentQ + 1} / ${state.questions.length}`;
+    const total = state.questions.length;
+    $("q-arrow-counter").textContent = `${state.currentQ + 1} / ${total}`;
+    // Ширина резервируется под максимум цифр (у total их не меньше, чем у
+    // текущего индекса) — раньше был только min-width:6ch, и строка вроде
+    // "1 / 10" была уже него самого, а "10 / 10" — шире; счётчик менял
+    // ширину при переходе между вопросами, а .q-arrow-nav центрируется
+    // (justify-content:center), из-за чего кнопки prev/next визуально
+    // скакали по горизонтали при каждом переходе. Фиксированная ширина по
+    // максимальному числу цифр держит их на месте всегда.
+    const digits = String(total).length;
+    $("q-arrow-counter").style.width = `${digits * 2 + 3}ch`;
     $("q-prev-btn").disabled = state.currentQ === 0;
     return;
   }
@@ -732,6 +794,14 @@ export function renderProfile(user) {
       <p class="modal-hint">Сохраняется автоматически при выходе из профиля. Фото меняется кликом по аватарке выше — можно выбрать любой снимок, он сам обрежется в квадрат и сожмётся.</p>
     </div>
     <div class="profile-settings">
+      <p class="panel-label">Офлайн-кэш вопросов</p>
+      <div class="cache-status" id="cache-status"><p class="loading">Проверяем…</p></div>
+      <div class="cache-actions">
+        <button type="button" class="ghost small" id="cache-refresh-btn">🔄 Обновить кэш сейчас</button>
+        <button type="button" class="ghost small danger" id="cache-clear-btn">🗑️ Очистить кэш</button>
+      </div>
+    </div>
+    <div class="profile-settings">
       <p class="panel-label">Друзья</p>
       <div class="friends-section" id="friends-incoming"><p class="loading">Загрузка…</p></div>
       <div class="friends-section" id="friends-outgoing"></div>
@@ -747,6 +817,57 @@ export function renderProfile(user) {
     </div>` : ""}
   `;
   paintAvatar($("profile-avatar"), user);
+  renderCacheStatus();
+}
+
+function formatBytes(n) {
+  if (n < 1024) return `${n} Б`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} КБ`;
+  return `${(n / (1024 * 1024)).toFixed(1)} МБ`;
+}
+
+function formatRelativeTime(ts) {
+  if (!ts) return "—";
+  const diffMin = Math.round((Date.now() - ts) / 60000);
+  if (diffMin < 1) return "только что";
+  if (diffMin < 60) return `${diffMin} мин назад`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return `${diffH} ч назад`;
+  return formatDate(new Date(ts).toISOString());
+}
+
+/**
+ * Подробный индикатор кэширования в профиле — сколько глав уже есть
+ * офлайн, насколько это свежо, примерный объём на диске. Раньше пользователь
+ * никак не мог узнать, готово ли приложение работать без интернета, пока
+ * не пробовал сам, уже оффлайн (см. кнопки "Обновить кэш"/"Очистить кэш",
+ * controls.js — они вызывают эту функцию заново после своей работы).
+ */
+export function renderCacheStatus() {
+  const el = $("cache-status");
+  if (!el) return;
+  const s = cache.getStatus();
+  if (!s || (!s.hasChapterList && s.cachedChapterCount === 0)) {
+    el.innerHTML = `<p class="cache-status-line" data-status="offline">Кэша пока нет — офлайн-режим недоступен, пока не откроешь главы онлайн хотя бы раз.</p>`;
+    return;
+  }
+  const complete = s.totalChapters > 0 && s.cachedChapterCount >= s.totalChapters;
+  const status = !s.chaptersFresh ? "degraded" : complete ? "ok" : "degraded";
+  const coverageLine = s.totalChapters
+    ? `Глав в кэше: ${s.cachedChapterCount} из ${s.totalChapters}${complete ? "" : " (остальные закэшируются, когда откроешь их онлайн, либо кнопкой ниже)"}`
+    : `Глав в кэше: ${s.cachedChapterCount}`;
+  el.innerHTML = `
+    <p class="cache-status-line" data-status="${status}">${coverageLine}</p>
+    <p class="cache-status-meta">Обновлялся: ${formatRelativeTime(s.newestSavedAt)} · Занимает: ${formatBytes(s.approxBytes)}</p>
+  `;
+}
+
+/** Прогресс ручного кэширования (кнопка "Обновить кэш сейчас") — подменяет
+ * обычную сводку статуса на время запроса, см. controls.js. */
+export function setCacheRefreshProgress(done, total) {
+  const el = $("cache-status");
+  if (!el) return;
+  el.innerHTML = `<p class="cache-status-line" data-status="degraded">Кэшируем главы… ${done} из ${total}</p>`;
 }
 
 function friendPartner(friendship, currentUserId) {

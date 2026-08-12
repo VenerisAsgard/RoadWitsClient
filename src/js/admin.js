@@ -321,7 +321,11 @@ function questionFormHtml(question) {
       <div class="question-dup-warning hidden" id="question-dup-warning"></div>
       <label>Подсказка (необязательно)<textarea name="hint" rows="2">${escapeHtml(question?.explanation ?? "")}</textarea></label>
       <label>Фото (необязательно)<input type="file" name="image" accept="image/*" /></label>
-      ${question?.image ? `<p class="modal-hint">Текущее фото сохранится, если не выбрать новое.</p>` : ""}
+      <div class="qf-image-wrap${question?.image ? "" : " hidden"}" id="qf-image-wrap">
+        <img id="qf-image" alt="Текущее фото вопроса" src="${question?.image ?? ""}" />
+        <button type="button" class="icon-btn tiny danger" id="qf-image-remove" title="Удалить фото">❌</button>
+      </div>
+      ${question?.image ? `<p class="modal-hint">Текущее фото показано выше. Выбери новый файл, чтобы заменить, или удали крестиком.</p>` : ""}
       <p class="modal-hint">Отметь один правильный вариант слева от него.</p>
       <div class="answers-editor" id="answers-editor">${rows}</div>
       <button type="button" class="ghost small" data-action="add-answer-row">+ вариант ответа</button>
@@ -351,6 +355,24 @@ function wireQuestionForm(question) {
   const previewBtn = form.querySelector('[data-action="toggle-preview"]');
   const previewBox = document.getElementById("question-preview");
   let previewOn = false;
+
+  // Явное удаление уже прикреплённого фото (крестик рядом с миниатюрой,
+  // см. questionFormHtml) — отдельный флаг, а не просто "файл не выбран":
+  // при сохранении вопроса imageBase64 может быть undefined ("не трогать
+  // фото"), null ("убрать фото") или строкой нового файла ("заменить"),
+  // см. wireQuestionForm → submit ниже и api.updateQuestion.
+  let imageRemoved = false;
+  const qfImageWrap = document.getElementById("qf-image-wrap");
+  qfImageWrap?.addEventListener("click", (e) => {
+    if (!e.target.closest("#qf-image-remove")) return;
+    imageRemoved = true;
+    qfImageWrap.classList.add("hidden");
+    updatePreview();
+  });
+  // Выбор нового файла отменяет "удаление" — заменить важнее, чем убрать.
+  form.image.addEventListener("change", () => {
+    if (form.image.files[0]) imageRemoved = false;
+  });
 
   // Предупреждение о дубликате — не блокирует создание/сохранение (иногда
   // похожий вопрос — не ошибка, а нормальная переформулировка), просто
@@ -416,7 +438,7 @@ function wireQuestionForm(question) {
         imgWrap.classList.remove("hidden");
       };
       reader.readAsDataURL(file);
-    } else if (question?.image) {
+    } else if (question?.image && !imageRemoved) {
       imgEl.src = question.image;
       imgWrap.classList.remove("hidden");
     } else {
@@ -470,7 +492,9 @@ function wireQuestionForm(question) {
     }
 
     const file = form.image.files[0];
-    const imageBase64 = file ? await fileToBase64(file) : undefined;
+    // undefined — не трогать сохранённое фото, null — убрать его явно
+    // (см. imageRemoved выше), строка — заменить новым файлом.
+    const imageBase64 = file ? await fileToBase64(file) : imageRemoved ? null : undefined;
 
     try {
       const chapter = state.chapters[state.chapterIndex];

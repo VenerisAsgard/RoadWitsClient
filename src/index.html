@@ -117,13 +117,14 @@
           <div class="q-topbar">
             <span class="q-chapter" id="q-chapter-label">Глава 1</span>
             <div class="q-phase-nav hidden" id="q-phase-nav">
-              <button class="q-phase-arrow" id="q-phase-prev" type="button" title="Предыдущая фаза">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M15 5l-8 7 8 7"/></svg>
-              </button>
+              <!-- Текстовые глифы ‹ /  ›, а не inline SVG (как раньше) — те же
+                   символы, что уже используются в q-arrow-btn (стрелки
+                   тренировки по главам) и там гарантированно видны. SVG-иконки
+                   здесь у части пользователей не отрисовывались (кнопки
+                   оставались пустыми), см. правку про пустые кнопки фаз. -->
+              <button class="q-phase-arrow" id="q-phase-prev" type="button" title="Предыдущая фаза">‹</button>
               <span class="q-phase" id="q-phase"></span>
-              <button class="q-phase-arrow" id="q-phase-next" type="button" title="Следующая фаза">
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M9 5l8 7-8 7"/></svg>
-              </button>
+              <button class="q-phase-arrow" id="q-phase-next" type="button" title="Следующая фаза">›</button>
             </div>
             <span class="q-timer hidden" id="q-timer">15:00</span>
           </div>
@@ -146,14 +147,6 @@
             <div class="q-loading hidden" id="q-loading">
               <div class="q-loading-spinner"></div>
               <p class="q-loading-text">Загружаем билет…</p>
-              <div class="q-skeleton">
-                <div class="q-skeleton-line w80"></div>
-                <div class="q-skeleton-line w55"></div>
-                <div class="q-skeleton-opt"></div>
-                <div class="q-skeleton-opt"></div>
-                <div class="q-skeleton-opt"></div>
-                <div class="q-skeleton-opt"></div>
-              </div>
             </div>
             <div class="q-image-wrap hidden" id="q-image-wrap">
               <img id="q-image" alt="Иллюстрация к вопросу" title="Нажми, чтобы увеличить" />

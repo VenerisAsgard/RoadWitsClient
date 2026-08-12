@@ -11,6 +11,7 @@ import * as cache from "./cache.js";
 
 async function enterApp(user) {
   state.user = { ...user, settings: user.settings && typeof user.settings === "object" ? user.settings : {} };
+  cache.migrateOldCache(); // теперь state.user уже известен — чистим старый (v1) кэш именно под этим аккаунтом
   render.applyTheme();
   render.renderAccountChip(state.user);
   render.showApp();
@@ -79,6 +80,7 @@ export async function submitLogin(productKey) {
     state.token = access_token;
     state.fingerprint = fingerprint;
     cache.setCachedUser(fingerprint, user);
+    cache.migrateOldCache();
     await enterApp(user);
   } catch (err) {
     render.showLoginError(

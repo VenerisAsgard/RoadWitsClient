@@ -442,6 +442,24 @@ export function initMouseControls() {
     else if (action === "delete-question") admin.confirmDeleteQuestion(questionId);
   });
 
+  // Подсказка "автор · дата" по наведению на строку вопроса (см.
+  // render.showEditorTooltip) — mouseover/mouseout с делегированием на
+  // стабильный контейнер, а не по одному листенеру на строку: список
+  // вопросов (.editor-question-item) перерисовывается целиком при каждом
+  // изменении (см. render.renderEditorQuestionList), отдельные листенеры
+  // пришлось бы навешивать заново на каждый рендер.
+  render.$("chapter-detail").addEventListener("mouseover", (e) => {
+    const item = e.target.closest(".editor-question-item");
+    if (!item || item.contains(e.relatedTarget)) return;
+    if (!item.dataset.meta) return;
+    render.showEditorTooltip(item.dataset.meta, item.getBoundingClientRect());
+  });
+  render.$("chapter-detail").addEventListener("mouseout", (e) => {
+    const item = e.target.closest(".editor-question-item");
+    if (!item || item.contains(e.relatedTarget)) return;
+    render.hideEditorTooltip();
+  });
+
   /* ---------- выбор количества вопросов для случайного билета ---------- */
   render.$("random-count-list").addEventListener("click", (e) => {
     const li = e.target.closest(".menu-item");
@@ -494,6 +512,36 @@ export function initMouseControls() {
   render.$("profile-card").addEventListener("click", async (e) => {
     if (e.target.closest("#admin-open-btn") && state.user?.user_type === "admin") {
       quiz.openAdmin();
+      return;
+    }
+    if (e.target.closest("#cache-refresh-btn")) {
+      const btn = e.target.closest("#cache-refresh-btn");
+      btn.disabled = true;
+      try {
+        const { chapters } = await quiz.refreshCacheNow((done, total) => render.setCacheRefreshProgress(done, total));
+        render.toast(`Кэш обновлён: ${chapters} глав`, "success");
+      } catch (err) {
+        const msg = err instanceof api.ApiError ? err.message : "Не удалось обновить кэш — нет соединения";
+        render.toast(msg, "error");
+      } finally {
+        btn.disabled = false;
+        render.renderCacheStatus();
+      }
+      return;
+    }
+    if (e.target.closest("#cache-clear-btn")) {
+      const ok = await render.confirmDialog({
+        title: "Очистить кэш?",
+        text: "Офлайн-копия вопросов будет удалена. Без интернета приложение перестанет открывать главы, пока кэш не соберётся заново.",
+        confirmLabel: "Да, очистить",
+        cancelLabel: "Отмена",
+        danger: true,
+      });
+      if (ok) {
+        quiz.clearCacheNow();
+        render.toast("Кэш очищен", "info");
+        render.renderCacheStatus();
+      }
       return;
     }
     if (e.target.closest("[data-friend-action]")) {

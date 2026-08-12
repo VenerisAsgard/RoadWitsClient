@@ -9,7 +9,7 @@ import * as render from "./render.js";
 import * as admin from "./admin.js";
 import * as friends from "./friends.js";
 import * as cache from "./cache.js";
-import { loadChapterQuestions } from "./questions.js";
+import { loadChapterQuestions, refreshAllCache } from "./questions.js";
 
 function shuffle(arr) {
   const a = arr.slice();
@@ -347,6 +347,19 @@ export function jumpToQuestion(index) {
 export async function finishQuiz(forcedFail = false) {
   clearInterval(state.timerHandle);
 
+  const isChapter = state.mode === "chapter";
+
+  // Ни на один вопрос не ответили и всё равно нажали "Завершить" — обычно
+  // это случайное/лишнее нажатие сразу после старта, а не осознанная сдача
+  // пустого теста. Ни статистику попыток засорять, ни экран результата
+  // (0%, разбор из одних прочерков) показывать тут смысла нет — просто
+  // возвращаем туда, откуда пришли, без записи попытки.
+  if (!forcedFail && Object.keys(state.answers).length === 0) {
+    if (isChapter) returnToOrigin();
+    else returnToMenu();
+    return;
+  }
+
   let correct = 0;
   state.questions.forEach((q) => {
     if (state.answers[q.id] === q.correctIndex) correct++;
@@ -354,7 +367,6 @@ export async function finishQuiz(forcedFail = false) {
   const total = state.questions.length;
   const pct = total ? Math.round((correct / total) * 100) : 0;
   const isExam = state.mode === "exam";
-  const isChapter = state.mode === "chapter";
   const passed = isExam ? !forcedFail && !state.examFailed && state.examErrors <= 1 : null; // экзамен: максимум одна ошибка
   const settings = state.user?.settings && typeof state.user.settings === "object" ? state.user.settings : {};
   const stats = settings.quiz_stats && typeof settings.quiz_stats === "object" ? settings.quiz_stats : {};
@@ -619,4 +631,19 @@ export function closeProfile() {
   } else if (state.profileReturnScreen === "chapters") {
     render.setHint(HINT_CHAPTERS);
   }
+}
+
+/* ============================================================
+   ОФЛАЙН-КЭШ — ручное управление из профиля (см. render.renderCacheStatus,
+   controls.js — кнопки "Обновить кэш сейчас"/"Очистить кэш").
+   ============================================================ */
+
+/** Обёртка над questions.refreshAllCache — держит бизнес-логику кэша в
+ * questions.js/cache.js, controls.js дёргает только это. */
+export async function refreshCacheNow(onProgress) {
+  return refreshAllCache(onProgress);
+}
+
+export function clearCacheNow() {
+  return cache.clearAll();
 }
