@@ -47,7 +47,7 @@ async function reloadChapters() {
   // Дисковый кэш вопросов по главам (js/cache.js) тоже мог устареть —
   // сбрасываем целиком, а не только для текущей главы: правка идёт через
   // эту же функцию для создания/правки/удаления и вопросов, и глав.
-  cache.clearAll();
+  await cache.clearAll();
   questionIndex = null; // индекс для поиска/проверки на дубликат построен на старых данных
   render.renderMenuMeta();
   render.renderChapters(); // это же перерисует и деталь + пустой список вопросов
@@ -517,14 +517,14 @@ function wireQuestionForm(question) {
 }
 
 export function promptCreateQuestion() {
-  render.openModal("Новый вопрос", questionFormHtml(null));
+  render.openModal("Новый вопрос", questionFormHtml(null), { wide: true });
   wireQuestionForm(null);
 }
 
 export function promptEditQuestion(questionId) {
   const q = state.editorQuestions.find((x) => x.id === questionId);
   if (!q) return;
-  render.openModal("Редактировать вопрос", questionFormHtml(q));
+  render.openModal("Редактировать вопрос", questionFormHtml(q), { wide: true });
   wireQuestionForm(q);
 }
 

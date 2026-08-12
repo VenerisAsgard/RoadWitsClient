@@ -7,11 +7,6 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"
     />
     <title>Roadwits</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
     <link rel="stylesheet" href="css/main.css" />
   </head>
   <body>
@@ -219,6 +214,49 @@
           <button id="logout-button" class="ghost logout-btn hidden">Выйти</button>
         </section>
 
+        <!-- CREDITS — статичный экран "О программе": версия, автор, стек
+             и сторонние библиотеки/шрифты с их лицензиями. Попасть можно
+             только из профиля (см. render.renderProfile → #credits-open-btn),
+             сама функция (quiz.openCredits) прав не проверяет — экран
+             доступен всем, не только admin. -->
+        <section class="screen hidden" id="screen-credits" data-screen="credits">
+          <button class="ghost small profile-back" id="credits-back-btn" type="button">← Назад</button>
+          <div class="credits-card">
+            <div class="credits-head">
+              <img class="credits-logo" src="./assets/logo.png" alt="Roadwits" />
+              <div>
+                <h2>Roadwits</h2>
+                <p class="credits-version" id="credits-version">Версия —</p>
+              </div>
+            </div>
+            <p class="credits-tagline">Тренажёр для подготовки к экзамену по ПДД РБ.</p>
+
+            <div class="credits-section">
+              <p class="panel-label">Технологии</p>
+              <ul class="credits-list">
+                <li><span class="credits-name">Tauri 2</span><span class="credits-note">Rust-ядро + системный WebView</span></li>
+                <li><span class="credits-name">Rust</span><span class="credits-note">нативный слой приложения</span></li>
+                <li><span class="credits-name">reqwest (rustls)</span><span class="credits-note">HTTP-клиент без OpenSSL</span></li>
+                <li><span class="credits-name">tauri-plugin-store</span><span class="credits-note">хранилище сессии</span></li>
+                <li><span class="credits-name">Vanilla JS</span><span class="credits-note">фронтенд без фреймворка и сборщика</span></li>
+              </ul>
+            </div>
+
+            <div class="credits-section">
+              <p class="panel-label">Шрифты</p>
+              <ul class="credits-list">
+                <li><span class="credits-name">Rubik</span><span class="credits-note">SIL Open Font License — Rubik Project Authors</span></li>
+                <li><span class="credits-name">Noto Color Emoji</span><span class="credits-note">SIL Open Font License — Google Inc.</span></li>
+              </ul>
+            </div>
+
+            <div class="credits-section">
+              <p class="panel-label">Автор</p>
+              <p class="credits-author">VenerisAsgard</p>
+            </div>
+          </div>
+        </section>
+
         <!-- ADMIN — отдельный экран (не часть профиля): список лицензий
              с сортировкой по столбцам, поиском и копированием ключа.
              Доступен только admin, попасть можно только кнопкой из
@@ -241,7 +279,6 @@
             <div class="admin-table-wrap" id="admin-table-wrap">
               <p class="loading">Загрузка лицензий…</p>
             </div>
-            <button class="ghost small" id="admin-devtools-btn" type="button">Открыть DevTools</button>
           </div>
         </section>
       </main>

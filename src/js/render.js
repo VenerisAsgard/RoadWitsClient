@@ -43,6 +43,14 @@ export function renderAppVersion(version) {
   el.textContent = version ? `v${version}` : "";
 }
 
+/** Версия в шапке экрана "О программе" — тот же state.appVersion, что и
+ * в status-bar (см. renderAppVersion выше), просто отдельный элемент. */
+export function renderCreditsVersion(version) {
+  const el = $("credits-version");
+  if (!el) return;
+  el.textContent = version ? `Версия ${version}` : "Версия неизвестна";
+}
+
 /* ============================================================
    Всё, что пришло с бэкенда или было введено редактором, вставляется
    через innerHTML — значит, обязано экранироваться. Раньше этого не
@@ -238,7 +246,7 @@ export function setHint(groups) {
    Переключение экранов внутри app-shell
    ============================================================ */
 
-const SCREENS = ["menu", "chapters", "random-count", "question", "result", "profile", "admin"];
+const SCREENS = ["menu", "chapters", "random-count", "question", "result", "profile", "admin", "credits"];
 
 export function showScreen(name) {
   state.screen = name;
@@ -815,6 +823,9 @@ export function renderProfile(user) {
       <p class="panel-label">Администрирование</p>
       <button class="chapter-start" id="admin-open-btn" type="button">🛠️ Панель администрирования</button>
     </div>` : ""}
+    <div class="profile-settings">
+      <button class="ghost small" id="credits-open-btn" type="button">ℹ️ О программе</button>
+    </div>
   `;
   paintAvatar($("profile-avatar"), user);
   renderCacheStatus();
@@ -843,10 +854,10 @@ function formatRelativeTime(ts) {
  * не пробовал сам, уже оффлайн (см. кнопки "Обновить кэш"/"Очистить кэш",
  * controls.js — они вызывают эту функцию заново после своей работы).
  */
-export function renderCacheStatus() {
+export async function renderCacheStatus() {
   const el = $("cache-status");
   if (!el) return;
-  const s = cache.getStatus();
+  const s = await cache.getStatus();
   if (!s || (!s.hasChapterList && s.cachedChapterCount === 0)) {
     el.innerHTML = `<p class="cache-status-line" data-status="offline">Кэша пока нет — офлайн-режим недоступен, пока не откроешь главы онлайн хотя бы раз.</p>`;
     return;
@@ -1001,10 +1012,11 @@ export function renderLicenseList(licenses) {
    (глава/вопрос/лицензия), см. admin.js.
    ============================================================ */
 
-export function openModal(title, bodyHtml) {
+export function openModal(title, bodyHtml, { wide = false } = {}) {
   $("modal-title").textContent = title;
   $("modal-body").innerHTML = bodyHtml;
   $("modal-box").classList.remove("danger");
+  $("modal-box").classList.toggle("wide", wide);
   $("modal-overlay").classList.remove("hidden");
   const firstInput = $("modal-body").querySelector("input, textarea, select");
   if (firstInput) firstInput.focus();

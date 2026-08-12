@@ -1322,6 +1322,83 @@ button.ghost.danger:hover {
   align-self: stretch;
   margin-top: calc(20px * var(--k));
 }
+
+/* ---------- "О программе" (screen-credits) ---------- */
+.credits-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: calc(24px * var(--k));
+  display: flex;
+  flex-direction: column;
+  gap: calc(18px * var(--k));
+}
+.credits-head {
+  display: flex;
+  align-items: center;
+  gap: calc(16px * var(--k));
+}
+.credits-logo {
+  width: calc(40px * var(--k));
+  height: calc(40px * var(--k));
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+.credits-head h2 {
+  font-family: var(--font-display);
+  font-size: calc(20px * var(--k));
+  margin: 0 0 2px;
+}
+.credits-version {
+  font-family: var(--font-mono);
+  font-size: calc(12px * var(--k));
+  color: var(--muted);
+  margin: 0;
+}
+.credits-tagline {
+  color: var(--muted);
+  font-size: calc(13.5px * var(--k));
+  margin: -8px 0 0;
+}
+.credits-section {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8px * var(--k));
+}
+.credits-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--k));
+}
+.credits-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: calc(12px * var(--k));
+  padding: calc(6px * var(--k)) 0;
+  border-bottom: 1px solid var(--line);
+  font-size: calc(13.5px * var(--k));
+}
+.credits-list li:last-child {
+  border-bottom: none;
+}
+.credits-name {
+  color: var(--ink);
+  font-weight: 600;
+}
+.credits-note {
+  color: var(--muted);
+  font-size: calc(12.5px * var(--k));
+  text-align: right;
+}
+.credits-author {
+  font-family: var(--font-mono);
+  color: var(--ink);
+  margin: 0;
+}
 .profile-head h2 {
   font-size: calc(20px * var(--k));
   margin: 0 0 2px;

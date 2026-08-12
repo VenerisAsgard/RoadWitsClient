@@ -50,10 +50,20 @@
   --accent: var(--amber);
   --accent-ink: var(--bg); /* цвет текста НА акцентном фоне */
 
-  /* --- Шрифты --- */
-  --font-display: "Space Grotesk", system-ui, sans-serif; /* заголовки, крупные цифры */
-  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; /* обычный текст */
-  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace; /* Product Key, счётчики, таймер */
+  /* --- Шрифты ---
+     Rubik на все текстовые роли (заголовки и обычный текст) — полностью
+     покрывает кириллицу и латиницу одним начертанием (см. src/fonts/Rubik
+     + fonts.css). Раньше здесь стоял Cantarell, в котором нет ни одной
+     кириллической буквы: кириллица откатывалась на системный шрифт, а
+     пробел рисовался метриками Cantarell — отсюда и был баг с "большими
+     пробелами между буквами/словами" в русском интерфейсе. Моноширинного
+     начертания у Rubik нет, поэтому --font-mono остался на системном
+     моно-стеке. "Noto Color Emoji" во всех трёх стеках — фоллбэк именно
+     для эмодзи (🚦 и т.п.), подключается только когда текущий шрифт не
+     может отрисовать конкретный символ, на остальной текст не влияет. */
+  --font-display: "Rubik", "Noto Color Emoji", system-ui, sans-serif; /* заголовки, крупные цифры */
+  --font-body: "Rubik", "Noto Color Emoji", system-ui, -apple-system, "Segoe UI", sans-serif; /* обычный текст */
+  --font-mono: ui-monospace, "SFMono-Regular", "Noto Color Emoji", monospace; /* Product Key, счётчики, таймер */
 
   /* --- Структурные размеры --- */
   --titlebar-h: calc(42px * var(--k));

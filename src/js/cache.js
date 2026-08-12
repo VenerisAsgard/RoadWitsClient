@@ -1,54 +1,60 @@
 /**
- * Дисковый кэш списков вопросов по главам (localStorage — он в Tauri
- * webview и так живёт в профиле приложения на этом ПК, ничего
- * дополнительно поднимать не нужно).
+ * Дисковый кэш списков вопросов по главам — IndexedDB.
  *
- * Раньше пул вопросов для random/exam пересчитывался с нуля при каждом
- * запуске приложения (state.questionPoolCache — только на сессию, см.
- * quiz.js), а режим "по главам" вообще не кэшировался: заход в каждую
- * главу заново дёргал сеть. На небольшой базе вопросов это не страшно,
- * но с ростом базы список по главам стал заметно долго грузиться.
+ * ИСТОРИЯ: раньше (см. git-историю) это был localStorage, сначала одним
+ * общим ключом на всё (v1), потом раздельными ключами на главу (v2), чтобы
+ * нехватка места роняла кэш только одной большой главы, а не всего сразу.
+ * Это помогало, но не решало саму проблему: localStorage у большинства
+ * WebView-движков (в том числе того, что использует Tauri) ограничен
+ * единицами мегабайт НА ВСЁ происхождение сразу, а вопросы с фото в base64
+ * это место съедают быстро — на практике встречались главы, вес которых
+ * в закодированном виде уже сам по себе превышал всю квоту, и тогда не
+ * кэшировалось вообще ничего, даже после "Обновить кэш сейчас".
  *
- * ВАЖНО (v2 формата, см. миграцию с v1 ниже): каждая глава хранится под
- * СВОИМ отдельным ключом localStorage (rw_qcache_v2_<fp>_<uid>_ch_<id>),
- * а не все главы разом в одном общем JSON. Раньше (v1) весь кэш
- * пользователя — список глав и вопросы КАЖДОЙ главы, включая прикреплённые
- * фото в base64 — сериализовался в одну строку и писался одним
- * localStorage.setItem() под одним ключом. Проблема: localStorage
- * ограничен по объёму (обычно единицы МБ на источник), и как только
- * набор вопросов с фото по всем главам вместе перерастал этот лимит,
- * setItem() на общий ключ начинал падать (QuotaExceededError) —
- * СРАЗУ ДЛЯ ВСЕГО КЭША, а не только для той главы, что не поместилась.
- * Внешне это выглядело так, будто "кэш слетает": сегодня посмотрели
- * главу оффлайн — сохранилось, через пару глав с фото квота набралась —
- * и дальше ни одна новая глава уже не кэшируется, а после перезапуска
- * приложения (или через TTL) может не найтись вообще ничего, если самый
- * первый же setItem() крупного общего блока не прошёл. При раздельных
- * ключах на главу такая же нехватка места роняет кэш ровно одной
- * конкретной большой главы (см. writeJson: ошибка ловится и молча
- * возвращает false, остальной код это уже умеет переживать, см. вызывающий
- * код в quiz.js/questions.js) — все остальные, уже сохранённые главы,
- * никак не затрагиваются и продолжают отдаваться оффлайн.
+ * IndexedDB — тот же браузерный API, что уже доступен в WebView без
+ * дополнительных Tauri-плагинов, но с квотой на порядки больше (обычно
+ * привязана к свободному месту на диске, а не к фиксированным единицам
+ * мегабайт) и рассчитана именно на большие объёмы структурированных данных.
+ * Отсюда и единственное существенное отличие от прежнего API: все функции
+ * этого модуля теперь возвращают Promise (IndexedDB асинхронен по своей
+ * природе) — весь вызывающий код (quiz.js/questions.js/admin.js/auth.js/
+ * render.js) обновлён на await соответствующим образом.
  *
- * Ключ кэша включает fingerprint устройства и id пользователя (см.
- * baseKey), поэтому:
- *  - кэш, записанный на одном ПК, не подставится на другом — там
- *    просто не окажется файла с таким ключом (localStorage и так не
- *    синхронизируется между машинами, но ключ на всякий случай не
- *    завязан только на userId, который мог бы совпасть на сервере
- *    с другим устройством);
- *  - смена аккаунта на том же ПК тоже не подхватит чужой кэш — у
- *    другого userId свой ключ.
- * Кэш ещё и живёт ограниченное время (TTL_MS) для "свежих" чтений и
- * полностью сбрасывается при любом изменении контента редактором/админом
- * (см. admin.js reloadChapters → clearAll), так что подтянуть его на этом
- * же ПК под тем же аккаунтом безопасно даже после правок.
+ * Устройство хранилища: одна база (DB_NAME), один object store (STORE),
+ * простые пары ключ→значение — по сути тот же плоский key-value, что был
+ * в localStorage, просто с другим бэкендом. Значение — та же обёртка
+ * { savedAt, value }, что и раньше, для единой логики TTL/протухания.
+ *
+ * Ключ по-прежнему включает fingerprint устройства и id пользователя (см.
+ * baseKey), поэтому кэш с одного ПК/аккаунта не подставится на другом —
+ * IndexedDB и так не синхронизируется между машинами, но ключ не завязан
+ * только на userId, который в теории мог бы совпасть на сервере с другим
+ * устройством, и explicit-но не даёт смене аккаунта на этом же ПК подхватить
+ * чужой кэш.
+ *
+ * TTL (см. TTL_MS) — это НЕ про место на диске (IndexedDB того не требует),
+ * а про свежесть контента: если редактор поменял вопросы, кэш на других
+ * устройствах должен когда-нибудь сам подтянуть изменения, даже если никто
+ * не нажимал "Обновить кэш сейчас" и не подключался к тому же ПК, где
+ * правки увидели сразу (см. admin.js reloadChapters → clearAll — тот
+ * сценарий про устройство самого редактора). Пока запись не старше TTL_MS,
+ * getChapters()/getChapterQuestions() отдают её без похода в сеть —
+ * это и есть тот самый "кэш", ради которого всё затевалось (не дёргать
+ * сеть на каждый заход в главу за сессию). После TTL запись не удаляется,
+ * а просто перестаёт считаться "свежей" — следующий запрос идёт в сеть,
+ * и либо перезаписывает её более новой версией, либо, если сети нет,
+ * используется как офлайн-подстраховка через *Stale-версии функций ниже,
+ * которые TTL игнорируют намеренно (протухший кэш офлайн лучше, чем
+ * пустой экран).
  */
 import { state } from "./state.js";
 
-const CACHE_PREFIX = "rw_qcache_v2_";
-const OLD_CACHE_PREFIX = "rw_qcache_v1_"; // формат до разделения по ключам — только чтобы подчистить за собой
-const TTL_MS = 60 * 60 * 1000; // час — достаточно, чтобы не дёргать сеть на каждый заход в главу за сессию
+const DB_NAME = "roadwits_cache_v3"; // v3 = IndexedDB; v1/v2 (localStorage) подчищаются отдельно, см. migrateOldCache
+const DB_VERSION = 1;
+const STORE = "kv";
+
+const CACHE_PREFIX = "rw_qcache_";
+const TTL_MS = 60 * 60 * 1000; // час — см. пояснение про TTL в шапке файла
 
 function baseKey() {
   const fp = state.fingerprint || "nofp";
@@ -64,13 +70,98 @@ function chapterQuestionsKey(chapterId) {
   return `${baseKey()}_ch_${chapterId}`;
 }
 
+let dbPromise = null;
+/** Одно открытое соединение на всё приложение — переоткрывать на каждый
+ * вызов накладно, а IndexedDB и так спокойно переживает параллельные
+ * транзакции на одном соединении. */
+function openDb() {
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject) => {
+    let req;
+    try {
+      req = indexedDB.open(DB_NAME, DB_VERSION);
+    } catch (err) {
+      reject(err);
+      return;
+    }
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error("IndexedDB заблокирована другой вкладкой/окном"));
+  }).catch((err) => {
+    dbPromise = null; // не кэшируем неудачное открытие — следующий вызов попробует снова
+    throw err;
+  });
+  return dbPromise;
+}
+
+function idbGet(key) {
+  return openDb().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readonly");
+        const req = tx.objectStore(STORE).get(key);
+        req.onsuccess = () => resolve(req.result ?? null);
+        req.onerror = () => reject(req.error);
+      }),
+  );
+}
+
+function idbSet(key, value) {
+  return openDb().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).put(value, key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      }),
+  );
+}
+
+function idbDelete(key) {
+  return openDb().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).delete(key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      }),
+  );
+}
+
+/** Все ключи вида prefix* — общий помощник для clearAll/getStatus/ownKeys,
+ * чтобы не дублировать перебор курсором в двух местах. */
+function idbKeysWithPrefix(prefix) {
+  return openDb().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const keys = [];
+        const tx = db.transaction(STORE, "readonly");
+        const req = tx.objectStore(STORE).openKeyCursor();
+        req.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (!cursor) {
+            resolve(keys);
+            return;
+          }
+          if (String(cursor.key).startsWith(prefix)) keys.push(cursor.key);
+          cursor.continue();
+        };
+        req.onerror = () => reject(req.error);
+      }),
+  );
+}
+
 /** { savedAt, value } — обёртка одинаковая что для списка глав, что для
  * вопросов одной главы, чтобы читать/писать их одной парой функций. */
-function readEntry(key) {
+async function readEntry(key) {
   try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const data = JSON.parse(raw);
+    const data = await idbGet(key);
     if (!data || typeof data !== "object" || typeof data.savedAt !== "number") return null;
     return data;
   } catch {
@@ -84,23 +175,25 @@ function isFresh(entry) {
 
 /** Возвращает true при успехе — вызывающий код (см. getStatus) использует
  * это, чтобы честно показать в интерфейсе, если конкретную главу закэшировать
- * не удалось (например, не хватило места из-за большого фото), а не молчать
- * об этом, как раньше. */
-function writeEntry(key, value) {
+ * не удалось, а не молчать об этом, как раньше. IndexedDB на порядки менее
+ * склонна упираться в квоту, чем localStorage, но диск всё равно не резиновый
+ * (см. QuotaExceededError, которую тоже умеет бросать indexedDB.open/put при
+ * действительно заполненном диске) — поэтому try/catch тут остаётся. */
+async function writeEntry(key, value) {
   try {
-    localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), value }));
+    await idbSet(key, { savedAt: Date.now(), value });
     return true;
   } catch {
-    // localStorage может быть недоступен/переполнен — кэш тогда просто не
-    // работает для ЭТОГО ключа, это не повод ломать загрузку вопросов
-    // (см. вызывающий код в quiz.js/questions.js) и не повод стирать уже
-    // сохранённые под другими ключами главы (см. комментарий в шапке файла).
+    // Диск недоступен/переполнен — кэш тогда просто не работает для ЭТОГО
+    // ключа, это не повод ломать загрузку вопросов (см. вызывающий код в
+    // quiz.js/questions.js) и не повод стирать уже сохранённые под другими
+    // ключами главы.
     return false;
   }
 }
 
-export function getChapters() {
-  const e = readEntry(chaptersKey());
+export async function getChapters() {
+  const e = await readEntry(chaptersKey());
   return isFresh(e) ? e.value : null;
 }
 
@@ -110,84 +203,92 @@ export function setChapters(chapters) {
 
 /** Игнорирует TTL — используется только как офлайн-подстраховка, когда
  * сеть недоступна и свежих данных взять неоткуда (см. quiz.js). */
-export function getChaptersStale() {
-  const e = readEntry(chaptersKey());
+export async function getChaptersStale() {
+  const e = await readEntry(chaptersKey());
   return e ? e.value : null;
 }
 
 /** Список вопросов главы, если он ещё не протух — иначе null. */
-export function getChapterQuestions(chapterId) {
-  const e = readEntry(chapterQuestionsKey(chapterId));
+export async function getChapterQuestions(chapterId) {
+  const e = await readEntry(chapterQuestionsKey(chapterId));
   return isFresh(e) ? e.value : null;
 }
 
 /** Как getChapterQuestions, но игнорирует TTL — офлайн-подстраховка. */
-export function getChapterQuestionsStale(chapterId) {
-  const e = readEntry(chapterQuestionsKey(chapterId));
+export async function getChapterQuestionsStale(chapterId) {
+  const e = await readEntry(chapterQuestionsKey(chapterId));
   return e ? e.value : null;
 }
 
-export function setChapterQuestions(chapterId, questions) {
-  return writeEntry(chapterQuestionsKey(chapterId), questions);
+/**
+ * Возвращает "full", если глава закэширована полностью (с фото), "text" —
+ * если на диске совсем не осталось места и мы сохранили главу без фото
+ * (вопросы/ответы — то, что реально нужно для тренировки офлайн), или
+ * false, если не влезло вообще ничего. С IndexedDB это должно случаться
+ * практически никогда (квота — это свободное место на диске, а не единицы
+ * мегабайт), но подстраховка почти бесплатна, так что она остаётся.
+ */
+export async function setChapterQuestions(chapterId, questions) {
+  const key = chapterQuestionsKey(chapterId);
+  if (await writeEntry(key, questions)) return "full";
+
+  const withoutImages = questions.map((q) => (q.image ? { ...q, image: null } : q));
+  if (await writeEntry(key, withoutImages)) return "text";
+
+  return false;
 }
 
-const USER_CACHE_PREFIX = "rw_cacheduser_v1_";
+const USER_CACHE_PREFIX = "rw_cacheduser_";
 
 /** Профиль пользователя с последнего успешного /auth/me — привязан только
  * к устройству (fingerprint), не к userId: на старте приложения, пока
  * сервер недоступен, мы ещё не знаем, чей это токен. Нужен для офлайн-входа
  * (см. auth.tryAutoLogin) — если сервера просто нет на связи, приложение
  * всё равно должно уметь войти на сохранённых данных, а не разлогинивать. */
-export function getCachedUser(fingerprint) {
+export async function getCachedUser(fingerprint) {
   try {
-    const raw = localStorage.getItem(USER_CACHE_PREFIX + (fingerprint || "nofp"));
-    return raw ? JSON.parse(raw) : null;
+    return await idbGet(USER_CACHE_PREFIX + (fingerprint || "nofp"));
   } catch {
     return null;
   }
 }
 
-export function setCachedUser(fingerprint, user) {
+export async function setCachedUser(fingerprint, user) {
   try {
-    localStorage.setItem(USER_CACHE_PREFIX + (fingerprint || "nofp"), JSON.stringify(user));
+    await idbSet(USER_CACHE_PREFIX + (fingerprint || "nofp"), user);
   } catch {
     // см. комментарий в writeEntry — некритично, просто не будет офлайн-входа
   }
 }
 
 /** Все ключи дискового кэша (главы + вопросы всех глав) этого устройства+
- * аккаунта — общий помощник для clearAll/getStatus, чтобы не дублировать
- * перебор localStorage в двух местах. */
-function ownKeys() {
-  const prefix = baseKey();
-  const keys = [];
+ * аккаунта — НЕ включает USER_CACHE_PREFIX (кэш пользователя переживает
+ * "Очистить кэш"/reloadChapters нарочно: это не контент вопросов, а просто
+ * последний известный профиль для офлайн-входа). */
+async function ownKeys() {
   try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith(prefix)) keys.push(k);
-    }
+    return await idbKeysWithPrefix(baseKey());
   } catch {
-    // localStorage недоступен — пустой список, вызывающий код это переживёт
+    return [];
   }
-  return keys;
 }
 
-/** Полностью сбросить дисковый кэш этого устройства+аккаунта — после любой
- * правки контента редактором/админом (см. admin.js reloadChapters) или по
- * явному запросу пользователя (см. кнопка "Очистить кэш" в профиле,
- * controls.js). Возвращает число реально удалённых ключей — используется
- * подтверждающим тостом после очистки. */
-export function clearAll() {
-  const keys = ownKeys();
+/** Полностью сбросить дисковый кэш вопросов этого устройства+аккаунта —
+ * после любой правки контента редактором/админом (см. admin.js
+ * reloadChapters) или по явному запросу пользователя (см. кнопка
+ * "Очистить кэш" в профиле, controls.js). Возвращает число реально
+ * удалённых ключей — используется подтверждающим тостом после очистки. */
+export async function clearAll() {
+  const keys = await ownKeys();
   let removed = 0;
-  keys.forEach((k) => {
+  for (const k of keys) {
     try {
-      localStorage.removeItem(k);
+      await idbDelete(k);
       removed++;
     } catch {
       // см. комментарий в writeEntry
     }
-  });
+  }
   return removed;
 }
 
@@ -197,8 +298,9 @@ export function clearAll() {
  * никак не мог узнать, есть ли у него офлайн-копия базы вопросов и
  * насколько она свежая — просто не было такого экрана.
  */
-export function getStatus() {
-  const chaptersEntry = readEntry(chaptersKey());
+export async function getStatus() {
+  const chaptersEntry = await readEntry(chaptersKey());
+  const keys = await ownKeys();
   const totalChapters = state.chapters.length || chaptersEntry?.value?.length || 0;
 
   let cachedChapterCount = 0;
@@ -206,26 +308,27 @@ export function getStatus() {
   let oldestSavedAt = null;
   let newestSavedAt = null;
 
-  ownKeys().forEach((k) => {
+  for (const k of keys) {
     let raw = null;
     try {
-      raw = localStorage.getItem(k);
+      raw = await idbGet(k);
     } catch {
-      return;
+      continue;
     }
-    if (raw == null) return;
-    approxBytes += raw.length; // приблизительно, в символах — точный байтовый размер тут не принципиален
-    if (k.includes("_ch_")) cachedChapterCount++;
+    if (raw == null) continue;
+    // Точный байтовый размер тут не принципиален — JSON.stringify().length
+    // достаточно близко для индикатора "занимает ~N МБ" в интерфейсе.
     try {
-      const parsed = JSON.parse(raw);
-      if (typeof parsed?.savedAt === "number") {
-        if (oldestSavedAt === null || parsed.savedAt < oldestSavedAt) oldestSavedAt = parsed.savedAt;
-        if (newestSavedAt === null || parsed.savedAt > newestSavedAt) newestSavedAt = parsed.savedAt;
-      }
+      approxBytes += JSON.stringify(raw).length;
     } catch {
-      // повреждённая запись — не мешаем остальной сводке
+      // не сериализуется — пропускаем оценку размера именно этой записи
     }
-  });
+    if (k.includes("_ch_")) cachedChapterCount++;
+    if (typeof raw?.savedAt === "number") {
+      if (oldestSavedAt === null || raw.savedAt < oldestSavedAt) oldestSavedAt = raw.savedAt;
+      if (newestSavedAt === null || raw.savedAt > newestSavedAt) newestSavedAt = raw.savedAt;
+    }
+  }
 
   return {
     hasChapterList: !!chaptersEntry,
@@ -239,16 +342,28 @@ export function getStatus() {
   };
 }
 
-/** Подчищает кэш старого формата (v1, единый блок на всё) при заходе на
- * новый — сам по себе он больше не читается (другой префикс ключа), но
- * иначе так и остался бы висеть в localStorage бесполезным мёртвым грузом,
- * а на переполненной квоте это только мешает новому (v2) кэшу писаться. */
+/** Подчищает кэш старых форматов (v1/v2, оба жили в localStorage) при
+ * заходе на новый (IndexedDB) — сами по себе они больше не читаются, но
+ * иначе так и остались бы висеть в localStorage бесполезным мёртвым грузом
+ * и продолжали бы съедать ту самую тесную квоту, из-за которой мы вообще
+ * переехали на IndexedDB. */
 export function migrateOldCache() {
   try {
     const fp = state.fingerprint || "nofp";
     const uid = state.user?.id ?? "anon";
-    const oldKey = `${OLD_CACHE_PREFIX}${fp}_${uid}`;
-    if (localStorage.getItem(oldKey) !== null) localStorage.removeItem(oldKey);
+    const suffix = `${fp}_${uid}`;
+    const prefixesToClean = ["rw_qcache_v1_", "rw_qcache_v2_"];
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (!k) continue;
+      if (prefixesToClean.some((p) => k === `${p}${suffix}` || k.startsWith(`${p}${suffix}_`))) {
+        localStorage.removeItem(k);
+      }
+    }
+    // Старый кэш профиля пользователя (v1, localStorage) — тоже больше не
+    // читается (см. getCachedUser/setCachedUser выше, теперь IndexedDB).
+    const oldUserKey = "rw_cacheduser_v1_" + fp;
+    if (localStorage.getItem(oldUserKey) !== null) localStorage.removeItem(oldUserKey);
   } catch {
     // не критично — просто не подчистили в этот раз
   }

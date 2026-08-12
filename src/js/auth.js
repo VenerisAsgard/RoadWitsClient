@@ -43,7 +43,7 @@ export async function tryAutoLogin() {
   try {
     const user = await api.me(token);
     state.token = token;
-    cache.setCachedUser(state.fingerprint, user);
+    await cache.setCachedUser(state.fingerprint, user);
     await enterApp(user);
   } catch (err) {
     // status === 0 — именно сетевая ошибка (см. api.js request(): нет
@@ -53,7 +53,7 @@ export async function tryAutoLogin() {
     // не разлогинивать пользователя только из-за того, что сервер сейчас
     // недоступен.
     const offline = err instanceof api.ApiError && err.status === 0;
-    const cachedUser = offline ? cache.getCachedUser(state.fingerprint) : null;
+    const cachedUser = offline ? await cache.getCachedUser(state.fingerprint) : null;
 
     if (offline && cachedUser) {
       state.token = token;
@@ -79,7 +79,7 @@ export async function submitLogin(productKey) {
     const user = await api.me(access_token);
     state.token = access_token;
     state.fingerprint = fingerprint;
-    cache.setCachedUser(fingerprint, user);
+    await cache.setCachedUser(fingerprint, user);
     cache.migrateOldCache();
     await enterApp(user);
   } catch (err) {

@@ -77,9 +77,19 @@ body {
   top: 0;
   bottom: var(--hint-h);
   display: flex;
-  align-items: center;
+  /* flex-start, не center: раньше .screen хуговал по высоте свой контент,
+     и весь блок (включая топбар/стрелки навигации у самого верха) центрировался
+     в .stage целиком — из-за этого при переходе между вопросами/экранами
+     разной "наполненности" (картинка есть/нет, длина текста, число вариантов)
+     менялась высота .screen, и всё содержимое — в т.ч. шапка и стрелки —
+     заметно скакало по вертикали. Теперь .screen сам всегда высотой на весь
+     .stage (см. min-height:100% ниже), поэтому его положение больше не
+     зависит от контента; кто должен выглядеть вертикально центрированным
+     (например #screen-menu) — центрируется внутри уже стабильной высоты
+     через собственный justify-content, а не через сам факт "мало контента". */
+  align-items: flex-start;
   justify-content: center;
-  padding: 0 clamp(20px, 4vw, 100px);
+  padding: clamp(20px, 4vh, 56px) clamp(20px, 4vw, 100px);
 }
 /* Подсказок нет — hint-bar скрыт (см. render.setHint) — сцена забирает
    освободившееся место снизу, а не оставляет пустую полосу. */
@@ -90,6 +100,11 @@ body {
 .screen {
   width: 100%;
   max-width: min(calc(1320px * var(--k)), 94vw);
+  /* Экран всегда высотой на весь .stage, а не только на высоту своего
+     контента — иначе разная "наполненность" контента (см. комментарий
+     у .stage выше) двигала бы весь блок и, вместе с ним, шапку/навигацию
+     по вертикали при каждом переключении вопроса/экрана. */
+  min-height: 100%;
   max-height: 100%;
   display: flex;
   flex-direction: column;
@@ -324,6 +339,12 @@ body {
   flex-direction: column;
   overflow: hidden;
 }
+/* Редактор вопроса — своя, более широкая модалка: текст вопроса,
+   подсказка и превью с картинкой на стандартных 460px были тесными,
+   особенно при включённом превью (см. render.openModal(..., "wide")). */
+.modal-box.wide {
+  max-width: min(calc(760px * var(--k)), 94vw);
+}
 .modal-header {
   display: flex;
   align-items: center;
@@ -473,6 +494,9 @@ body {
 #screen-profile {
   max-width: min(calc(720px * var(--k)), 92vw);
 }
+#screen-credits {
+  max-width: min(calc(640px * var(--k)), 92vw);
+}
 .profile-head {
   display: flex;
   align-items: center;
@@ -500,11 +524,16 @@ body {
   align-items: center;
   justify-content: center;
   opacity: 1;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.25s ease, backdrop-filter 0.25s ease;
+  background: color-mix(in srgb, var(--bg) 65%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 .splash.splash-hidden {
   opacity: 0;
   pointer-events: none;
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
 }
 .splash-body {
   text-align: center;

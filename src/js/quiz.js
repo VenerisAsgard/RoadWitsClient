@@ -113,10 +113,30 @@ async function runQuiz(mode, chapterOrChapters, count) {
   if (mode === "chapter") {
     if (Array.isArray(chapterOrChapters)) {
       // Мультивыбор: тянем вопросы каждой отмеченной главы и объединяем.
-      const lists = await Promise.all(
+      // Как и в getQuestionPool() (random/exam), одна глава без кэша и без
+      // сети не должна ронять весь тест — раньше Promise.all() без catch
+      // делал именно это: не хватило кэша хоть для одной отмеченной главы —
+      // и весь мультивыбор падал с "нет соединения", хотя остальные главы
+      // были прекрасно закэшированы. Теперь неудачная глава просто не
+      // попадает в билет, а не отменяет его целиком.
+      const results = await Promise.allSettled(
         chapterOrChapters.map((c) => loadChapterQuestions(c.id)),
       );
-      questions = shuffle(lists.flat());
+      const failedCount = results.filter((r) => r.status === "rejected").length;
+      questions = shuffle(
+        results.filter((r) => r.status === "fulfilled").flatMap((r) => r.value),
+      );
+      if (failedCount && !questions.length) {
+        // Не загрузилась ни одна из выбранных глав — тут уже честно падаем,
+        // как раньше (пустой билет пользователю не нужен).
+        throw results.find((r) => r.status === "rejected").reason;
+      }
+      if (failedCount) {
+        render.toast(
+          `Не удалось загрузить ${failedCount} из ${chapterOrChapters.length} глав — нет кэша и сети`,
+          "error",
+        );
+      }
       state.chapterId = null;
       state.multiChapterIds = chapterOrChapters.map((c) => c.id);
     } else {
@@ -534,13 +554,13 @@ export async function loadChapters() {
   // то есть упавший на минуту бэкенд стирал сохранённую сессию.
   try {
     state.chapters = await api.listChapters(state.token);
-    cache.setChapters(state.chapters);
+    await cache.setChapters(state.chapters);
   } catch (err) {
     // Сети нет (или сервер лёг) — приложение всё равно должно уметь
     // работать оффлайн на том, что уже когда-то было закэшировано на этом
     // ПК под этим же аккаунтом (см. js/cache.js), а не просто показать
     // пустое меню.
-    const offline = cache.getChaptersStale();
+    const offline = await cache.getChaptersStale();
     if (offline) {
       state.chapters = offline;
       render.toast("Нет связи с сервером — показаны сохранённые данные (офлайн)", "info");
@@ -600,10 +620,15 @@ export function randomCountConfirm() {
    ============================================================ */
 
 export function openProfile() {
-  // Если уже на профиле (повторный клик по аккаунту) — не затираем прежний
-  // profileReturnScreen текущим "profile", иначе Esc/кнопка "Назад" начинают
-  // возвращать на сам профиль и выйти из него становится нельзя.
-  if (state.screen !== "profile") {
+  // Профиль, админка и "О программе" — одна группа экранов (admin/credits
+  // открываются только из профиля). Аватар в титлбаре виден и на admin/
+  // credits тоже, и клик по нему тоже ведёт сюда — если считать текущим
+  // "исходным" экраном сам admin/credits, profileReturnScreen перезапишется
+  // на "admin"/"credits", и тогда Esc/"Назад" начинают вечно перекидывать
+  // между профилем и админкой туда-обратно. Поэтому запоминаем экран-источник,
+  // только когда заходим НЕ из этой группы — так profileReturnScreen всегда
+  // указывает на настоящий экран, с которого начали (menu/chapters/...).
+  if (!["profile", "admin", "credits"].includes(state.screen)) {
     state.profileReturnScreen = state.screen;
   }
   render.showScreen("profile");
@@ -622,6 +647,15 @@ export function openAdmin() {
   render.showScreen("admin");
   render.setHint([]);
   admin.loadLicenses();
+}
+
+/** "О программе" — версия/стек/шрифты/автор. Доступен всем из профиля
+ * (см. render.renderProfile → #credits-open-btn), в отличие от openAdmin()
+ * не завязан на права: экран статичный, ничего не грузит с сервера. */
+export function openCredits() {
+  render.showScreen("credits");
+  render.setHint([]);
+  render.renderCreditsVersion(state.appVersion);
 }
 
 export function closeProfile() {

@@ -143,17 +143,22 @@ export function disableWebDefaults() {
     event.preventDefault();
   });
 
-  // DevTools открываются только кнопкой в панели администратора
-  // (см. controls.js #admin-devtools-btn) — нигде больше, включая
-  // сочетания клавиш, даже для admin (devtoolsAllowed управляет только
-  // тем, доступна ли сама кнопка, а не сочетания клавиш).
+  // DevTools открываются только сочетанием клавиш (F12, Ctrl+Shift+I,
+  // Ctrl+Shift+C) — отдельная кнопка в панели администратора убрана
+  // (она дублировала то же самое, но занимала место). Срабатывает
+  // сочетание только при devtoolsAllowed === true (см. setDevtoolsAllowed,
+  // вызывается из main.js только для user_type === "admin"). Для всех
+  // остальных сочетания по-прежнему просто гасятся: обычному
+  // ученику/редактору незачем видеть, что это вообще веб-страница
+  // внутри Tauri.
   document.addEventListener("keydown", (e) => {
-    if (
+    const isDevtoolsShortcut =
       e.key === "F12" ||
       (e.ctrlKey && e.shiftKey && e.key === "I") ||
-      (e.ctrlKey && e.shiftKey && e.key === "C")
-    ) {
-      e.preventDefault();
-    }
+      (e.ctrlKey && e.shiftKey && e.key === "C");
+    if (!isDevtoolsShortcut) return;
+
+    e.preventDefault();
+    if (devtoolsAllowed) openDevtools();
   });
 }

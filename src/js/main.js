@@ -39,8 +39,15 @@ async function init() {
     auth.submitLogin(render.$("product-key").value.trim());
   });
 
-  render.$("logout-button").addEventListener("click", () => {
-    auth.logout();
+  render.$("logout-button").addEventListener("click", async () => {
+    const ok = await render.confirmDialog({
+      title: "Выйти из аккаунта?",
+      text: "Понадобится снова ввести Product Key, чтобы войти.",
+      confirmLabel: "Да, выйти",
+      cancelLabel: "Остаться",
+      danger: true,
+    });
+    if (ok) auth.logout();
   });
 
   // TODO: пока без действия — куда вести пользователя без ключа продукта

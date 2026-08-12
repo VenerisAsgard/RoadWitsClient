@@ -7,7 +7,6 @@ import { state } from "./state.js";
 import * as render from "./render.js";
 import * as quiz from "./quiz.js";
 import * as admin from "./admin.js";
-import * as device from "./device.js";
 import * as friends from "./friends.js";
 import * as api from "./api.js";
 
@@ -173,6 +172,14 @@ export function initKeyboardControls() {
       }
 
       case "admin": {
+        if (key === "Escape") {
+          e.preventDefault();
+          render.showScreen("profile");
+        }
+        break;
+      }
+
+      case "credits": {
         if (key === "Escape") {
           e.preventDefault();
           render.showScreen("profile");
@@ -514,18 +521,34 @@ export function initMouseControls() {
       quiz.openAdmin();
       return;
     }
+    if (e.target.closest("#credits-open-btn")) {
+      quiz.openCredits();
+      return;
+    }
     if (e.target.closest("#cache-refresh-btn")) {
       const btn = e.target.closest("#cache-refresh-btn");
       btn.disabled = true;
       try {
-        const { chapters } = await quiz.refreshCacheNow((done, total) => render.setCacheRefreshProgress(done, total));
-        render.toast(`Кэш обновлён: ${chapters} глав`, "success");
+        const { chapters, cached, textOnly } = await quiz.refreshCacheNow((done, total) => render.setCacheRefreshProgress(done, total));
+        if (cached < chapters) {
+          render.toast(
+            `Закэшировано ${cached} из ${chapters} глав — остальным не хватило места (обычно из-за фото к вопросам)`,
+            "error",
+          );
+        } else if (textOnly) {
+          render.toast(
+            `Кэш обновлён: ${chapters} глав (у ${textOnly} офлайн-версия без фото — не хватило места)`,
+            "info",
+          );
+        } else {
+          render.toast(`Кэш обновлён: ${chapters} глав`, "success");
+        }
       } catch (err) {
         const msg = err instanceof api.ApiError ? err.message : "Не удалось обновить кэш — нет соединения";
         render.toast(msg, "error");
       } finally {
         btn.disabled = false;
-        render.renderCacheStatus();
+        await render.renderCacheStatus();
       }
       return;
     }
@@ -538,9 +561,9 @@ export function initMouseControls() {
         danger: true,
       });
       if (ok) {
-        quiz.clearCacheNow();
+        await quiz.clearCacheNow();
         render.toast("Кэш очищен", "info");
-        render.renderCacheStatus();
+        await render.renderCacheStatus();
       }
       return;
     }
@@ -575,14 +598,14 @@ export function initMouseControls() {
   render.$("admin-back-btn").addEventListener("click", () => {
     render.showScreen("profile");
   });
+  render.$("credits-back-btn").addEventListener("click", () => {
+    render.showScreen("profile");
+  });
   render.$("admin-refresh-btn").addEventListener("click", () => {
     admin.loadLicenses();
   });
   render.$("admin-license-add-btn").addEventListener("click", () => {
     admin.promptCreateLicense();
-  });
-  render.$("admin-devtools-btn").addEventListener("click", () => {
-    if (state.user?.user_type === "admin") device.openDevtools();
   });
 
   let searchDebounce = null;
