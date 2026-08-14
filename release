@@ -1,10 +1,13 @@
 #!/bin/bash
 
+cd "$(dirname "$0")"
+
 TAURI_CONFIG="src-tauri/tauri.conf.json"
 CARGO_FILE="src-tauri/Cargo.toml"
+PACKAGE_JSON="package.json"
 
 
-git fetch origin
+git fetch origin --tags
 
 
 # Проверяем наличие файлов
@@ -15,6 +18,11 @@ fi
 
 if [ ! -f "$CARGO_FILE" ]; then
     echo "Ошибка: нет файла $CARGO_FILE"
+    exit 1
+fi
+
+if [ ! -f "$PACKAGE_JSON" ]; then
+    echo "Ошибка: нет файла $PACKAGE_JSON"
     exit 1
 fi
 
@@ -74,11 +82,18 @@ sed -i -E \
 "$CARGO_FILE"
 
 
+# Меняем версию package.json (первое вхождение "version")
+sed -i -E \
+"0,/\"version\":[[:space:]]*\"[^\"]+\"/s//\"version\": \"$new_version\"/" \
+"$PACKAGE_JSON"
+
+
 echo "Версии обновлены:"
 echo ""
 
 grep '"version"' "$TAURI_CONFIG"
 grep '^version' "$CARGO_FILE"
+grep '"version"' "$PACKAGE_JSON" | head -1
 
 
 echo ""

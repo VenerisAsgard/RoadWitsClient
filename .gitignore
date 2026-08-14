@@ -7,3 +7,5 @@ node_modules/
 target/
 src-tauri/target/
 dependencies_win7/
+build/
+*work.mdе

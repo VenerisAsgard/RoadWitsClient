@@ -1,0 +1,55 @@
+/* ============================================================
+   FONTS — локальные @font-face, без обращения к сети.
+
+   ИСПРАВЛЕНО при переносе на SvelteKit: старый fonts.css ссылался на
+   ../fonts/Rubik/Rubik-Regular.ttf и т.п. — таких файлов не существовало
+   (они лежат в Rubik/static/...), поэтому @font-face молча проваливался
+   и все веса откатывались на системный шрифт. Комментарий в старом файле
+   объяснял, что Cantarell ломает кириллицу пробелами — но из-за неверного
+   пути правка фактически никогда не применялась.
+
+   УЛУЧШЕНИЕ: вместо восьми статичных начертаний Rubik используется один
+   variable-font файл на обычное начертание и один на курсив — они уже
+   лежат в комплекте (Rubik-VariableFont_wght.ttf), покрывают весь диапазон
+   100–900 одним файлом и загружаются один раз вместо восьми отдельных
+   HTTP/файловых запросов.
+
+   Fira Code — раньше был в комплекте шрифтов, но нигде не подключался
+   (--font-mono ссылался на системный моно-стек). Теперь используется по
+   назначению: Product Key на экране входа, таймер экзамена, счётчики
+   вопросов — то, что должно быть моноширинным.
+   ============================================================ */
+
+@font-face {
+  font-family: "Rubik";
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url("/fonts/Rubik/Rubik-VariableFont_wght.ttf") format("truetype-variations"),
+    url("/fonts/Rubik/Rubik-VariableFont_wght.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Rubik";
+  font-style: italic;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url("/fonts/Rubik/Rubik-Italic-VariableFont_wght.ttf") format("truetype-variations"),
+    url("/fonts/Rubik/Rubik-Italic-VariableFont_wght.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Fira Code";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("/fonts/Fira_Code/FiraCode-VariableFont_wght.ttf") format("truetype-variations"),
+    url("/fonts/Fira_Code/FiraCode-VariableFont_wght.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Noto Color Emoji";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/Noto_Color_Emoji/NotoColorEmoji-Regular.ttf") format("truetype");
+}

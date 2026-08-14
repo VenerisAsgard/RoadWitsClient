@@ -39,6 +39,7 @@ modules:
         - '--share=network'
     build-commands:
       - npm ci --legacy-peer-deps                 # npm в корне (package.json там)
+      - npm run build                             # vite build → ../build (frontendDist для Tauri, см. svelte.config.js)
       - cd src-tauri && cargo build --release --bin roadwits-client  # cargo в src-tauri
       - install -Dm755 src-tauri/target/release/roadwits-client /app/bin/roadwits-client
     sources:

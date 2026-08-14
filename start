@@ -1,3 +1,11 @@
-npm run tauri dev
+#!/bin/bash
+# Запуск клиента для разработки: `./start` — dev-режим (hot reload),
+# `./start build` — production-сборка (см. release для готового релиза
+# с версионированием/тегом/публикацией через GitHub Actions).
+set -e
 
-#npm run tauri build
+if [ "$1" = "build" ]; then
+  npm run tauri build
+else
+  npm run tauri dev
+fi

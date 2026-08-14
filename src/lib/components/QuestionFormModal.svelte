@@ -1,0 +1,199 @@
+<script>
+  import { untrack } from "svelte";
+  import Modal from "./Modal.svelte";
+  import { createQuestion, updateQuestionById, buildQuestionIndex, findSimilarQuestions, fileToBase64 } from "$lib/admin.js";
+  import { toast } from "$lib/stores/ui.svelte.js";
+
+  let { question = null, onclose } = $props();
+
+  // Форма — это снимок question на момент открытия модалки (компонент
+  // всегда монтируется заново под конкретный вопрос, см. {#key} в
+  // ChaptersScreen.svelte), дальше поля редактируются локально и не
+  // должны переезжать при мутациях исходного question. untrack()
+  // явно фиксирует это как намеренное разовое чтение (иначе Svelte 5
+  // предупреждает: "This reference only captures the initial value").
+  let text = $state(untrack(() => question?.text ?? ""));
+  let hint = $state(untrack(() => question?.explanation ?? ""));
+  let answers = $state(
+    untrack(() =>
+      question
+        ? question.options.map((t, i) => ({ text: t, correct: i === question.correctIndex }))
+        : [
+            { text: "", correct: true },
+            { text: "", correct: false },
+          ],
+    ),
+  );
+  let fileInput = $state(null);
+  let filePreviewUrl = $state(null); // data URL нового выбранного файла — для превью
+  let imageRemoved = $state(false);
+  let previewOn = $state(false);
+  let saving = $state(false);
+  let dupWarning = $state(null); // { exact, chapterTitle, text, moreCount } | null
+  let dupTimer = null;
+
+  const showCurrentImage = $derived(!!question?.image && !imageRemoved && !filePreviewUrl);
+
+  function addAnswerRow() {
+    answers.push({ text: "", correct: false });
+  }
+  function removeAnswerRow(i) {
+    // Бэкенд требует минимум 2 варианта — не даём удалить ниже порога.
+    if (answers.length > 2) answers.splice(i, 1);
+  }
+  function setCorrect(i) {
+    answers.forEach((a, idx) => (a.correct = idx === i));
+  }
+
+  function onFileChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    imageRemoved = false;
+    const reader = new FileReader();
+    reader.onload = () => (filePreviewUrl = String(reader.result));
+    reader.readAsDataURL(file);
+  }
+  function removeCurrentImage() {
+    imageRemoved = true;
+    filePreviewUrl = null;
+    if (fileInput) fileInput.value = "";
+  }
+
+  async function checkDuplicates() {
+    const t = text.trim();
+    if (t.length < 4) {
+      dupWarning = null;
+      return;
+    }
+    const index = await buildQuestionIndex();
+    const found = findSimilarQuestions(index, t, { threshold: 0.6, excludeId: question?.id, limit: 3 });
+    if (!found.length) {
+      dupWarning = null;
+      return;
+    }
+    const top = found[0];
+    dupWarning = {
+      exact: top.exact,
+      chapterTitle: top.chapter.title,
+      text: top.question.text,
+      moreCount: found.length - 1,
+    };
+  }
+  function onTextInput() {
+    clearTimeout(dupTimer);
+    dupTimer = setTimeout(checkDuplicates, 350);
+  }
+  checkDuplicates(); // и сразу при открытии формы, не только по вводу
+
+  async function submit(e) {
+    e.preventDefault();
+    const t = text.trim();
+    const h = hint.trim();
+    if (!t || answers.some((a) => !a.text.trim())) {
+      toast("Заполни текст вопроса и все варианты ответа", "error");
+      return;
+    }
+    if (answers.filter((a) => a.correct).length !== 1) {
+      toast("Отметь ровно один правильный вариант", "error");
+      return;
+    }
+
+    const file = fileInput?.files?.[0];
+    // undefined — не трогать сохранённое фото, null — убрать его явно,
+    // строка — заменить новым файлом.
+    const imageBase64 = file ? await fileToBase64(file) : imageRemoved ? null : undefined;
+
+    const payload = {
+      text: t,
+      hint: h,
+      imageBase64,
+      answers: answers.map((a) => ({ text: a.text.trim(), is_correct: a.correct })),
+    };
+
+    saving = true;
+    const ok = question ? await updateQuestionById(question.id, payload) : await createQuestion(payload);
+    saving = false;
+    if (ok) onclose?.();
+  }
+</script>
+
+<Modal title={question ? "Редактировать вопрос" : "Новый вопрос"} wide onclose={() => onclose?.()}>
+  <form onsubmit={submit}>
+    <label>
+      Текст вопроса
+      <textarea required rows="2" bind:value={text} oninput={onTextInput}></textarea>
+    </label>
+
+    {#if dupWarning}
+      <div class="question-dup-warning">
+        ⚠️ {dupWarning.exact ? "Точно такой же вопрос уже есть" : "Похожий вопрос уже есть"} в главе «{dupWarning.chapterTitle}»{dupWarning.moreCount > 0 ? ` (и ещё ${dupWarning.moreCount})` : ""}:<br />
+        «{dupWarning.text}»
+      </div>
+    {/if}
+
+    <label>
+      Подсказка (необязательно)
+      <textarea rows="2" bind:value={hint}></textarea>
+    </label>
+
+    <label>
+      Фото (необязательно)
+      <input type="file" accept="image/*" bind:this={fileInput} onchange={onFileChange} />
+    </label>
+    {#if filePreviewUrl}
+      <div class="qf-image-wrap">
+        <img alt="Новое фото вопроса" src={filePreviewUrl} />
+        <button type="button" class="icon-btn tiny danger" title="Убрать выбранный файл" onclick={removeCurrentImage}>❌</button>
+      </div>
+    {:else if showCurrentImage}
+      <div class="qf-image-wrap">
+        <img alt="Текущее фото вопроса" src={question.image} />
+        <button type="button" class="icon-btn tiny danger" title="Удалить фото" onclick={removeCurrentImage}>❌</button>
+      </div>
+      <p class="modal-hint">Текущее фото показано выше. Выбери новый файл, чтобы заменить, или удали крестиком.</p>
+    {/if}
+
+    <p class="modal-hint">Отметь один правильный вариант слева от него.</p>
+    <div class="answers-editor">
+      {#each answers as a, i}
+        <div class="answer-row">
+          <input type="radio" name="correct" checked={a.correct} onchange={() => setCorrect(i)} />
+          <input type="text" class="answer-text" placeholder="Вариант ответа" required bind:value={a.text} />
+          <button type="button" class="icon-btn tiny danger" title="Убрать вариант" onclick={() => removeAnswerRow(i)}>❌</button>
+        </div>
+      {/each}
+    </div>
+    <button type="button" class="ghost small" onclick={addAnswerRow}>+ вариант ответа</button>
+
+    <div class="modal-actions">
+      <button type="button" class="ghost" onclick={() => (previewOn = !previewOn)}>
+        {previewOn ? "🙈 Скрыть предпросмотр" : "👁 Предпросмотр"}
+      </button>
+      <span class="modal-actions-spacer"></span>
+      <button type="button" class="ghost" onclick={() => onclose?.()}>Отмена</button>
+      <button type="submit" disabled={saving}>{question ? "Сохранить" : "Создать"}</button>
+    </div>
+
+    {#if previewOn}
+      <div class="question-preview">
+        <p class="modal-hint">Так вопрос увидит проходящий тест:</p>
+        {#if filePreviewUrl || showCurrentImage}
+          <div class="q-image-wrap qp-image-wrap">
+            <img alt="Иллюстрация к вопросу" src={filePreviewUrl || question.image} />
+          </div>
+        {/if}
+        <p class="q-text">{text.trim() || "Текст вопроса появится здесь…"}</p>
+        <ul class="q-options">
+          {#each answers as a, i}
+            <li class="q-option" class:correct={a.correct}>
+              <span class="o-key">{i + 1}</span><span>{a.text.trim() || `Вариант ${i + 1}`}</span>
+            </li>
+          {/each}
+        </ul>
+        {#if hint.trim()}
+          <p class="q-explain">{hint.trim()}</p>
+        {/if}
+      </div>
+    {/if}
+  </form>
+</Modal>

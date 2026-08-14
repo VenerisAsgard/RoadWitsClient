@@ -4,7 +4,10 @@
   "version": "1.3.5",
   "identifier": "com.roadwits.client",
   "build": {
-    "frontendDist": "../src"
+    "frontendDist": "../build",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
   },
   "app": {
     "withGlobalTauri": true,
