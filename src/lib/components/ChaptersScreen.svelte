@@ -119,7 +119,7 @@
               class:empty={!hasQuestions}
               class:checked
               role="button"
-              tabindex="0"
+              tabindex="-1"
               onclick={() => selectRow(i)}
               onkeydown={(e) => (e.key === "Enter") && (e.preventDefault(), selectRow(i))}
             >
@@ -127,7 +127,7 @@
                 class="c-checkbox"
                 data-role="checkbox"
                 role="checkbox"
-                tabindex="0"
+                tabindex="-1"
                 aria-checked={checked}
                 onclick={(e) => {
                   e.stopPropagation();

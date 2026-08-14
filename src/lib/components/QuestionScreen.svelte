@@ -177,7 +177,7 @@
           class="q-image-wrap"
           id="q-image-wrap"
           role="button"
-          tabindex="0"
+          tabindex="-1"
           onclick={() => openImageViewer(q.image)}
           onkeydown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), openImageViewer(q.image))}
         >
@@ -192,7 +192,7 @@
               <div
                 class={optionClass(i)}
                 role="button"
-                tabindex="0"
+                tabindex="-1"
                 onclick={() => selectOptionByClick(i)}
                 onkeydown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), selectOptionByClick(i))}
               >

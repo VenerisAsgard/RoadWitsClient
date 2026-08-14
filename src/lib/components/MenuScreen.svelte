@@ -39,11 +39,18 @@
   <ul class="menu-list" id="menu-list">
     {#each MENU_ITEMS as item, i (item.id)}
       <li>
+        <!-- Навигация в приложении полностью своя (стрелки/цифры/Enter, см.
+             onKeydown ниже и document.addEventListener в onMount) — обычный
+             Tab по этим пунктам не нужен и только путал (показывал
+             браузерный focus-ring, никак не связанный с "active"-подсветкой,
+             и позволял Tab'ом "провалиться" мимо активного пункта). Такой же
+             tabindex="-1" проставлен на аналогичных кастомных списках в
+             ChaptersScreen/QuestionScreen/RandomCountScreen/ResultScreen. -->
         <div
           class="menu-item"
           class:active={i === state.menuIndex}
           role="button"
-          tabindex="0"
+          tabindex="-1"
           onclick={() => {
             state.menuIndex = i;
             menuConfirm();

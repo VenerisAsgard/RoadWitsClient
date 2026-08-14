@@ -60,19 +60,6 @@
   let cacheBusy = $state(false);
   let cacheProgress = $state(null); // { done, total } во время ручного обновления
 
-  async function save() {
-    saving = true;
-    try {
-      const updated = await api.updateProfile(appState.token, { firstName, lastName, email });
-      appState.user = { ...appState.user, ...updated };
-      toast("Профиль сохранён", "success");
-    } catch (err) {
-      toast(err instanceof api.ApiError ? err.message : "Не удалось сохранить профиль", "error");
-    } finally {
-      saving = false;
-    }
-  }
-
   async function toggleTheme() {
     lightTheme = !lightTheme;
     const settings = { ...(appState.user?.settings || {}), theme: lightTheme ? "light" : "dark" };
@@ -207,16 +194,20 @@
     await loadCacheStatus();
   }
 
-  /** Автосохранение правок имени/фамилии/email при выходе с экрана — если
-   * человек поправил поля и ушёл кнопкой "Назад"/Esc, не дожидаясь
-   * "Сохранить", правки не должны потеряться молча (см.
-   * src-legacy/js/controls.js savePersonalDataIfChanged/exitProfile). */
+  /** Автосохранение имени/фамилии/email. Раньше в профиле была отдельная
+   * кнопка "Сохранить" — по просьбе убрана: поля сохраняются сами по
+   * уходу фокуса с поля (onblur) и дополнительно при уходе с экрана
+   * кнопкой "Назад"/Esc (см. back() ниже), без лишнего клика. saving
+   * используется только для короткой надписи "Сохраняем…" у полей —
+   * отдельного тоста об успехе больше нет: он срабатывал бы на каждый
+   * blur и был бы навязчивым. */
   async function savePersonalDataIfChanged() {
     const unchanged =
       firstName.trim() === (appState.user?.first_name || "") &&
       lastName.trim() === (appState.user?.last_name || "") &&
       email.trim() === (appState.user?.email || "");
     if (unchanged) return;
+    saving = true;
     try {
       const updated = await api.updateProfile(appState.token, {
         firstName: firstName.trim(),
@@ -226,6 +217,8 @@
       appState.user = { ...appState.user, ...updated };
     } catch (err) {
       toast(err instanceof api.ApiError ? err.message : "Не удалось сохранить данные профиля", "error");
+    } finally {
+      saving = false;
     }
   }
 
@@ -280,11 +273,18 @@
     </div>
 
     <div class="profile-head">
+      <!-- onmousedown preventDefault: клик мышью не даёт кнопке получить
+           фокус вообще (а Tab+Enter с клавиатуры — по-прежнему даёт), чтобы
+           WebKitGTK не показывал фокус-оверлей "Сменить фото" поверх фото
+           после обычного клика (баг: фото выглядело "выделенным" после
+           нажатия, не только при наведении). См. также правило
+           .avatar-upload-btn:focus-visible в components.css. -->
       <button
         class="avatar-upload-btn"
         type="button"
         title="Изменить фото"
         disabled={uploadingPhoto}
+        onmousedown={(e) => e.preventDefault()}
         onclick={() => photoInput?.click()}
       >
         <span class="avatar large" style={avatarStyle(appState.user)}>
@@ -311,13 +311,14 @@
     </dl>
 
     <div class="profile-settings">
-      <p class="panel-label">Личные данные</p>
-      <label>Имя<input type="text" maxlength="100" bind:value={firstName} /></label>
-      <label>Фамилия<input type="text" maxlength="100" bind:value={lastName} /></label>
-      <label>Email<input type="email" bind:value={email} /></label>
-      <button type="button" class="ghost small" disabled={saving} onclick={save}>
-        {saving ? "Сохраняем…" : "Сохранить"}
-      </button>
+      <!-- Кнопка "Сохранить" убрана — поля сохраняются сами по уходу
+           фокуса (onblur вызывает savePersonalDataIfChanged, которая сама
+           проверяет, что реально изменилось). Индикатор — просто текст
+           рядом с заголовком, а не отдельный контрол. -->
+      <p class="panel-label">Личные данные{#if saving} · <span class="autosave-hint">сохраняем…</span>{/if}</p>
+      <label>Имя<input type="text" maxlength="100" bind:value={firstName} onblur={savePersonalDataIfChanged} /></label>
+      <label>Фамилия<input type="text" maxlength="100" bind:value={lastName} onblur={savePersonalDataIfChanged} /></label>
+      <label>Email<input type="email" bind:value={email} onblur={savePersonalDataIfChanged} /></label>
     </div>
 
     <div class="profile-settings">

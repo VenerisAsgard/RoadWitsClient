@@ -7,6 +7,16 @@
   const initial = $derived(
     (state.user?.first_name || state.user?.email || "?").trim().charAt(0).toUpperCase() || "?",
   );
+  // Тот же принцип, что и в ProfileScreen.svelte (avatarStyle): если есть
+  // profile_photo — показываем фото, иначе цветной кружок с инициалом.
+  // Раньше титлбар всегда рендерил только букву, даже когда фото было
+  // загружено (несовпадение с ProfileScreen, где фото уже показывалось).
+  const avatarStyle = $derived.by(() => {
+    const photo = state.user?.profile_photo;
+    if (photo) return `background: url(${photo}) center/cover`;
+    const hue = ((state.user?.id || 0) * 47) % 360;
+    return `background: hsl(${hue}, 55%, 40%)`;
+  });
   const displayName = $derived(
     [state.user?.first_name, state.user?.last_name].filter(Boolean).join(" ") ||
       (state.user ? `Пользователь #${state.user.id}` : "—"),
@@ -29,7 +39,7 @@
   }
 
   function openLeaderboard() {
-    openContentModal("👑 Лидерборд друзей");
+    openContentModal("🏆 Лидерборд друзей");
     loadLeaderboard();
   }
 </script>
@@ -40,13 +50,13 @@
 
   {#if state.loggedIn}
     <button class="account-chip" id="account-chip" type="button" onclick={openProfile}>
-      <span class="avatar" id="account-avatar">{initial}</span>
+      <span class="avatar" id="account-avatar" style={avatarStyle}>{state.user?.profile_photo ? "" : initial}</span>
       <span class="account-text">
         <span class="account-name" id="account-name">{displayName}</span>
         <span class="account-role" id="account-role">{roleLabel}</span>
       </span>
     </button>
-    <button class="icon-btn crown-btn" id="leaderboard-btn" type="button" title="Лидерборд друзей" onclick={openLeaderboard}>👑</button>
+    <button class="icon-btn trophy-btn" id="leaderboard-btn" type="button" title="Лидерборд друзей" onclick={openLeaderboard}>🏆</button>
   {/if}
 
   {#if !isTouchDevice}

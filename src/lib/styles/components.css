@@ -402,6 +402,13 @@ button.ghost.danger:hover {
   color: var(--faint);
   margin: 0;
 }
+/* Индикатор автосохранения личных данных в профиле (ProfileScreen.svelte) —
+   заменил отдельную кнопку "Сохранить"/"Сохраняем…". */
+.autosave-hint {
+  color: var(--accent);
+  text-transform: none;
+  letter-spacing: normal;
+}
 .chapter-list {
   list-style: none;
   margin: 0;
@@ -881,17 +888,8 @@ button.ghost.danger:hover {
   background: rgba(255, 176, 32, 0.1);
 }
 
-/* ---------- тонкие скроллбары для внутренних списков ---------- */
-.chapter-list::-webkit-scrollbar,
-.split-detail::-webkit-scrollbar,
-.q-options::-webkit-scrollbar {
-  width: calc(7px * var(--k));
-}
-.chapter-list::-webkit-scrollbar-thumb,
-.split-detail::-webkit-scrollbar-thumb,
-.q-options::-webkit-scrollbar-thumb {
-  background: var(--line);
-}
+/* Тонкие скроллбары теперь заданы глобально в reset.css — там же пояснение,
+   почему это применено ко всем скроллящимся областям, а не точечно. */
 
 /* ---------- кнопка "Начать тренировку" в деталях главы (мышь/тач) ---------- */
 .chapter-start {
@@ -1568,10 +1566,10 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
 
 /* ============================================================
    ПРОФИЛЬ — свич темы (правый верх меню профиля), аватар-загрузчик
-   фото (клик по кружку с инициалами), корона-лидерборд в титлбаре.
+   фото (клик по кружку с инициалами), кубок-лидерборд в титлбаре.
    ============================================================ */
 
-.crown-btn {
+.trophy-btn {
   width: calc(28px * var(--k));
   height: calc(28px * var(--k));
   font-size: calc(15px * var(--k));
@@ -1585,6 +1583,7 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
 }
 
 .theme-switch {
+  position: relative; /* контекст позиционирования для скрытого input ниже */
   display: inline-flex;
   align-items: center;
   gap: calc(6px * var(--k));
@@ -1600,7 +1599,21 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
 .theme-switch-icon {
   font-size: calc(13px * var(--k));
   line-height: 1;
-  opacity: 0.7;
+  /* Раньше обе иконки (🌙/☀️) всегда были одинаково приглушены (opacity:0.7)
+     независимо от текущей темы — переключатель не показывал, какая тема
+     сейчас активна, кроме как положением бегунка. Теперь неактивная иконка
+     дополнительно гаснет, активная становится полностью непрозрачной. */
+  opacity: 0.45;
+  transition: opacity var(--transition-fast);
+}
+.theme-switch-icon:first-child {
+  opacity: 1; /* тёмная тема активна по умолчанию (чекбокс не отмечен) */
+}
+.theme-switch:has(input:checked) .theme-switch-icon:first-child {
+  opacity: 0.45;
+}
+.theme-switch:has(input:checked) .theme-switch-icon:last-child {
+  opacity: 1;
 }
 .theme-switch-track {
   position: relative;
@@ -1663,6 +1676,13 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
 }
 .avatar-upload-btn:hover .avatar-upload-hint,
 .avatar-upload-btn:focus-visible .avatar-upload-hint {
+  /* :focus-visible иногда срабатывает и на обычный клик мышью (не только
+     Tab/клавиатуру) в WebKitGTK — из-за этого клик по фото "залипал"
+     затемнённым оверлеем с текстом "Сменить фото" так, будто фото
+     выделено, хотя мышь уже не наведена. Основная защита — снятие фокуса
+     на mousedown в ProfileScreen.svelte (не фокусируется вообще при
+     клике мышью, только с клавиатуры); это правило остаётся как
+     подсказка для настоящей клавиатурной навигации. */
   opacity: 1;
 }
 .avatar-upload-btn:hover .avatar.large {
@@ -1680,8 +1700,13 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
   display: flex;
   flex-direction: column;
   gap: calc(6px * var(--k));
-  max-height: calc(360px * var(--k));
-  overflow-y: auto;
+  /* Раньше список сам себе задавал max-height + overflow-y:auto ВНУТРИ
+     .modal-body, у которого overflow-y:auto уже есть (layout.css) — два
+     вложенных друг в друга auto-скролл контейнера с непредсказуемо
+     пересекающимися высотами: в webview (WebKitGTK) колесо мыши могло
+     не долистывать ни один из них до конца, список выглядел "без скролла".
+     Теперь единственный скролл-контейнер — .modal-body, как у всех
+     остальных модалок. */
 }
 .leaderboard-row {
   display: flex;
@@ -1868,14 +1893,5 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
   padding: calc(24px * var(--k));
   text-align: center;
   color: var(--faint);
-}
-.admin-table-wrap::-webkit-scrollbar,
-.admin-table-wrap::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.admin-table-wrap::-webkit-scrollbar-thumb {
-  background: var(--line);
-  border-radius: 4px;
 }
 

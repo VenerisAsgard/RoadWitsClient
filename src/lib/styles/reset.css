@@ -14,6 +14,29 @@
   box-sizing: border-box;
 }
 
+/* Тонкие скроллбары везде (а не только на отдельных списках, как раньше —
+   см. components.css: .chapter-list/.split-detail/.q-options и
+   .admin-table-wrap имели свои копии этого же правила). Раньше остальные
+   скроллящиеся области (.friends-list, .modal-body, списки в модалках
+   редактора/поиска и т.д.) получали неоформленный системный скроллбар —
+   на Windows/Linux webview он заметно шире и своим цветом визуально
+   "откусывал" полосу от контента, из-за чего меню и панели выглядели
+   обрезанными по правому краю. Ширина уменьшена (7-8px → 6px). */
+* {
+  scrollbar-width: thin;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 html,
 body {
   height: 100%;

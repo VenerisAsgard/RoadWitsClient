@@ -20,7 +20,6 @@
 - [Быстрый старт](#-быстрый-старт)
 - [Сборка](#️-сборка)
 - [Установка готовых сборок](#-установка-готовых-сборок)
-- [Структура проекта](#-структура-проекта)
 - [Релизы](#-релизы)
 
 ---
@@ -251,46 +250,6 @@ flatpak install --user ./com.roadwits.client.flatpak
 
 ---
 
-## 🗂️ Структура проекта
-
-```
-RoadWitsClient/
-├── src/                      # Фронтенд: чистый JS, без сборщика
-│   ├── index.html
-│   ├── app.js
-│   ├── css/                  # Стили (reset / variables / layout / components)
-│   └── js/
-│       ├── api.js            # Общение с backend'ом
-│       ├── auth.js           # Логин / автологин
-│       ├── quiz.js           # Логика теста
-│       ├── render.js         # Единственное место, пишущее в DOM
-│       ├── admin.js          # Редактирование контента/лицензий
-│       ├── friends.js        # Друзья
-│       ├── device.js         # Слой поверх Tauri invoke()
-│       ├── update.js         # Проверка обновлений по GitHub Releases
-│       ├── state.js          # Общее состояние приложения
-│       ├── controls.js       # Клавиатура/мышь/тач
-│       └── config.js         # Единственное место с адресом backend'а
-├── src-tauri/                 # Rust-ядро (Tauri)
-│   ├── src/
-│   │   ├── main.rs
-│   │   └── lib.rs
-│   ├── icons/                # Иконки приложения
-│   ├── capabilities/          # ACL / permissions Tauri
-│   ├── tauri.conf.json        # Конфигурация Tauri (окно, бандл, версия)
-│   └── Cargo.toml
-├── flatpak_data/               # Всё для Linux/Flatpak-сборки
-│   ├── roadwits-client.flatpak.yaml   # Манифест flatpak-builder
-│   ├── com.roadwits.client.metainfo.xml
-│   ├── generate_metainfo.py    # Подстановка версии/скриншотов в metainfo при сборке
-│   └── screenshots/
-├── .github/workflows/
-│   └── release.yml             # CI: сборка Windows/macOS/Linux + публикация релиза
-├── start                       # Шорткат: npm run tauri dev
-├── release                     # Скрипт бампа версии + тега + пуша релиза
-└── package.json
-```
-
 ## 🔖 Релизы
 
 Версия синхронно живёт в `src-tauri/tauri.conf.json` и `src-tauri/Cargo.toml`. Для выпуска новой версии используется скрипт `./release`: он поднимает версию в обоих файлах, коммитит, ставит тег `vX.Y.Z` и пушит — тег автоматически запускает [`release.yml`](.github/workflows/release.yml), который собирает Windows/macOS/Linux-артефакты и публикует черновик релиза на GitHub.
@@ -298,12 +257,6 @@ RoadWitsClient/
 ```bash
 ./release
 ```
-
----
-
-## TODO
-
-Переход ui/ux на Svelte, улучшение отображения текста.
 
 ---
 

@@ -113,7 +113,7 @@
           class="q-image-wrap"
           id="review-image-wrap"
           role="button"
-          tabindex="0"
+          tabindex="-1"
           onclick={() => openImageViewer(reviewQ.image)}
           onkeydown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), openImageViewer(reviewQ.image))}
         >
