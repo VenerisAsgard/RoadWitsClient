@@ -40,7 +40,13 @@ modules:
     build-commands:
       - npm ci --legacy-peer-deps                 # npm в корне (package.json там)
       - npm run build                             # vite build → ../build (frontendDist для Tauri, см. svelte.config.js)
-      - cd src-tauri && cargo build --release --bin roadwits-client  # cargo в src-tauri
+      # TAURI_ENV_DEBUG=false обязателен: это единственный сигнал, по которому
+      # tauri-build (build.rs) решает, вшивать ли в бинарник devUrl (localhost:1420,
+      # только для `tauri dev`) или frontendDist (../build). Обычно эту переменную
+      # выставляет сам tauri-cli при вызове `tauri build`; здесь мы зовём cargo
+      # напрямую, в обход CLI, поэтому без явного экспорта переменная не установлена
+      # вообще — и билд детерминированно получает devUrl даже в --release.
+      - cd src-tauri && TAURI_ENV_DEBUG=false cargo build --release --bin roadwits-client  # cargo в src-tauri
       - install -Dm755 src-tauri/target/release/roadwits-client /app/bin/roadwits-client
     sources:
       - type: dir
