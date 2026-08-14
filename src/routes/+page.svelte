@@ -15,6 +15,7 @@
   import QuestionScreen from "$lib/components/QuestionScreen.svelte";
   import ResultScreen from "$lib/components/ResultScreen.svelte";
   import ProfileScreen from "$lib/components/ProfileScreen.svelte";
+  import SettingsScreen from "$lib/components/SettingsScreen.svelte";
   import AdminScreen from "$lib/components/AdminScreen.svelte";
   import CreditsScreen from "$lib/components/CreditsScreen.svelte";
   import Placeholder from "$lib/components/Placeholder.svelte";
@@ -105,6 +106,8 @@
         <ResultScreen />
       {:else if state.screen === "profile"}
         <ProfileScreen />
+      {:else if state.screen === "settings"}
+        <SettingsScreen />
       {:else if state.screen === "admin"}
         <AdminScreen />
       {:else if state.screen === "credits"}

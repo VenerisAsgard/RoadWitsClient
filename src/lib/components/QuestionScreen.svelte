@@ -180,6 +180,7 @@
           tabindex="-1"
           onclick={() => openImageViewer(q.image)}
           onkeydown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), openImageViewer(q.image))}
+          onmousedown={(e) => e.preventDefault()}
         >
           <img id="q-image" src={q.image} alt="Иллюстрация к вопросу" title="Нажми, чтобы увеличить" />
         </div>

@@ -49,7 +49,7 @@
   }
 
   function back() {
-    appState.screen = "profile";
+    appState.screen = "settings";
   }
 
   function onKeydown(e) {
@@ -71,7 +71,7 @@
 </script>
 
 <section class="screen" id="screen-admin" data-screen="admin">
-  <button class="ghost small screen-back" type="button" onclick={back}>← Профиль</button>
+  <button class="ghost small screen-back" type="button" onclick={back}>← Настройки</button>
   <div class="admin-page">
     <div class="admin-page-head">
       <div>

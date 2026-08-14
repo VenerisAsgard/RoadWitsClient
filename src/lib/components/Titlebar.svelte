@@ -31,7 +31,7 @@
     // Esc/"Назад" начнут вечно перекидывать между профилем и админкой
     // туда-обратно. Запоминаем экран-источник только когда заходим НЕ
     // из этой группы.
-    if (!["profile", "admin", "credits"].includes(state.screen)) {
+    if (!["profile", "settings", "admin", "credits"].includes(state.screen)) {
       state.profileReturnScreen = state.screen;
     }
     state.screen = "profile";
@@ -56,7 +56,10 @@
         <span class="account-role" id="account-role">{roleLabel}</span>
       </span>
     </button>
-    <button class="icon-btn trophy-btn" id="leaderboard-btn" type="button" title="Лидерборд друзей" onclick={openLeaderboard}>🏆</button>
+    <button class="icon-btn trophy-btn" id="leaderboard-btn" type="button" title="Лидерборд друзей" onclick={openLeaderboard}>
+      <span class="trophy-icon">🏆</span>
+      <span class="trophy-label">Лидерборд</span>
+    </button>
   {/if}
 
   {#if !isTouchDevice}

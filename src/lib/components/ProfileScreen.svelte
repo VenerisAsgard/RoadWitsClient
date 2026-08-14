@@ -1,11 +1,9 @@
 <script>
   import { onMount } from "svelte";
-  import { state as appState, ROLE_LABELS, isLightTheme, isAdmin } from "$lib/state.svelte.js";
+  import { state as appState, ROLE_LABELS } from "$lib/state.svelte.js";
   import * as api from "$lib/api/api.js";
-  import * as cache from "$lib/api/cache.js";
   import { toast, confirmDialog } from "$lib/stores/ui.svelte.js";
   import { logout } from "$lib/auth.js";
-  import { refreshAllCache } from "$lib/api/questions.js";
   import FriendsPanel from "$lib/components/FriendsPanel.svelte";
 
   function formatDate(iso) {
@@ -15,22 +13,6 @@
     } catch {
       return iso;
     }
-  }
-
-  function formatBytes(n) {
-    if (n < 1024) return `${n} Б`;
-    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} КБ`;
-    return `${(n / (1024 * 1024)).toFixed(1)} МБ`;
-  }
-
-  function formatRelativeTime(ts) {
-    if (!ts) return "—";
-    const diffMin = Math.round((Date.now() - ts) / 60000);
-    if (diffMin < 1) return "только что";
-    if (diffMin < 60) return `${diffMin} мин назад`;
-    const diffH = Math.round(diffMin / 60);
-    if (diffH < 24) return `${diffH} ч назад`;
-    return formatDate(new Date(ts).toISOString());
   }
 
   function initialsOf(user) {
@@ -51,26 +33,9 @@
   let lastName = $state(appState.user?.last_name || "");
   let email = $state(appState.user?.email || "");
   let saving = $state(false);
-  let lightTheme = $state(isLightTheme());
 
   let photoInput = $state(null);
   let uploadingPhoto = $state(false);
-
-  let cacheStatus = $state(/** @type {{hasChapterList: boolean, chaptersFresh: boolean, cachedChapterCount: number, totalChapters: number, approxBytes: number, newestSavedAt: number|null}|null} */ (null));
-  let cacheBusy = $state(false);
-  let cacheProgress = $state(null); // { done, total } во время ручного обновления
-
-  async function toggleTheme() {
-    lightTheme = !lightTheme;
-    const settings = { ...(appState.user?.settings || {}), theme: lightTheme ? "light" : "dark" };
-    try {
-      const updated = await api.updateSettings(appState.token, settings);
-      appState.user = { ...appState.user, settings: updated.settings ?? settings };
-    } catch {
-      lightTheme = !lightTheme; // откат при ошибке сети
-      toast("Не удалось сохранить тему", "error");
-    }
-  }
 
   /* ---------- фото профиля: центр-кроп в квадрат + сжатие в JPEG перед
      отправкой (см. src-legacy/js/controls.js readPhotoAsDataUrl) — так
@@ -154,46 +119,6 @@
     }
   }
 
-  /* ---------- офлайн-кэш вопросов ---------- */
-  async function loadCacheStatus() {
-    cacheStatus = await cache.getStatus();
-  }
-
-  async function onRefreshCache() {
-    cacheBusy = true;
-    cacheProgress = { done: 0, total: 0 };
-    try {
-      const { chapters, cached, textOnly } = await refreshAllCache((done, total) => (cacheProgress = { done, total }));
-      if (cached < chapters) {
-        toast(`Закэшировано ${cached} из ${chapters} глав — остальным не хватило места (обычно из-за фото к вопросам)`, "error");
-      } else if (textOnly) {
-        toast(`Кэш обновлён: ${chapters} глав (у ${textOnly} офлайн-версия без фото — не хватило места)`, "info");
-      } else {
-        toast(`Кэш обновлён: ${chapters} глав`, "success");
-      }
-    } catch (err) {
-      toast(err instanceof api.ApiError ? err.message : "Не удалось обновить кэш — нет соединения", "error");
-    } finally {
-      cacheBusy = false;
-      cacheProgress = null;
-      await loadCacheStatus();
-    }
-  }
-
-  async function onClearCache() {
-    const ok = await confirmDialog({
-      title: "Очистить кэш?",
-      text: "Офлайн-копия вопросов будет удалена. Без интернета приложение перестанет открывать главы, пока кэш не соберётся заново.",
-      confirmLabel: "Да, очистить",
-      cancelLabel: "Отмена",
-      danger: true,
-    });
-    if (!ok) return;
-    await cache.clearAll();
-    toast("Кэш очищен", "info");
-    await loadCacheStatus();
-  }
-
   /** Автосохранение имени/фамилии/email. Раньше в профиле была отдельная
    * кнопка "Сохранить" — по просьбе убрана: поля сохраняются сами по
    * уходу фокуса с поля (onblur) и дополнительно при уходе с экрана
@@ -235,16 +160,12 @@
   }
 
   onMount(() => {
-    loadCacheStatus();
     document.addEventListener("keydown", onKeydown);
     return () => document.removeEventListener("keydown", onKeydown);
   });
 
-  function openAdmin() {
-    appState.screen = "admin";
-  }
-  function openCredits() {
-    appState.screen = "credits";
+  function openSettings() {
+    appState.screen = "settings";
   }
 
   async function handleLogout() {
@@ -264,12 +185,7 @@
 
   <div class="profile-card" id="profile-card">
     <div class="profile-menu-bar">
-      <label class="theme-switch" title="Тема оформления">
-        <span class="theme-switch-icon">🌙</span>
-        <input type="checkbox" checked={lightTheme} onchange={toggleTheme} />
-        <span class="theme-switch-track"><span class="theme-switch-thumb"></span></span>
-        <span class="theme-switch-icon">☀️</span>
-      </label>
+      <button class="ghost small settings-link" type="button" onclick={openSettings}>⚙️ Настройки</button>
     </div>
 
     <div class="profile-head">
@@ -321,46 +237,7 @@
       <label>Email<input type="email" bind:value={email} onblur={savePersonalDataIfChanged} /></label>
     </div>
 
-    <div class="profile-settings">
-      <p class="panel-label">Офлайн-кэш вопросов</p>
-      <div class="cache-status">
-        {#if cacheBusy && cacheProgress}
-          <p class="cache-status-line" data-status="degraded">Кэшируем главы… {cacheProgress.done} из {cacheProgress.total}</p>
-        {:else if !cacheStatus}
-          <p class="loading">Проверяем…</p>
-        {:else if !cacheStatus.hasChapterList && cacheStatus.cachedChapterCount === 0}
-          <p class="cache-status-line" data-status="offline">Кэша пока нет — офлайн-режим недоступен, пока не откроешь главы онлайн хотя бы раз.</p>
-        {:else}
-          {@const complete = cacheStatus.totalChapters > 0 && cacheStatus.cachedChapterCount >= cacheStatus.totalChapters}
-          {@const status = !cacheStatus.chaptersFresh ? "degraded" : complete ? "ok" : "degraded"}
-          <p class="cache-status-line" data-status={status}>
-            {#if cacheStatus.totalChapters}
-              Глав в кэше: {cacheStatus.cachedChapterCount} из {cacheStatus.totalChapters}{complete ? "" : " (остальные закэшируются, когда откроешь их онлайн, либо кнопкой ниже)"}
-            {:else}
-              Глав в кэше: {cacheStatus.cachedChapterCount}
-            {/if}
-          </p>
-          <p class="cache-status-meta">Обновлялся: {formatRelativeTime(cacheStatus.newestSavedAt)} · Занимает: {formatBytes(cacheStatus.approxBytes)}</p>
-        {/if}
-      </div>
-      <div class="cache-actions">
-        <button type="button" class="ghost small" disabled={cacheBusy} onclick={onRefreshCache}>🔄 Обновить кэш сейчас</button>
-        <button type="button" class="ghost small danger" disabled={cacheBusy} onclick={onClearCache}>🗑️ Очистить кэш</button>
-      </div>
-    </div>
-
     <FriendsPanel />
-
-    {#if isAdmin()}
-      <div class="profile-settings">
-        <p class="panel-label">Администрирование</p>
-        <button class="chapter-start" type="button" onclick={openAdmin}>🛠️ Панель администрирования</button>
-      </div>
-    {/if}
-
-    <div class="profile-settings">
-      <button class="ghost small" type="button" onclick={openCredits}>ℹ️ О программе</button>
-    </div>
   </div>
 
   <button id="logout-button" class="ghost logout-btn" type="button" onclick={handleLogout}>Выйти</button>

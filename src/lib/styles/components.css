@@ -50,7 +50,7 @@ textarea:hover {
 select:focus,
 input:focus,
 textarea:focus {
-  border-color: var(--amber);
+  border-color: var(--accent);
   outline: none;
 }
 
@@ -71,8 +71,8 @@ input[type="file"]::file-selector-button {
   cursor: pointer;
 }
 input[type="file"]::file-selector-button:hover {
-  border-color: var(--amber);
-  color: var(--amber);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 /* Радио и чекбоксы в формах редактирования. */
 input[type="radio"],
@@ -335,7 +335,13 @@ button.ghost.danger:hover {
   background: transparent;
   transition:
     background var(--transition-fast),
-    border-color var(--transition-fast);
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+.menu-item:hover:not(.active) {
+  background: var(--panel);
+  border-left-color: var(--line);
+  transform: translateX(2px);
 }
 .menu-item .m-index {
   font-family: var(--font-mono);
@@ -361,10 +367,10 @@ button.ghost.danger:hover {
 .menu-item.active {
   background: var(--panel);
   border-color: var(--line);
-  border-left-color: var(--amber);
+  border-left-color: var(--accent);
 }
 .menu-item.active .m-index {
-  color: var(--amber);
+  color: var(--accent);
 }
 
 .meta-row {
@@ -442,7 +448,7 @@ button.ghost.danger:hover {
   color: var(--ink);
 }
 .chapter-item.checked .c-checkbox {
-  color: var(--amber);
+  color: var(--accent);
 }
 .chapter-item .c-num {
   font-family: var(--font-mono);
@@ -453,10 +459,10 @@ button.ghost.danger:hover {
 .chapter-item.active {
   background: var(--panel-2);
   color: var(--ink);
-  border-left-color: var(--amber);
+  border-left-color: var(--accent);
 }
 .chapter-item.active .c-num {
-  color: var(--amber);
+  color: var(--accent);
 }
 .chapter-item.empty {
   opacity: 0.55;
@@ -536,10 +542,20 @@ button.ghost.danger:hover {
   border-radius: var(--radius-md);
   background: var(--panel);
   cursor: zoom-in;
+  outline: none;
   transition: border-color var(--transition-fast);
 }
 .q-image-wrap:hover {
   border-color: var(--amber);
+}
+/* Клик по картинке в WebKitGTK (Tauri/Linux) местами трактуется как выделение —
+   тот же класс проблемы, что и с avatar-upload-btn (см. ai_work.md, п.16):
+   картинка "подсвечивалась"/выделялась синим при открытии полноэкранного
+   просмотра. Картинка не является текстом и не должна выделяться. */
+.q-image-wrap img {
+  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
 }
 /* contain, а не height:auto — картинка заполняет отведённый бокс по
    большей стороне и остаётся пропорциональной при любых сторонах. */
@@ -592,11 +608,11 @@ button.ghost.danger:hover {
   color: var(--muted);
 }
 .q-option.selected {
-  border-color: var(--amber);
+  border-color: var(--accent);
 }
 .q-option.selected .o-key {
-  border-color: var(--amber);
-  color: var(--amber);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .q-option.correct,
 .q-option.wrong {
@@ -770,11 +786,16 @@ button.ghost.danger:hover {
   cursor: pointer;
   transition:
     background var(--transition-fast),
-    color var(--transition-fast);
+    color var(--transition-fast),
+    transform var(--transition-fast);
 }
 .q-btn-finish:hover {
   background: var(--red);
   color: var(--bg);
+  transform: translateY(-1px);
+}
+.q-btn-finish:active {
+  transform: translateY(0) scale(0.96);
 }
 
 /* ---------- тренировка по главам: стрелки + счётчик вместо вкладок ---------- */
@@ -838,7 +859,7 @@ button.ghost.danger:hover {
 .q-phase-arrow {
   width: calc(20px * var(--k));
   height: calc(20px * var(--k));
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   border: 1px solid var(--line);
   background: transparent;
   color: var(--ink);
@@ -857,8 +878,8 @@ button.ghost.danger:hover {
     border-color var(--transition-fast);
 }
 .q-phase-arrow:hover:not(:disabled) {
-  background: var(--amber);
-  border-color: var(--amber);
+  background: var(--accent);
+  border-color: var(--accent);
   color: var(--bg);
 }
 .q-phase-arrow:disabled {
@@ -878,14 +899,20 @@ button.ghost.danger:hover {
   font-family: var(--font-mono);
   font-size: calc(12.5px * var(--k));
   padding: calc(9px * var(--k)) calc(16px * var(--k));
-  border: 1px solid var(--amber);
+  border: 1px solid var(--accent);
   background: var(--panel);
-  color: var(--amber);
+  color: var(--accent);
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    transform var(--transition-fast);
 }
 .q-btn-continue:hover {
-  background: rgba(255, 176, 32, 0.1);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  transform: translateY(-1px);
+}
+.q-btn-continue:active {
+  transform: translateY(0) scale(0.96);
 }
 
 /* Тонкие скроллбары теперь заданы глобально в reset.css — там же пояснение,
@@ -1047,7 +1074,7 @@ button.ghost.danger:hover {
   cursor: pointer;
 }
 .icon-btn:hover {
-  border-color: var(--amber);
+  border-color: var(--accent);
   color: var(--ink);
 }
 .icon-btn.tiny {
@@ -1255,7 +1282,7 @@ button.ghost.danger:hover {
 }
 .modal-btn-ghost:hover {
   background: var(--panel);
-  border-color: var(--amber);
+  border-color: var(--accent);
 }
 .modal-btn-danger {
   border-color: var(--red);
@@ -1294,11 +1321,82 @@ button.ghost.danger:hover {
   color: var(--amber);
 }
 
-/* ---------- кнопка "назад" — переиспользуется на chapters/profile ---------- */
+/* ---------- кнопка "назад" — переиспользуется на chapters/profile/settings/admin/credits ---------- */
 .profile-back,
 .screen-back {
   align-self: flex-start;
   margin-bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(6px * var(--k));
+  padding: calc(7px * var(--k)) calc(14px * var(--k)) calc(7px * var(--k)) calc(10px * var(--k));
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-weight: 600;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
+}
+.profile-back:hover,
+.screen-back:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--panel);
+  transform: translateX(-2px);
+}
+.profile-back:active,
+.screen-back:active {
+  transform: scale(0.96);
+}
+
+/* ---------- настройки (вынесено из профиля) ---------- */
+.settings-title {
+  font-family: var(--font-display);
+  font-size: calc(22px * var(--k));
+  margin: 0 0 18px;
+}
+.profile-settings.first {
+  margin-top: 0;
+  border-top: none;
+  padding-top: 0;
+}
+/* Тема оформления — строка в один ряд (подпись слева, переключатель
+   справа), а не подпись над переключателем, как остальные блоки
+   настроек (они про списки/действия, а не про одиночный контрол). */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(12px * var(--k));
+}
+.settings-row .panel-label {
+  margin: 0;
+}
+.accent-picker {
+  display: flex;
+  gap: calc(10px * var(--k));
+  flex-wrap: wrap;
+}
+.accent-swatch {
+  width: calc(32px * var(--k));
+  height: calc(32px * var(--k));
+  border-radius: 50%;
+  background: var(--swatch);
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px var(--line);
+  padding: 0;
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.accent-swatch:hover {
+  transform: scale(1.08);
+}
+.accent-swatch.active {
+  border-color: var(--panel);
+  box-shadow: 0 0 0 2px var(--swatch);
 }
 
 /* ---------- профиль ---------- */
@@ -1452,6 +1550,10 @@ button.ghost.danger:hover {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--panel);
+  outline: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .image-viewer-hint {
   font-family: var(--font-mono);
@@ -1570,10 +1672,33 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
    ============================================================ */
 
 .trophy-btn {
-  width: calc(28px * var(--k));
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--k));
+  width: auto;
   height: calc(28px * var(--k));
+  padding: 0 calc(12px * var(--k));
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: calc(12px * var(--k));
+  font-weight: 600;
+}
+.trophy-btn .trophy-icon {
   font-size: calc(15px * var(--k));
-  border-radius: 50%;
+  line-height: 1;
+}
+/* На узких окнах/тач-экранах в портретной ориентации в титлбаре мало
+   места (account-name/role уже могут быть длинными) — подпись прячется,
+   остаётся только кубок с тем же title-тултипом. */
+@media (max-width: 700px) {
+  .trophy-label {
+    display: none;
+  }
+  .trophy-btn {
+    width: calc(28px * var(--k));
+    padding: 0;
+    justify-content: center;
+  }
 }
 
 .profile-menu-bar {
@@ -1825,7 +1950,7 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
   color: var(--ink);
 }
 .admin-table th.sorted {
-  color: var(--amber);
+  color: var(--accent);
 }
 .admin-table .sort-arrow {
   margin-left: 4px;

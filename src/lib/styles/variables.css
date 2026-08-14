@@ -80,6 +80,35 @@
   --transition-base: 0.25s ease;
 }
 
+/* ============================================================
+   Акцентный цвет — пресеты (см. state.svelte.js ACCENT_PRESETS,
+   выбор в SettingsScreen.svelte). "amber" — цвет по умолчанию,
+   отдельного блока не требует (--accent уже указывает на --amber
+   в базовом :root выше). accent-ink подобран под каждый пресет
+   так, чтобы текст на кнопках/акцентных фонах оставался читаемым
+   (тёмный текст для светлых/тёплых акцентов, светлый — для
+   тёмно-синего/фиолетового). */
+:root[data-accent="blue"] {
+  --accent: #3d8bfd;
+  --accent-ink: #f4f3ef;
+}
+:root[data-accent="green"] {
+  --accent: #3acb6e;
+  --accent-ink: #0b0d10;
+}
+:root[data-accent="purple"] {
+  --accent: #a06bff;
+  --accent-ink: #f4f3ef;
+}
+:root[data-accent="rose"] {
+  --accent: #ff5c8a;
+  --accent-ink: #0b0d10;
+}
+:root[data-accent="teal"] {
+  --accent: #2bd0c9;
+  --accent-ink: #0b0d10;
+}
+
 /* На тач-устройствах нет ни оконного режима, ни физической клавиатуры —
    hint-bar с подсказками клавиш скрывается в components.css, а эта
    переменная убирает оставшийся отступ под него. */

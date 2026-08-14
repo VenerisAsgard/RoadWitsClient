@@ -7,7 +7,7 @@
   let checking = $state(false);
 
   function back() {
-    appState.screen = "profile";
+    appState.screen = "settings";
   }
 
   function onKeydown(e) {
@@ -33,7 +33,7 @@
 </script>
 
 <section class="screen" id="screen-credits" data-screen="credits">
-  <button class="ghost small profile-back" type="button" onclick={back}>← Назад</button>
+  <button class="ghost small screen-back" type="button" onclick={back}>← Настройки</button>
   <div class="credits-card">
     <div class="credits-head">
       <img class="credits-logo" src="/assets/logo.png" alt="Roadwits" />

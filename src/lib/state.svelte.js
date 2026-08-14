@@ -72,7 +72,7 @@ export const state = $state({
   questionsLoading: false,
 
   // --- навигация по экранам после входа ---
-  screen: "menu", // "menu" | "chapters" | "random-count" | "question" | "result" | "profile" | "admin" | "credits"
+  screen: "menu", // "menu" | "chapters" | "random-count" | "question" | "result" | "profile" | "settings" | "admin" | "credits"
   profileReturnScreen: "menu",
   originScreen: "menu",
 
@@ -151,6 +151,24 @@ export function userSettings() {
 
 export function isLightTheme() {
   return userSettings().theme === "light";
+}
+
+/** Пресеты акцентного цвета — по запросу из ai_work.md todo. Ключ "amber" —
+ * цвет по умолчанию (совпадает с --amber из variables.css), поэтому для
+ * него никакого CSS-переопределения не требуется — только именование
+ * пункта в списке выбора. */
+export const ACCENT_PRESETS = [
+  { id: "amber", label: "Янтарный", swatch: "#ffb020" },
+  { id: "blue", label: "Синий", swatch: "#3d8bfd" },
+  { id: "green", label: "Зелёный", swatch: "#3acb6e" },
+  { id: "purple", label: "Фиолетовый", swatch: "#a06bff" },
+  { id: "rose", label: "Розовый", swatch: "#ff5c8a" },
+  { id: "teal", label: "Бирюзовый", swatch: "#2bd0c9" },
+];
+
+export function accentColor() {
+  const id = userSettings().accent;
+  return ACCENT_PRESETS.some((p) => p.id === id) ? id : "amber";
 }
 
 export function isAdmin() {
