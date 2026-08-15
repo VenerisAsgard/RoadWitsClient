@@ -33,8 +33,8 @@
 </script>
 
 <section class="screen" id="screen-credits" data-screen="credits">
-  <button class="ghost small screen-back" type="button" onclick={back}>← Настройки</button>
   <div class="credits-card">
+    <button class="ghost small screen-back" type="button" onclick={back}>← Настройки</button>
     <div class="credits-head">
       <img class="credits-logo" src="/assets/logo.png" alt="Roadwits" />
       <div>

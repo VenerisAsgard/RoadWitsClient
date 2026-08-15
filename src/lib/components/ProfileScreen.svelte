@@ -164,10 +164,6 @@
     return () => document.removeEventListener("keydown", onKeydown);
   });
 
-  function openSettings() {
-    appState.screen = "settings";
-  }
-
   async function handleLogout() {
     const ok = await confirmDialog({
       title: "Выйти из аккаунта?",
@@ -181,12 +177,8 @@
 </script>
 
 <section class="screen" id="screen-profile" data-screen="profile">
-  <button class="ghost small profile-back" id="profile-back-btn" type="button" onclick={back}>← Назад</button>
-
   <div class="profile-card" id="profile-card">
-    <div class="profile-menu-bar">
-      <button class="ghost small settings-link" type="button" onclick={openSettings}>⚙️ Настройки</button>
-    </div>
+    <button class="ghost small profile-back" id="profile-back-btn" type="button" onclick={back}>← Назад</button>
 
     <div class="profile-head">
       <!-- onmousedown preventDefault: клик мышью не даёт кнопке получить

@@ -113,9 +113,26 @@ body {
      без собственного скролла) — иначе на компактных окнах/телефонах контент
      мог просто пропадать за нижней границей без возможности до него добраться. */
   overflow-y: auto;
+  /* .menu-item:hover (и другие hover-сдвиги — .profile-back и т.п.) двигают
+     элемент через transform: translateX(2px) — это чисто визуальный сдвиг,
+     он не должен увеличивать scrollWidth контейнера, но в некоторых webview
+     transform всё равно учитывается при расчёте overflow и внизу экрана (над
+     hint-bar) на пару кадров показывалась горизонтальная полоса прокрутки
+     при наведении на пункты меню. Контент внутри .screen не должен требовать
+     горизонтального скролла ни в одном режиме — просто прячем его. */
+  overflow-x: hidden;
 }
 
 #screen-menu {
+  align-items: flex-start;
+  margin: 0 auto;
+  justify-content: center;
+  max-width: min(calc(820px * var(--k)), 92vw);
+}
+/* Раньше был "голой" копией #screen-menu без рамки вокруг списка (см.
+   .random-count-card в components.css) — центрирование той же ширины,
+   что и у меню, чтобы карточка не растягивалась на всю ширину .screen. */
+#screen-random-count {
   align-items: flex-start;
   margin: 0 auto;
   justify-content: center;

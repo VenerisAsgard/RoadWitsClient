@@ -32,7 +32,7 @@
 </script>
 
 <section class="screen" id="screen-menu" data-screen="menu">
-  <div class="belarus-mark"><span>🇧🇾</span><span>Учебная программа · Республика Беларусь</span></div>
+  <div class="belarus-mark"><span>Учебная программа · Республика Беларусь</span><span class="belarus-flag">🇧🇾</span></div>
   <h1 class="brand-title">ПДД РБ</h1>
   <p class="brand-sub">Выбери режим</p>
 

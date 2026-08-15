@@ -29,6 +29,12 @@ finish-args:
   - '--filesystem=xdg-config'
   - '--filesystem=xdg-data'
   - '--talk-name=org.freedesktop.Notifications'
+  # Позволяет звать flatpak-spawn --host изнутри песочницы (доступ к порталу
+  # org.freedesktop.Flatpak) — только так приложение может само запустить
+  # "flatpak update" на хосте и перезапустить себя уже обновлённым (см.
+  # flatpak_update_and_restart в src-tauri/src/lib.rs); без /app сама
+  # песочница на чтение-только и обновить себя изнутри не может.
+  - '--talk-name=org.freedesktop.Flatpak'
 
 modules:
   - name: roadwits-client

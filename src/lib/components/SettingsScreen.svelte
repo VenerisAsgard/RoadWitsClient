@@ -32,9 +32,27 @@
 
   async function saveSettings(next) {
     const settings = { ...(appState.user?.settings || {}), ...next };
+    // Применяем СРАЗУ и локально — тема/акцент не должны зависеть от сети:
+    // +layout.svelte-эффект читает именно appState.user.settings, так что
+    // data-theme/data-accent на <html> обновятся немедленно, офлайн или нет.
+    // Раньше локальное значение применялось только ПОСЛЕ успешного ответа
+    // сервера (а при ошибке вообще откатывалось) — офлайн переключатель
+    // просто не работал.
+    appState.user = { ...appState.user, settings };
+    // Кэшируем тоже сразу — на случай полностью офлайн-сессии (см.
+    // auth.tryAutoLogin/cache.getCachedUser) эта правка переживёт и
+    // перезапуск приложения, а не потеряется до следующего онлайн-старта.
+    await cache.setCachedUser(appState.fingerprint, appState.user);
+
+    // Синхронизация с сервером — best-effort, в фоне. Если сети нет, уже
+    // применённое локальное значение НЕ откатываем: следующий успешный
+    // запрос (в т.ч. при повторном переключении уже при связи) досошлёт его.
     try {
       const updated = await api.updateSettings(appState.token, settings);
-      appState.user = { ...appState.user, settings: updated.settings ?? settings };
+      if (updated.settings && typeof updated.settings === "object") {
+        appState.user = { ...appState.user, settings: updated.settings };
+        await cache.setCachedUser(appState.fingerprint, appState.user);
+      }
       return true;
     } catch {
       return false;
@@ -42,24 +60,16 @@
   }
 
   async function toggleTheme() {
-    const prev = lightTheme;
     lightTheme = !lightTheme;
     const ok = await saveSettings({ theme: lightTheme ? "light" : "dark" });
-    if (!ok) {
-      lightTheme = prev; // откат при ошибке сети
-      toast("Не удалось сохранить тему", "error");
-    }
+    if (!ok) toast("Тема применена локально — сохранится на сервере при подключении к сети", "info");
   }
 
   async function pickAccent(id) {
     if (id === accent) return;
-    const prev = accent;
     accent = id;
     const ok = await saveSettings({ accent: id });
-    if (!ok) {
-      accent = prev;
-      toast("Не удалось сохранить акцентный цвет", "error");
-    }
+    if (!ok) toast("Акцент применён локально — сохранится на сервере при подключении к сети", "info");
   }
 
   /* ---------- офлайн-кэш вопросов (перенесено из ProfileScreen как есть) ---------- */
@@ -107,7 +117,11 @@
   }
 
   function back() {
-    appState.screen = "profile";
+    // Настройки теперь открываются напрямую из титлбара (рядом с
+    // лидербордом), а не только изнутри профиля — как и у ProfileScreen,
+    // возвращаемся на экран-источник (Titlebar.openSettings/openProfile
+    // запоминают его в profileReturnScreen), а не всегда в "profile".
+    appState.screen = appState.profileReturnScreen || "menu";
   }
 
   function onKeydown(e) {
@@ -132,11 +146,11 @@
 </script>
 
 <section class="screen" id="screen-settings" data-screen="settings">
-  <button class="ghost small screen-back" type="button" onclick={back}>← Профиль</button>
-
-  <h2 class="settings-title">Настройки</h2>
-
   <div class="profile-card">
+    <button class="ghost small screen-back" type="button" onclick={back}>← Назад</button>
+
+    <h2 class="settings-title">Настройки</h2>
+
     <div class="profile-settings first">
       <div class="settings-row">
         <p class="panel-label">Тема оформления</p>

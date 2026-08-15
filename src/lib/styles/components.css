@@ -998,6 +998,35 @@ button.ghost.danger:hover {
   }
 }
 
+/* ---------- увеличенные зоны нажатия на тач-устройствах ----------
+   .icon-btn (26px/22px) и button.small (padding 5px/9px, 12px текст) были
+   рассчитаны на мышь — на телефоне это заметно меньше рекомендуемого
+   минимума ~40-44px и по ним легко промахнуться (кнопки редактора в
+   ChaptersScreen, "×" закрытия модалок, "←" назад и т.п.). Здесь только
+   увеличиваем реальные размеры кнопок под палец — раскладка/расположение
+   не меняем, чтобы не расходиться с курсорным режимом. */
+@media (pointer: coarse) {
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+  .icon-btn.tiny {
+    width: 34px;
+    height: 34px;
+    font-size: 13px;
+  }
+  button.small {
+    padding: 10px 14px;
+    font-size: 14px;
+    min-height: 40px;
+  }
+  .trophy-btn,
+  .settings-btn {
+    height: 40px;
+  }
+}
+
 /* ---------- аватар и аккаунт-чип ---------- */
 .avatar {
   width: calc(26px * var(--k));
@@ -1351,6 +1380,20 @@ button.ghost.danger:hover {
 .screen-back:active {
   transform: scale(0.96);
 }
+/* Кнопка "← Меню" в шапке списка глав (ChaptersScreen) — та же "назад"-пилюля,
+   но встроена в строку рядом с "Выберите главу", а не отдельным блоком над
+   рамкой .split (align-self/margin-bottom из .screen-back тут не нужны —
+   вертикальное центрирование уже даёт align-items:center самого .panel-header). */
+.panel-header-left {
+  display: flex;
+  align-items: center;
+  gap: calc(12px * var(--k));
+  min-width: 0;
+}
+.panel-header-left .screen-back {
+  align-self: unset;
+  margin-bottom: 0;
+}
 
 /* ---------- настройки (вынесено из профиля) ---------- */
 .settings-title {
@@ -1369,7 +1412,6 @@ button.ghost.danger:hover {
 .settings-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: calc(12px * var(--k));
 }
 .settings-row .panel-label {
@@ -1405,6 +1447,12 @@ button.ghost.danger:hover {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   padding: calc(24px * var(--k));
+}
+/* Тренировка по случайному билету (RandomCountScreen) — та же карточка,
+   что у профиля/настроек/о программе, шириной во весь #screen-random-count
+   (см. layout.css), которое уже ограничено так же, как #screen-menu. */
+.random-count-card {
+  width: 100%;
 }
 .logout-btn {
   align-self: stretch;
@@ -1620,7 +1668,7 @@ button.ghost.danger:hover {
 }
 
 /* ---------- добавлено в client3: индикатор соединения, стопка тостов, настройки профиля, светлая тема ---------- */
-.belarus-mark{display:flex;align-items:center;gap:10px;margin:0 0 10px;color:var(--muted);font-family:var(--font-mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase}.belarus-mark span:first-child{font-size:26px}.connection-status{font-family:var(--font-mono);font-size:11px;color:var(--muted)}.connection-status[data-status="ok"]{color:var(--green)}.connection-status[data-status="degraded"]{color:var(--amber)}.connection-status[data-status="offline"]{color:var(--red)}.app-version{font-family:var(--font-mono);font-size:11px;color:var(--faint);margin-left:10px;padding-left:10px;border-left:1px solid var(--line)}.toast-stack{position:fixed;right:18px;bottom:18px;z-index:130;display:flex;flex-direction:column;gap:8px;align-items:flex-end}.profile-settings{margin-top:22px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:10px}.profile-settings label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}:root[data-theme="light"]{--bg:#f4f5f7;--panel:#fff;--panel-2:#e9edf2;--ink:#18202a;--muted:#5d6875;--faint:#87919e;--line:#d1d8e0;color-scheme:light}:root[data-theme="light"] .q-image-wrap{background:#fff}
+.belarus-mark{display:flex;align-items:center;gap:10px;margin:0 0 10px;color:var(--muted);font-family:var(--font-mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase}.belarus-mark .belarus-flag{font-size:26px}.connection-status{font-family:var(--font-mono);font-size:11px;color:var(--muted)}.connection-status[data-status="ok"]{color:var(--green)}.connection-status[data-status="degraded"]{color:var(--amber)}.connection-status[data-status="offline"]{color:var(--red)}.app-version{font-family:var(--font-mono);font-size:11px;color:var(--faint);margin-left:10px;padding-left:10px;border-left:1px solid var(--line)}.toast-stack{position:fixed;right:18px;bottom:18px;z-index:130;display:flex;flex-direction:column;gap:8px;align-items:flex-end}.profile-settings{margin-top:22px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:10px}.profile-settings label:not(.theme-switch){display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}:root[data-theme="light"]{--bg:#f4f5f7;--panel:#fff;--panel-2:#e9edf2;--ink:#18202a;--muted:#5d6875;--faint:#87919e;--line:#d1d8e0;color-scheme:light}:root[data-theme="light"] .q-image-wrap{background:#fff}
 /* ---------- добавлено в client4: индикатор фазы экзамена, счётчик ошибок ---------- */
 .q-phase { font-family: var(--font-mono); font-size: 12px; color: var(--amber); text-transform: uppercase; letter-spacing: .06em; }
 .result-errors { font-family: var(--font-mono); font-size: 12px; color: var(--red); margin: 0 0 12px; }
@@ -1671,7 +1719,8 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
    фото (клик по кружку с инициалами), кубок-лидерборд в титлбаре.
    ============================================================ */
 
-.trophy-btn {
+.trophy-btn,
+.settings-btn {
   display: flex;
   align-items: center;
   gap: calc(6px * var(--k));
@@ -1683,33 +1732,32 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
   font-size: calc(12px * var(--k));
   font-weight: 600;
 }
-.trophy-btn .trophy-icon {
+.trophy-btn .trophy-icon,
+.settings-btn .settings-icon {
   font-size: calc(15px * var(--k));
   line-height: 1;
 }
 /* На узких окнах/тач-экранах в портретной ориентации в титлбаре мало
    места (account-name/role уже могут быть длинными) — подпись прячется,
-   остаётся только кубок с тем же title-тултипом. */
+   остаётся только иконка с тем же title-тултипом. */
 @media (max-width: 700px) {
-  .trophy-label {
+  .trophy-label,
+  .settings-label {
     display: none;
   }
-  .trophy-btn {
+  .trophy-btn,
+  .settings-btn {
     width: calc(28px * var(--k));
     padding: 0;
     justify-content: center;
   }
 }
 
-.profile-menu-bar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: calc(4px * var(--k));
-}
-
 .theme-switch {
   position: relative; /* контекст позиционирования для скрытого input ниже */
   display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
   gap: calc(6px * var(--k));
   cursor: pointer;
@@ -1724,6 +1772,7 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
 .theme-switch-icon {
   font-size: calc(13px * var(--k));
   line-height: 1;
+  flex: 0 0 auto;
   /* Раньше обе иконки (🌙/☀️) всегда были одинаково приглушены (opacity:0.7)
      независимо от текущей темы — переключатель не показывал, какая тема
      сейчас активна, кроме как положением бегунка. Теперь неактивная иконка
@@ -1742,6 +1791,7 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
 }
 .theme-switch-track {
   position: relative;
+  flex: 0 0 auto;
   width: calc(38px * var(--k));
   height: calc(20px * var(--k));
   border-radius: 999px;
@@ -1825,6 +1875,13 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
   display: flex;
   flex-direction: column;
   gap: calc(6px * var(--k));
+  /* modal-body не даёт верхний паддинг (padding: 0 16px 16px в layout.css —
+     задумано так, чтобы форменные модалки не имели лишнего зазора перед
+     первым полем), из-за чего первая строка списка визуально прилипала
+     прямо к нижней границе шапки модалки. Отступ добавлен точечно тут,
+     а не в модалке целиком, чтобы не сдвинуть все остальные (формы,
+     подтверждения и т.д.), у которых так не было. */
+  margin-top: calc(12px * var(--k));
   /* Раньше список сам себе задавал max-height + overflow-y:auto ВНУТРИ
      .modal-body, у которого overflow-y:auto уже есть (layout.css) — два
      вложенных друг в друга auto-скролл контейнера с непредсказуемо

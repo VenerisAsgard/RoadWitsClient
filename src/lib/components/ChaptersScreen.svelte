@@ -93,12 +93,17 @@
 </script>
 
 <section class="screen" id="screen-chapters" data-screen="chapters">
-  <button class="ghost small screen-back" type="button" onclick={returnToMenu}>← Меню</button>
-
   <div class="split">
     <div class="split-list">
       <div class="panel-header">
-        <p class="panel-label">Выберите главу</p>
+        <div class="panel-header-left">
+          <!-- Раньше кнопка "← Меню" была отдельным элементом НАД .split
+               (см. Profile/Settings/Credits/RandomCount — там тоже перенесли
+               кнопку выхода внутрь рамки-карточки) — теперь внутри рамки
+               .split, первым элементом в шапке левой колонки. -->
+          <button class="ghost small screen-back" type="button" onclick={returnToMenu}>← Меню</button>
+          <p class="panel-label">Выберите главу</p>
+        </div>
         {#if canEditContent()}
           <div class="panel-actions">
             <button class="icon-btn" type="button" title="Поиск вопроса по всем главам" onclick={() => (showSearch = true)}>🔍</button>

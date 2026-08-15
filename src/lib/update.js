@@ -8,10 +8,12 @@
  *      ОС (.exe для Windows, .dmg для macOS) и через Rust-команду
  *      download_and_run_installer скачиваем его во временную папку и
  *      запускаем — дальше пользователь проходит обычный OS-инсталлятор.
- *   3. Под Flatpak ничего не скачиваем: /app там доступен только на
- *      чтение, приложение физически не может себя заменить изнутри
- *      песочницы. Обновление Flatpak-версии — это `flatpak update`,
- *      отдельный процесс вне приложения (см. is_flatpak в lib.rs).
+ *   3. Под Flatpak бинарник скачать и запустить нельзя (/app доступен только
+ *      на чтение, песочница не даёт себя заменить изнутри) — вместо этого
+ *      просим хост выполнить "flatpak update" через flatpak-spawn (портал
+ *      org.freedesktop.Flatpak) и перезапускаем уже обновлённое приложение;
+ *      если portal недоступен — подсказываем сделать это вручную (см.
+ *      flatpak_update_and_restart в lib.rs).
  *
  * Только вручную, кнопкой "Проверить обновления" в профиле — без
  * автопроверки при старте (см. комментарий в src-legacy/js/main.js: тихое
@@ -79,7 +81,14 @@ export async function checkForUpdates(silent = true) {
       return;
     }
 
-    // Под Flatpak приложение не может само себя обновить — не пытаемся.
+    // Flatpak: приложение внутри песочницы не может само себя перезаписать
+    // (см. is_flatpak в lib.rs), но МОЖЕТ попросить хост выполнить
+    // `flatpak update` через flatpak-spawn (портал org.freedesktop.Flatpak,
+    // см. --talk-name в flatpak_data/roadwits-client.flatpak.yaml) — и затем
+    // перезапустить уже обновлённую версию. Если flatpak-spawn недоступен
+    // (например, приложение всё же не в песочнице, старая сборка без нужного
+    // finish-arg, или установка требует авторизации, которую пользователь
+    // отклонил) — откатываемся на прежнюю подсказку сделать это вручную.
     let flatpak = false;
     try {
       flatpak = await invoke("is_flatpak");
@@ -87,10 +96,26 @@ export async function checkForUpdates(silent = true) {
       // если команда недоступна (старая сборка) — считаем, что не Flatpak
     }
     if (flatpak) {
-      if (!silent) {
+      if (silent) return; // автопроверки под Flatpak не запускают апдейт сами — только по кнопке
+      const proceed = await confirmDialog({
+        title: "Flatpak-версия",
+        text: 'Обновления Flatpak-версии ставятся системной командой "flatpak update", не самим приложением. Запустить её сейчас (может потребоваться подтверждение системы) и перезапустить Roadwits?',
+        confirmLabel: "Обновить и перезапустить",
+        cancelLabel: "Отмена",
+      });
+      if (!proceed) return;
+
+      toast("Выполняю flatpak update…", "info", 8000);
+      try {
+        await invoke("flatpak_update_and_restart");
+        // Команда сама перезапускает приложение новым процессом на хосте —
+        // текущему остаётся просто закрыться.
+        const { exit } = await import("@tauri-apps/plugin-process");
+        await exit(0);
+      } catch (e) {
         toast(
-          'Это Flatpak-версия — обновляйте её командой "flatpak update" (или через GNOME Software / KDE Discover), в самом приложении это не делается',
-          "info",
+          `Не удалось обновить автоматически (${e}) — выполните "flatpak update" вручную (или через GNOME Software / KDE Discover)`,
+          "error",
           9000,
         );
       }

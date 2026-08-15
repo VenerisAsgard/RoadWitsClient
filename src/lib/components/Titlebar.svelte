@@ -42,6 +42,19 @@
     openContentModal("🏆 Лидерборд друзей");
     loadLeaderboard();
   }
+
+  function openSettings() {
+    // Та же логика группы экранов, что и в openProfile() выше — настройки
+    // раньше открывались только изнутри профиля (единственная кнопка входа
+    // была там), теперь есть прямой вход из титлбара рядом с лидербордом,
+    // поэтому запоминаем экран-источник по тем же правилам, иначе "← Назад"
+    // в профиле/настройках/админке/кредитах может увести не туда.
+    if (!["profile", "settings", "admin", "credits"].includes(state.screen)) {
+      state.profileReturnScreen = state.screen;
+    }
+    state.screen = "settings";
+    setHint([]);
+  }
 </script>
 
 <!-- Кастомный титлбар (decorations:false в tauri.conf.json). -->
@@ -59,6 +72,10 @@
     <button class="icon-btn trophy-btn" id="leaderboard-btn" type="button" title="Лидерборд друзей" onclick={openLeaderboard}>
       <span class="trophy-icon">🏆</span>
       <span class="trophy-label">Лидерборд</span>
+    </button>
+    <button class="icon-btn settings-btn" id="settings-btn" type="button" title="Настройки" onclick={openSettings}>
+      <span class="settings-icon">⚙️</span>
+      <span class="settings-label">Настройки</span>
     </button>
   {/if}
 

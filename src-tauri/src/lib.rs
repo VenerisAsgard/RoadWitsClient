@@ -178,6 +178,58 @@ fn is_flatpak() -> bool {
     std::path::Path::new("/.flatpak-info").exists()
 }
 
+/// Вызывает `flatpak update` на ХОСТЕ (через flatpak-spawn — служебный
+/// бинарник, который есть в любой Flatpak-песочнице по умолчанию и
+/// обращается к порталу org.freedesktop.Flatpak) и перезапускает уже
+/// обновлённое приложение тоже через хост. Нужен `--talk-name=
+/// org.freedesktop.Flatpak` в finish-args манифеста (см.
+/// flatpak_data/roadwits-client.flatpak.yaml) — без него portal откажет.
+///
+/// Вызывается только когда is_flatpak() уже вернул true (см. update.js) —
+/// на не-Flatpak сборках flatpak-spawn просто не найдётся, и команда
+/// вернёт понятную ошибку, ничего не сломав.
+///
+/// `flatpak update -y` может потребовать подтверждения через polkit
+/// (системная установка) — это стандартный системный диалог, приложение
+/// на него не влияет и просто ждёт результата.
+#[tauri::command]
+async fn flatpak_update_and_restart() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(|| -> Result<(), String> {
+        let status = std::process::Command::new("flatpak-spawn")
+            .args([
+                "--host",
+                "flatpak",
+                "update",
+                "-y",
+                "--noninteractive",
+                "com.roadwits.client",
+            ])
+            .status()
+            .map_err(|e| format!("Не удалось вызвать flatpak update (flatpak-spawn): {e}"))?;
+
+        if !status.success() {
+            return Err(format!(
+                "flatpak update завершился с ошибкой (код {:?})",
+                status.code()
+            ));
+        }
+
+        // Перезапуск — новым процессом на хосте, а не изнутри текущей
+        // песочницы: та уже смонтирована на старую версию рантайма/бинарника
+        // и не увидит обновление, пока сама не будет пересоздана. Текущий
+        // процесс закрывает фронтенд сразу вслед за успешным invoke (см.
+        // update.js) — здесь process::exit не вызываем, чтобы дать фронтенду
+        // самому решить, когда закрыться (он это уже делает).
+        let _ = std::process::Command::new("flatpak-spawn")
+            .args(["--host", "flatpak", "run", "com.roadwits.client"])
+            .spawn();
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Внутренняя ошибка обновления: {e}"))?
+}
+
 /// Скачивает установщик по прямой ссылке (ассет GitHub Release) и
 /// запускает его — «стандартный» способ обновления вместо тихой
 /// самозамены бинарника. После запуска установщика фронтенд сам
@@ -209,7 +261,25 @@ async fn download_and_run_installer(url: String, filename: String) -> Result<(),
 
     #[cfg(target_os = "windows")]
     {
+        // На Windows spawn() без доп. флагов создаёт дочерний процесс в том же
+        // Job Object, что и текущий (WebView2/Tauri сам оборачивает себя в Job
+        // с KILL_ON_JOB_CLOSE — это штатное поведение WebView2, не наша
+        // настройка). Раньше сразу после этого фронтенд закрывал приложение
+        // (exit(0), см. src/lib/update.js) — и в большинстве случаев Windows
+        // убивал вместе с родителем и только что запущенный NSIS-инсталлятор,
+        // не успевший инициализироваться: пользователь видел, что "обновление
+        // скачалось", но окно инсталлятора либо не появлялось, либо мгновенно
+        // исчезало, а само приложение просто закрывалось без установки —
+        // это и есть баг "не скачивается и не устанавливается" на Windows.
+        // CREATE_NEW_PROCESS_GROUP + DETACHED_PROCESS отвязывают инсталлятор
+        // от процесса/Job-объекта и консоли родителя, чтобы он пережил выход
+        // из приложения и мог спокойно доработать (в т.ч. переписать файлы
+        // самого Roadwits, для чего процесс и должен был закрыться).
+        use std::os::windows::process::CommandExt;
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
+        const DETACHED_PROCESS: u32 = 0x00000008;
         std::process::Command::new(&path)
+            .creation_flags(CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS)
             .spawn()
             .map_err(|e| format!("Не удалось запустить установщик: {e}"))?;
     }
@@ -240,6 +310,7 @@ pub fn run() {
             load_token,
             clear_token,
             is_flatpak,
+            flatpak_update_and_restart,
             download_and_run_installer
         ])
         .setup(|app| {

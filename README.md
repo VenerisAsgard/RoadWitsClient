@@ -26,21 +26,24 @@
 
 ## 🧭 О проекте
 
-**Roadwits** — тренажёр для подготовки к экзамену по ПДД. Этот репозиторий — клиент: тонкое приложение на чистом JS без фреймворков и бандлера, обёрнутое в [Tauri 2](https://tauri.app/), которое общается с отдельным бэкендом (`roadwits-server`) по REST API. Вся бизнес-логика экзамена, лицензий и пользователей живёт на сервере — клиент лишь показывает интерфейс и делает запросы.
+**Roadwits** — тренажёр для подготовки к экзамену по ПДД. Этот репозиторий — клиент: фронтенд на [SvelteKit](https://kit.svelte.dev/)/[Svelte 5](https://svelte.dev/) (статический адаптер, собирается [Vite](https://vitejs.dev/)) поверх [Tauri 2](https://tauri.app/), которое общается с отдельным бэкендом (`roadwits-server`) по REST API. Вся бизнес-логика экзамена, лицензий и пользователей живёт на сервере — клиент лишь показывает интерфейс и делает запросы.
 
 Дизайн клиента подчинён одному принципу — **каждый модуль отвечает ровно за одну вещь**:
 
 | Модуль | Зона ответственности |
 |---|---|
-| `api.js` | Всё общение с backend'ом — единственная точка fetch |
+| `api/api.js` | Всё общение с backend'ом — единственная точка fetch |
+| `api/cache.js` | Офлайн-кэш вопросов и глав |
+| `api/questions.js` | Загрузка/обновление вопросов и глав |
 | `auth.js` | Логин / автологин / логаут |
-| `quiz.js` | Логика прохождения теста |
-| `render.js` | Единственное место, которое пишет в DOM |
+| `quiz.js` | Логика прохождения теста, подсказки клавиш (`HINT_*`) |
 | `admin.js` | Редактирование контента и лицензий (editor/admin) |
-| `friends.js` | Друзья в профиле |
-| `device.js` | Слой поверх Tauri: `invoke()`, управление окном |
+| `friends.svelte.js` | Друзья в профиле и лидерборд |
+| `device.js` | Слой поверх Tauri: `invoke()`, управление окном, тач-детект |
 | `update.js` | Проверка обновлений по GitHub Releases |
-| `state.js` | Единое состояние приложения |
+| `state.svelte.js` | Единое состояние приложения (реактивные `$state`-руны) |
+| `stores/ui.svelte.js` | Тосты, модалки, hint-bar, подтверждения |
+| `components/*.svelte` | Все экраны и модалки — единственное место, которое рисует DOM |
 
 ## 📦 Платформы
 
@@ -55,7 +58,7 @@
 ## 🧰 Технологии
 
 - **[Tauri 2](https://tauri.app/)** — Rust-ядро + системный WebView вместо Electron
-- **Vanilla JS** — фронтенд без фреймворка и без сборщика (`src/` отдаётся as-is)
+- **[SvelteKit 2](https://kit.svelte.dev/) / [Svelte 5](https://svelte.dev/)** — фронтенд (адаптер `adapter-static` — приложение собирается в статику и отдаётся Tauri as-is), сборка через **[Vite](https://vitejs.dev/)**
 - **Rust** (`src-tauri/`) — нативный слой: команды, окно, `reqwest` (rustls, без OpenSSL)
 - **Flatpak** — дистрибуция под Linux, appstream-метаданные компонуются автоматически
 - **GitHub Actions** — сборка под все десктоп-платформы и публикация релиза по тегу `vX.Y.Z`
@@ -153,13 +156,13 @@ cd RoadWitsClient
 npm install
 ```
 
-Запуск в режиме разработки (hot-reload окна Tauri):
+Запуск в режиме разработки (hot-reload окна Tauri поверх `vite dev`):
 
 ```bash
 npm run tauri dev
 ```
 
-> В репозитории есть шорткат — исполняемый файл `./start`, который делает то же самое (`npm run tauri dev`).
+> В репозитории есть шорткат — исполняемый файл `./start`: без аргументов делает то же самое (`npm run tauri dev`), а `./start build` — production-сборку (`npm run tauri build`, см. раздел ниже).
 
 ## 🏗️ Сборка
 
@@ -169,9 +172,11 @@ npm run tauri dev
 npm run tauri build
 ```
 
+`tauri-cli` сам собирает фронтенд (`npm run build`, т.е. `vite build` → каталог `build/`, не трекается в git) перед сборкой Rust-ядра — отдельно запускать его не нужно, если только вы не собираете Flatpak вручную (см. ниже).
+
 Артефакты появятся в `src-tauri/target/release/bundle/` — `.exe`/NSIS-инсталлятор на Windows, `.app`/`.dmg` на macOS. Список форматов задаётся в [`src-tauri/tauri.conf.json`](src-tauri/tauri.conf.json) → `bundle.targets`.
 
-Linux-сборка (Flatpak) выполняется отдельно, через `flatpak-builder` с манифестом [`flatpak_data/roadwits-client.flatpak.yaml`](flatpak_data/roadwits-client.flatpak.yaml) — см. соответствующий job в [`release.yml`](.github/workflows/release.yml).
+Linux-сборка (Flatpak) выполняется отдельно, через `flatpak-builder` с манифестом [`flatpak_data/roadwits-client.flatpak.yaml`](flatpak_data/roadwits-client.flatpak.yaml) — манифест сам вызывает `npm run build` перед `cargo build`, см. соответствующий job в [`release.yml`](.github/workflows/release.yml).
 
 ### 🤖 Android
 
@@ -252,7 +257,7 @@ flatpak install --user ./com.roadwits.client.flatpak
 
 ## 🔖 Релизы
 
-Версия синхронно живёт в `src-tauri/tauri.conf.json` и `src-tauri/Cargo.toml`. Для выпуска новой версии используется скрипт `./release`: он поднимает версию в обоих файлах, коммитит, ставит тег `vX.Y.Z` и пушит — тег автоматически запускает [`release.yml`](.github/workflows/release.yml), который собирает Windows/macOS/Linux-артефакты и публикует черновик релиза на GitHub.
+Версия синхронно живёт в `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` и `package.json`. Для выпуска новой версии используется скрипт `./release`: он поднимает версию во всех трёх файлах, коммитит, ставит тег `vX.Y.Z` и пушит — тег автоматически запускает [`release.yml`](.github/workflows/release.yml), который собирает Windows/macOS/Linux-артефакты и публикует черновик релиза на GitHub.
 
 ```bash
 ./release

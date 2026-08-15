@@ -52,7 +52,8 @@ const HINT_RESULT = [
   { keys: ["Enter"], label: "пройти ещё раз" },
 ];
 
-/** Пул вопросов по всем главам сразу — для режимов "random"/"exam". */
+/** Пул вопросов по всем главам сразу — для режима "random" (там нужно
+ *  реально любое количество вплоть до всего пула, см. RANDOM_COUNT_OPTIONS). */
 async function getQuestionPool() {
   if (state.questionPoolCache) return state.questionPoolCache;
   const chapters = state.chapters.length ? state.chapters : await api.listChapters(state.token);
@@ -60,6 +61,49 @@ async function getQuestionPool() {
   const pool = perChapter.flat();
   state.questionPoolCache = pool;
   return pool;
+}
+
+const EXAM_QUESTION_COUNT = 10;
+
+/**
+ * Билет контрольного экзамена — всегда EXAM_QUESTION_COUNT вопросов.
+ * Раньше для этого тоже звался getQuestionPool() — тот же полный пул по
+ * ВСЕМ главам, что и для "тренировки по случайному билету" (где нужно
+ * действительно любое количество, вплоть до всей базы). Без дискового
+ * кэша это значило скачать ВСЮ базу вопросов ради всего десяти случайных —
+ * отсюда и жалоба на медленную загрузку экзамена без кэша.
+ *
+ * Первая версия этой функции брала min(EXAM_QUESTION_COUNT, chapters.length)
+ * случайных ГЛАВ по одному вопросу из каждой — баг: если глав меньше, чем
+ * EXAM_QUESTION_COUNT (например, всего 4 главы), билет обрывался на 4
+ * вопросах вместо 10, хотя суммарно вопросов в базе могло быть в разы
+ * больше. Дело не в количестве ГЛАВ, а в количестве ВОПРОСОВ в них — а это
+ * уже есть бесплатно в метаданных (`c.count` = question_count с бэкенда,
+ * см. normalizeChapter в api.js), без похода в сеть за самими вопросами.
+ * Поэтому теперь набираем случайные главы по очереди, суммируя их count,
+ * пока "на бумаге" не наберётся нужное число вопросов — и только эти главы
+ * реально запрашиваем (Promise.all, как и раньше). Если count у каких-то
+ * глав не задан/устарел (старый кэш) — сумма просто не дотянет до need, и
+ * в выборку уйдут вообще все главы (тот же результат, что раньше, просто
+ * не по умолчанию, а как честный запасной вариант).
+ */
+async function getExamQuestions() {
+  const chapters = state.chapters.length ? state.chapters : await api.listChapters(state.token);
+  const totalKnown = chapters.reduce((sum, c) => sum + (c.count || 0), 0);
+  const need = Math.min(EXAM_QUESTION_COUNT, totalKnown || EXAM_QUESTION_COUNT);
+
+  const shuffledChapters = shuffle(chapters);
+  const pickedChapters = [];
+  let running = 0;
+  for (const c of shuffledChapters) {
+    if (running >= need) break;
+    pickedChapters.push(c);
+    running += c.count || 0;
+  }
+
+  const perChapter = await Promise.all(pickedChapters.map((c) => loadChapterQuestions(c.id).catch(() => [])));
+  const pool = perChapter.flat();
+  return shuffle(pool).slice(0, Math.min(need, pool.length));
 }
 
 export async function loadChapters() {
@@ -114,8 +158,7 @@ async function runQuiz(mode, chapterOrChapters) {
     const pool = await getQuestionPool();
     questions = shuffle(pool).slice(0, Math.min(state.randomCount, pool.length));
   } else if (mode === "exam") {
-    const pool = await getQuestionPool();
-    questions = shuffle(pool).slice(0, Math.min(10, pool.length));
+    questions = await getExamQuestions();
   }
 
   state.questionsLoading = false;
