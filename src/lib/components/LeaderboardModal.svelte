@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { contentModal, closeContentModal } from "$lib/stores/ui.svelte.js";
   import { leaderboard } from "$lib/friends.svelte.js";
+  import { lockBackgroundScroll } from "$lib/actions/lockBackgroundScroll.js";
 
   const MEDALS = ["🥇", "🥈", "🥉"];
 
@@ -46,7 +47,7 @@
 </script>
 
 {#if contentModal.open}
-  <div class="modal-overlay" id="modal-overlay">
+  <div class="modal-overlay" id="modal-overlay" use:lockBackgroundScroll>
     <div class="modal-box" role="dialog" aria-modal="true">
       <div class="modal-header">
         <h2>{contentModal.title}</h2>

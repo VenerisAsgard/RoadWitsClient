@@ -3,6 +3,7 @@
   import Modal from "./Modal.svelte";
   import { createQuestion, updateQuestionById, buildQuestionIndex, findSimilarQuestions, fileToBase64 } from "$lib/admin.js";
   import { toast } from "$lib/stores/ui.svelte.js";
+  import { state as appState } from "$lib/state.svelte.js";
 
   let { question = null, onclose } = $props();
 
@@ -29,8 +30,9 @@
   let imageRemoved = $state(false);
   let previewOn = $state(false);
   let saving = $state(false);
-  let dupWarning = $state(null); // { exact, chapterTitle, text, moreCount } | null
+  let dupWarning = $state(null); // { exact, chapterTitle, text, id, question, moreCount } | null
   let dupTimer = null;
+  let dupPreview = $state(false);
 
   const showCurrentImage = $derived(!!question?.image && !imageRemoved && !filePreviewUrl);
 
@@ -76,6 +78,8 @@
       exact: top.exact,
       chapterTitle: top.chapter.title,
       text: top.question.text,
+      id: top.question.id,
+      question: top.question,
       moreCount: found.length - 1,
     };
   }
@@ -111,7 +115,11 @@
     };
 
     saving = true;
-    const ok = question ? await updateQuestionById(question.id, payload) : await createQuestion(payload);
+    // question.chapterId — проставляется в questions.js (withChapterId) при
+    // загрузке вопросов; запасной вариант — глава, выбранная в редакторе
+    // (на случай очень старого закэшированного вопроса без этого поля).
+    const chapterId = question?.chapterId ?? appState.chapters[appState.chapterIndex]?.id;
+    const ok = question ? await updateQuestionById(chapterId, question.id, payload) : await createQuestion(payload);
     saving = false;
     if (ok) onclose?.();
   }
@@ -127,7 +135,30 @@
     {#if dupWarning}
       <div class="question-dup-warning">
         ⚠️ {dupWarning.exact ? "Точно такой же вопрос уже есть" : "Похожий вопрос уже есть"} в главе «{dupWarning.chapterTitle}»{dupWarning.moreCount > 0 ? ` (и ещё ${dupWarning.moreCount})` : ""}:<br />
-        «{dupWarning.text}»
+        {#if dupWarning.exact}
+          <span role="button" tabindex="0" class="dup-link" onclick={() => (dupPreview = !dupPreview)} onkeydown={(e) => (e.key === "Enter" || e.key === " ") && (dupPreview = !dupPreview)}>«{dupWarning.text}»</span>
+        {:else}
+          «{dupWarning.text}»
+        {/if}
+      </div>
+    {/if}
+
+    {#if dupWarning?.exact && dupPreview}
+      <div class="question-preview duplicate-preview">
+        <p class="modal-hint">Найденный вопрос:</p>
+        <p class="q-text">{dupWarning.text}</p>
+        {#if dupWarning.question?.options}
+          <ul class="q-options">
+            {#each dupWarning.question.options as option, i}
+              <li class="q-option">
+                <span class="o-key">{i + 1}</span><span>{option}</span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+        {#if dupWarning.question?.image}
+          <img class="qp-image" alt="Изображение найденного вопроса" src={dupWarning.question.image} />
+        {/if}
       </div>
     {/if}
 

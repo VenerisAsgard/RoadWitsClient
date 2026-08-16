@@ -107,7 +107,7 @@
         {#if canEditContent()}
           <div class="panel-actions">
             <button class="icon-btn" type="button" title="Поиск вопроса по всем главам" onclick={() => (showSearch = true)}>🔍</button>
-            <button class="icon-btn" type="button" title="Добавить главу" onclick={() => (editingChapter = false)}>+</button>
+            <button class="icon-btn" type="button" title="Добавить главу" onclick={() => (editingChapter = false)}>➕</button>
             <button class="icon-btn" class:active={appState.editMode} type="button" title="Режим редактирования" onclick={toggleEditMode}>✏️</button>
           </div>
         {/if}

@@ -214,6 +214,7 @@ export function goToNextUnanswered() {
     const idx = (state.currentQ + step) % n;
     if (state.answers[state.questions[idx].id] === undefined) {
       state.currentQ = idx;
+      delete state.selected[state.questions[idx].id];
       return;
     }
   }
@@ -236,6 +237,7 @@ function firstUnanswered() {
 export function questionNext() {
   if (state.currentQ < state.questions.length - 1) {
     state.currentQ++;
+    delete state.selected[state.questions[state.currentQ].id];
     return;
   }
   const unanswered = firstUnanswered();
@@ -262,20 +264,34 @@ export function selectOptionByClick(index) {
   const q = state.questions[state.currentQ];
   if (!q || index < 0 || index >= q.options.length) return;
   if (state.answers[q.id] !== undefined) return;
-  state.answers[q.id] = index;
-  delete state.selected[q.id];
-  if (state.mode === "exam") handleExamAnswer(q, index);
+  const pending = state.selected[q.id];
+  if (pending === index) {
+    state.answers[q.id] = index;
+    delete state.selected[q.id];
+    if (state.mode === "exam") {
+      handleExamAnswer(q, index);
+      if (state.examFailed) return;
+    }
+    goToNextUnanswered();
+    return;
+  }
+  state.selected[q.id] = index;
 }
 
 export function pressDigit(digit) {
   const q = state.questions[state.currentQ];
-  if (!q) return;
+  if (!q || state.answers[q.id] !== undefined) return;
   const idx = digit - 1;
   if (idx < 0 || idx >= q.options.length) return;
 
-  if (state.mode === "exam") {
+  if (state.selected[q.id] === idx) {
     state.answers[q.id] = idx;
-    handleExamAnswer(q, idx);
+    delete state.selected[q.id];
+    if (state.mode === "exam") {
+      handleExamAnswer(q, idx);
+      if (state.examFailed) return;
+    }
+    goToNextUnanswered();
   } else {
     state.selected[q.id] = idx;
   }
@@ -299,7 +315,10 @@ export function confirmPendingOrAdvance() {
 }
 
 export function questionPrev() {
-  if (state.currentQ > 0) state.currentQ--;
+  if (state.currentQ > 0) {
+    state.currentQ--;
+    delete state.selected[state.questions[state.currentQ]?.id];
+  }
 }
 
 export function jumpToQuestion(index) {

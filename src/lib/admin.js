@@ -116,10 +116,26 @@ export async function createQuestion(payload) {
   }
 }
 
-export async function updateQuestionById(questionId, payload) {
+/**
+ * chapterId передаётся явно (а не берётся из state.chapterIndex, как
+ * раньше) — это позволяет сохранить правку, даже когда вопрос открыт не из
+ * списка вопросов главы (ChaptersScreen), а прямо посреди билета
+ * (QuestionScreen — см. пункт "редактирование билета на лету"), где текущий
+ * вопрос почти всегда из другой главы, чем та, что выбрана в редакторе
+ * (random/exam-билет вообще мешает вопросы из разных глав).
+ * @param {number} chapterId
+ * @param {number} questionId
+ * @param {any} payload
+ */
+export async function updateQuestionById(chapterId, questionId, payload) {
   try {
-    const chapter = state.chapters[state.chapterIndex];
-    await api.updateQuestion(state.token, chapter.id, questionId, payload);
+    const updated = await api.updateQuestion(state.token, chapterId, questionId, payload);
+    const withChapter = { ...updated, chapterId };
+    // Если этот вопрос сейчас в билете (тренировка/экзамен) — обновляем его
+    // прямо в state.questions, чтобы правка была видна сразу на экране
+    // вопроса, без выхода из теста и повторной загрузки билета.
+    const qIdx = state.questions.findIndex((q) => q.id === questionId);
+    if (qIdx !== -1) state.questions[qIdx] = { ...state.questions[qIdx], ...withChapter };
     await reloadChapters();
     return true;
   } catch (err) {

@@ -2,8 +2,8 @@
   import { onMount } from "svelte";
   import { state } from "$lib/state.svelte.js";
   import * as device from "$lib/device.js";
-  import * as api from "$lib/api/api.js";
   import { tryAutoLogin } from "$lib/auth.js";
+  import { checkConnection } from "$lib/connection.js";
   import { HEALTHCHECK_POLL_MS } from "$lib/config.js";
 
   import Splash from "$lib/components/Splash.svelte";
@@ -70,16 +70,6 @@
         state.booting = false;
       }
 
-      const checkConnection = async () => {
-        try {
-          const data = await api.health();
-          state.connectionStatus = data?.status === "ok" ? "ok" : "degraded";
-          state.connectionDetail = data?.status || "статус сервера не ok";
-        } catch {
-          state.connectionStatus = "offline";
-          state.connectionDetail = "Проблемы с подключением или сервером";
-        }
-      };
       checkConnection();
       const intervalId = window.setInterval(checkConnection, HEALTHCHECK_POLL_MS);
       return () => window.clearInterval(intervalId);

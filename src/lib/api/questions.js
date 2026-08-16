@@ -10,17 +10,31 @@ import { state } from "../state.svelte.js";
 import * as api from "./api.js";
 import * as cache from "./cache.js";
 
+/** Проставляет chapterId на каждый вопрос главы — бэкенд его не отдаёт
+ * (вопрос и так лежит внутри /chapters/{id}/questions), а он нужен клиенту:
+ * и разбору ответов (см. ResultScreen.svelte — "к какой главе принадлежит
+ * вопрос"), и редактированию вопроса из середины теста (см. QuestionScreen/
+ * QuestionFormModal — билет random/exam мешает вопросы из разных глав,
+ * без chapterId было бы не с каким chapterId слать PATCH на сохранение).
+ * @param {any[]} questions
+ * @param {number} chapterId
+ */
+function withChapterId(questions, chapterId) {
+  return questions.map((q) => (q.chapterId === chapterId ? q : { ...q, chapterId }));
+}
+
+/** @param {number} chapterId */
 export async function loadChapterQuestions(chapterId) {
   const cached = await cache.getChapterQuestions(chapterId);
-  if (cached) return cached;
+  if (cached) return withChapterId(cached, chapterId);
 
   try {
     const questions = await api.listQuestions(state.token, chapterId);
     await cache.setChapterQuestions(chapterId, questions);
-    return questions;
+    return withChapterId(questions, chapterId);
   } catch (err) {
     const stale = await cache.getChapterQuestionsStale(chapterId);
-    if (stale) return stale;
+    if (stale) return withChapterId(stale, chapterId);
     throw err;
   }
 }

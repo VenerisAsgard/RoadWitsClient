@@ -26,6 +26,10 @@
 
   const reviewQ = $derived(appState.questions[appState.reviewIndex]);
   const reviewUserIdx = $derived(reviewQ ? appState.answers[reviewQ.id] : undefined);
+  // К какой главе принадлежит вопрос в разборе — билет (random/exam) мешает
+  // вопросы из разных глав, а в тренировке по нескольким главам сразу тоже
+  // не всегда очевидно, откуда конкретный вопрос (см. questions.js withChapterId).
+  const reviewChapterTitle = $derived(appState.chapters.find((c) => c.id === reviewQ?.chapterId)?.title ?? "");
 
   // Легаси: scrollActiveReviewIntoView() — при навигации (стрелки/клик)
   // активная точка не всегда видна в узкой прокручиваемой сетке.
@@ -121,6 +125,9 @@
         </div>
       {/if}
       <div class="q-content">
+        {#if reviewChapterTitle}
+          <p class="d-eyebrow" id="review-chapter">{reviewChapterTitle}</p>
+        {/if}
         <p class="q-text" id="review-text">{appState.reviewIndex + 1}. {reviewQ.text}</p>
         <ul class="q-options" id="review-options">
           {#each reviewQ.options as opt, i}

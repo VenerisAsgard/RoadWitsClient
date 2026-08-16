@@ -331,6 +331,7 @@ button.ghost.danger:hover {
   padding: calc(16px * var(--k)) calc(18px * var(--k));
   border: 1px solid transparent;
   border-left: 3px solid transparent;
+  border-radius: var(--radius-lg);
   cursor: pointer;
   background: transparent;
   transition:
@@ -1406,17 +1407,6 @@ button.ghost.danger:hover {
   border-top: none;
   padding-top: 0;
 }
-/* Тема оформления — строка в один ряд (подпись слева, переключатель
-   справа), а не подпись над переключателем, как остальные блоки
-   настроек (они про списки/действия, а не про одиночный контрол). */
-.settings-row {
-  display: flex;
-  align-items: center;
-  gap: calc(12px * var(--k));
-}
-.settings-row .panel-label {
-  margin: 0;
-}
 .accent-picker {
   display: flex;
   gap: calc(10px * var(--k));
@@ -1668,7 +1658,7 @@ button.ghost.danger:hover {
 }
 
 /* ---------- добавлено в client3: индикатор соединения, стопка тостов, настройки профиля, светлая тема ---------- */
-.belarus-mark{display:flex;align-items:center;gap:10px;margin:0 0 10px;color:var(--muted);font-family:var(--font-mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase}.belarus-mark .belarus-flag{font-size:26px}.connection-status{font-family:var(--font-mono);font-size:11px;color:var(--muted)}.connection-status[data-status="ok"]{color:var(--green)}.connection-status[data-status="degraded"]{color:var(--amber)}.connection-status[data-status="offline"]{color:var(--red)}.app-version{font-family:var(--font-mono);font-size:11px;color:var(--faint);margin-left:10px;padding-left:10px;border-left:1px solid var(--line)}.toast-stack{position:fixed;right:18px;bottom:18px;z-index:130;display:flex;flex-direction:column;gap:8px;align-items:flex-end}.profile-settings{margin-top:22px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:10px}.profile-settings label:not(.theme-switch){display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}:root[data-theme="light"]{--bg:#f4f5f7;--panel:#fff;--panel-2:#e9edf2;--ink:#18202a;--muted:#5d6875;--faint:#87919e;--line:#d1d8e0;color-scheme:light}:root[data-theme="light"] .q-image-wrap{background:#fff}
+.belarus-mark{display:flex;align-items:center;gap:10px;margin:0 0 10px;color:var(--muted);font-family:var(--font-mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase}.belarus-mark .belarus-flag{font-size:26px}.connection-status{font-family:var(--font-mono);font-size:11px;color:var(--muted);background:none;border:none;padding:0;margin:0;cursor:pointer}.connection-status:hover{color:var(--ink)}.connection-status:disabled{cursor:default}.connection-status[data-status="ok"]{color:var(--green)}.connection-status[data-status="ok"]:hover{color:var(--green)}.connection-status[data-status="degraded"]{color:var(--amber)}.connection-status[data-status="degraded"]:hover{color:var(--amber)}.connection-status[data-status="offline"]{color:var(--red)}.connection-status[data-status="offline"]:hover{color:var(--red)}.app-version{font-family:var(--font-mono);font-size:11px;color:var(--faint);margin-left:10px;padding-left:10px;border-left:1px solid var(--line)}.toast-stack{position:fixed;right:18px;bottom:18px;z-index:130;display:flex;flex-direction:column;gap:8px;align-items:flex-end}.profile-settings{margin-top:22px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:10px}.profile-settings label:not(.theme-switch){display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}:root[data-theme="light"]{--bg:#f4f5f7;--panel:#fff;--panel-2:#e9edf2;--ink:#18202a;--muted:#5d6875;--faint:#87919e;--line:#d1d8e0;color-scheme:light}:root[data-theme="light"] .q-image-wrap{background:#fff}
 /* ---------- добавлено в client4: индикатор фазы экзамена, счётчик ошибок ---------- */
 .q-phase { font-family: var(--font-mono); font-size: 12px; color: var(--amber); text-transform: uppercase; letter-spacing: .06em; }
 .result-errors { font-family: var(--font-mono); font-size: 12px; color: var(--red); margin: 0 0 12px; }
@@ -2077,3 +2067,89 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
   color: var(--faint);
 }
 
+
+\n/* TODO polish: duplicate previews and consistent modal close hover */
+.dup-link { border:0; background:none; color:var(--accent); text-decoration:underline; cursor:pointer; padding:0; }
+.modal-header .ghost.small:hover { color:var(--accent); transform:translateY(-1px) scale(1.05); }
+.modal-header .ghost.small:active { transform:scale(.95); }
+
+/* visual step 2: question/result polish (UI only) */
+.q-option {
+  border-radius: calc(12px * var(--k));
+  transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.q-option:hover {
+  transform: translateY(calc(-1px * var(--k)));
+  box-shadow: 0 calc(6px * var(--k)) calc(16px * var(--k)) rgba(0,0,0,.08);
+}
+
+.q-option.selected {
+  box-shadow: none;
+  border-color: var(--accent);
+}
+
+.q-option .o-key {
+  border-radius: 50%;
+}
+
+.q-text {
+  letter-spacing: -0.01em;
+}
+
+.q-explain {
+  border-radius: calc(8px * var(--k));
+  padding-top: calc(10px * var(--k));
+  padding-bottom: calc(10px * var(--k));
+  background: color-mix(in srgb, var(--amber) 8%, transparent);
+}
+
+.result-info {
+  padding: calc(8px * var(--k));
+}
+
+.result-summary,
+.result-errors {
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q-option {
+    transition: none;
+  }
+}
+
+
+/* visual step4: safe hover breathing room */
+.q-options {
+  padding-block: calc(4px * var(--k));
+  padding-inline: calc(4px * var(--k));
+}
+
+.q-option:hover {
+  transform: translateY(calc(-2px * var(--k)));
+}
+
+/* visual step4: consistent menu cards */
+.menu-item {
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+
+.menu-item:hover {
+  transform: translateY(calc(-2px * var(--k)));
+}
+
+/* visual step4: result screen spacing safety */
+.result-summary,
+.result-errors,
+.result-actions {
+  margin-top: calc(10px * var(--k));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-item,
+  .q-option {
+    transition: none;
+    transform: none;
+  }
+}

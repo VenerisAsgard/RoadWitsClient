@@ -1,14 +1,24 @@
 <script>
   import { state } from "$lib/state.svelte.js";
+  import { checkConnection } from "$lib/connection.js";
+
+  // По клику на статус — принудительная проверка связи с сервером (по
+  // просьбе), не дожидаясь следующего тика фонового опроса (см. connection.js).
+  function onStatusClick() {
+    checkConnection({ manual: true });
+  }
 </script>
 
 <!-- Полоска статуса связи с сервером — закреплена внизу окна. -->
 <div class="status-bar" id="status-bar">
-  <span
+  <button
+    type="button"
     id="connection-status"
     class="connection-status"
     data-status={state.connectionStatus}
-    title={state.connectionStatus === "checking" ? "" : state.connectionDetail}
+    disabled={state.connectionStatus === "checking"}
+    title={state.connectionStatus === "checking" ? "Проверка…" : `${state.connectionDetail} · нажмите, чтобы проверить снова`}
+    onclick={onStatusClick}
   >
     {#if state.connectionStatus === "checking"}
       Сервер: проверка…
@@ -19,6 +29,6 @@
     {:else}
       Сервер: нет связи — попробуйте отключить VPN
     {/if}
-  </span>
+  </button>
   <span id="app-version" class="app-version">{state.appVersion}</span>
 </div>

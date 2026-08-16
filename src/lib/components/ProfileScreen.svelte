@@ -167,7 +167,7 @@
   async function handleLogout() {
     const ok = await confirmDialog({
       title: "Выйти из аккаунта?",
-      text: "Понадобится снова ввести Product Key, чтобы войти.",
+      text: `Понадобится снова ввести Product Key, чтобы войти.${appState.user?.product_key ? `\n\nВаш Product Key: ${appState.user.product_key}` : ""}`,
       confirmLabel: "Да, выйти",
       cancelLabel: "Остаться",
       danger: true,

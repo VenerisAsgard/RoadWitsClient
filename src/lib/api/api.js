@@ -157,7 +157,12 @@ function normalizeQuestion(raw) {
 
 export async function listChapters(token) {
   const raw = await request("/chapters", { token });
-  return raw.map(normalizeChapter);
+  // Порядок глав в интерфейсе — по названию, а не по порядку/id с бэкенда
+  // (по просьбе): раньше `num`-бейдж и порядок в списке были просто позицией
+  // в ответе сервера (тем самым — фактически по id/order). localeCompare с
+  // "ru" даёт корректную сортировку кириллицы (порядок алфавита, а не байтов).
+  const sorted = [...raw].sort((a, b) => String(a.title ?? "").localeCompare(String(b.title ?? ""), "ru"));
+  return sorted.map(normalizeChapter);
 }
 
 export async function listQuestions(token, chapterId) {

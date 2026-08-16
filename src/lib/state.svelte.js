@@ -47,6 +47,7 @@
  * @property {string|null} image
  * @property {string|null} [createdByEmail]
  * @property {string|null} [createdAt]
+ * @property {number} [chapterId]
  */
 
 /**

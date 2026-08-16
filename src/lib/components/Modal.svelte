@@ -8,6 +8,7 @@
 -->
 <script>
   import { onMount } from "svelte";
+  import { lockBackgroundScroll } from "$lib/actions/lockBackgroundScroll.js";
 
   let { title, wide = false, danger = false, onclose, children } = $props();
 
@@ -29,7 +30,7 @@
   });
 </script>
 
-<div class="modal-overlay" id="modal-overlay">
+<div class="modal-overlay" id="modal-overlay" use:lockBackgroundScroll>
   <div class="modal-box" class:wide class:danger role="dialog" aria-modal="true" bind:this={boxEl}>
     <div class="modal-header">
       <h2 id="modal-title">{title}</h2>

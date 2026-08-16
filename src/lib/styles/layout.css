@@ -371,6 +371,11 @@ body {
 .modal-body {
   padding: 0 16px 16px;
   overflow-y: auto;
+  /* Не даём скроллу списка внутри модалки "перетекать" на контейнеры
+     экрана под ней, когда список долистан до конца (scroll chaining) —
+     вместе с use:lockBackgroundScroll в Modal.svelte/LeaderboardModal.svelte
+     это то, что реально не даёт колесу мыши скроллить то, что под модалкой. */
+  overscroll-behavior: contain;
   /* flex-item по умолчанию не сжимается меньше высоты своего контента
      (min-height:auto) — из-за этого в некоторых вебвью (в т.ч. системный
      на Windows/Linux, на которые рассчитан Tauri) overflow-y:auto здесь

@@ -1,6 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import { confirmDialogState, resolveConfirm } from "$lib/stores/ui.svelte.js";
+  import { lockBackgroundScroll } from "$lib/actions/lockBackgroundScroll.js";
   const c = confirmDialogState();
 
   // Модалка перехватывает Esc/Enter раньше экрана под ней — тот же порядок
@@ -26,7 +27,7 @@
 </script>
 
 {#if c.open}
-  <div class="modal-overlay" id="modal-overlay">
+  <div class="modal-overlay" id="modal-overlay" use:lockBackgroundScroll>
     <div class="modal-box" class:danger={c.danger} role="dialog" aria-modal="true">
       <div class="modal-header">
         <h2 id="modal-title">{c.title}</h2>

@@ -81,7 +81,17 @@
     cacheStatus = await cache.getStatus();
   }
 
+  // Без связи с сервером обновлять/чистить дисковый кэш нельзя (по просьбе):
+  // "Обновить кэш" в любом случае требует сети (это и есть его смысл — забрать
+  // свежие данные), а "Очистить кэш" офлайн просто оставило бы приложение без
+  // единственного источника вопросов, который у него в этот момент есть.
+  const cacheLockedOffline = $derived(appState.connectionStatus === "offline");
+
   async function onRefreshCache() {
+    if (cacheLockedOffline) {
+      toast("Нет связи с сервером — обновление кэша недоступно офлайн", "error");
+      return;
+    }
     cacheBusy = true;
     cacheProgress = { done: 0, total: 0 };
     try {
@@ -103,6 +113,10 @@
   }
 
   async function onClearCache() {
+    if (cacheLockedOffline) {
+      toast("Нет связи с сервером — очистка кэша недоступна офлайн (это единственные данные, с которыми приложение сейчас может работать)", "error");
+      return;
+    }
     const ok = await confirmDialog({
       title: "Очистить кэш?",
       text: "Офлайн-копия вопросов будет удалена. Без интернета приложение перестанет открывать главы, пока кэш не соберётся заново.",
@@ -152,15 +166,13 @@
     <h2 class="settings-title">Настройки</h2>
 
     <div class="profile-settings first">
-      <div class="settings-row">
-        <p class="panel-label">Тема оформления</p>
-        <label class="theme-switch" title="Тема оформления">
-          <span class="theme-switch-icon">🌙</span>
-          <input type="checkbox" checked={lightTheme} onchange={toggleTheme} />
-          <span class="theme-switch-track"><span class="theme-switch-thumb"></span></span>
-          <span class="theme-switch-icon">☀️</span>
-        </label>
-      </div>
+      <p class="panel-label">Тема оформления</p>
+      <label class="theme-switch" title="Тема оформления">
+        <span class="theme-switch-icon">🌙</span>
+        <input type="checkbox" checked={lightTheme} onchange={toggleTheme} />
+        <span class="theme-switch-track"><span class="theme-switch-thumb"></span></span>
+        <span class="theme-switch-icon">☀️</span>
+      </label>
     </div>
 
     <div class="profile-settings">
@@ -204,9 +216,24 @@
         {/if}
       </div>
       <div class="cache-actions">
-        <button type="button" class="ghost small" disabled={cacheBusy} onclick={onRefreshCache}>🔄 Обновить кэш сейчас</button>
-        <button type="button" class="ghost small danger" disabled={cacheBusy} onclick={onClearCache}>🗑️ Очистить кэш</button>
+        <button
+          type="button"
+          class="ghost small"
+          disabled={cacheBusy || cacheLockedOffline}
+          title={cacheLockedOffline ? "Нет связи с сервером — недоступно офлайн" : ""}
+          onclick={onRefreshCache}
+        >🔄 Обновить кэш сейчас</button>
+        <button
+          type="button"
+          class="ghost small danger"
+          disabled={cacheBusy || cacheLockedOffline}
+          title={cacheLockedOffline ? "Нет связи с сервером — недоступно офлайн" : ""}
+          onclick={onClearCache}
+        >🗑️ Очистить кэш</button>
       </div>
+      {#if cacheLockedOffline}
+        <p class="modal-hint">Нет связи с сервером — управление кэшем временно недоступно.</p>
+      {/if}
     </div>
 
     {#if isAdmin()}
