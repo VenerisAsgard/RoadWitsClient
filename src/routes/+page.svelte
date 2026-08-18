@@ -17,12 +17,11 @@
   import ProfileScreen from "$lib/components/ProfileScreen.svelte";
   import SettingsScreen from "$lib/components/SettingsScreen.svelte";
   import AdminScreen from "$lib/components/AdminScreen.svelte";
-  import CreditsScreen from "$lib/components/CreditsScreen.svelte";
   import Placeholder from "$lib/components/Placeholder.svelte";
   import ToastStack from "$lib/components/ToastStack.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import ImageViewer from "$lib/components/ImageViewer.svelte";
-  import LeaderboardModal from "$lib/components/LeaderboardModal.svelte";
+  import FriendsModal from "$lib/components/FriendsModal.svelte";
   import AboutModal from "$lib/components/AboutModal.svelte";
   import HintBar from "$lib/components/HintBar.svelte";
   import EditorTooltip from "$lib/components/EditorTooltip.svelte";
@@ -94,14 +93,8 @@
         <QuestionScreen />
       {:else if state.screen === "result"}
         <ResultScreen />
-      {:else if state.screen === "profile"}
-        <ProfileScreen />
-      {:else if state.screen === "settings"}
-        <SettingsScreen />
       {:else if state.screen === "admin"}
         <AdminScreen />
-      {:else if state.screen === "credits"}
-        <CreditsScreen />
       {:else}
         <Placeholder title="Экран в разработке" back="menu" />
       {/if}
@@ -113,8 +106,13 @@
 
 <ConfirmDialog />
 <ImageViewer />
-<LeaderboardModal />
+<FriendsModal />
 <AboutModal />
+<!-- Профиль и настройки — модалки поверх текущего экрана (по просьбе), а
+     не отдельные state.screen — как и остальные модалки на этой странице,
+     всегда смонтированы и сами решают, показывать ли себя. -->
+<ProfileScreen />
+<SettingsScreen />
 <EditorTooltip />
 <ToastStack />
 <Splash />

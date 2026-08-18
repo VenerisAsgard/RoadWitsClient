@@ -90,10 +90,10 @@
       {#if r.isExam}
         <p class="result-errors" id="result-errors">Ошибок: {appState.examErrors} из 1 допустимой</p>
       {/if}
-      <div class="result-actions">
-        <button id="result-retry-btn" type="button" onclick={retryQuiz}>Пройти ещё раз</button>
-        <button class="ghost" id="result-menu-btn" type="button" onclick={returnToMenu}>В меню</button>
-      </div>
+    </div>
+    <div class="result-actions">
+      <button id="result-retry-btn" type="button" onclick={retryQuiz}>Пройти ещё раз</button>
+      <button class="ghost" id="result-menu-btn" type="button" onclick={returnToMenu}>В меню</button>
     </div>
   </div>
 
@@ -140,9 +140,6 @@
             </li>
           {/each}
         </ul>
-        <p class="q-answer-line" id="review-answer-line">
-          {reviewUserIdx === undefined ? "ОТВЕТ НЕ ВЫБРАН" : `ВАШ ОТВЕТ: ${reviewUserIdx + 1}`}
-        </p>
         {#if reviewQ.explanation}
           <p class="q-explain" id="review-explain">{reviewQ.explanation}</p>
         {/if}

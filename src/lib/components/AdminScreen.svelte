@@ -50,7 +50,10 @@
   }
 
   function back() {
-    appState.screen = "settings";
+    // Настройки больше не экран (см. Titlebar.svelte/SettingsScreen.svelte —
+    // теперь модалка), поэтому возвращаемся на экран-источник, откуда зашли
+    // в админку (запоминается в Titlebar.openAdmin), а не всегда в "settings".
+    appState.screen = appState.profileReturnScreen || "menu";
   }
 
   function onKeydown(e) {
@@ -72,7 +75,7 @@
 </script>
 
 <section class="screen" id="screen-admin" data-screen="admin">
-  <button class="ghost small screen-back" type="button" onclick={back}>← Настройки</button>
+  <button class="ghost small screen-back" type="button" onclick={back}>← Назад</button>
   <div class="admin-page">
     <div class="admin-page-head">
       <div>

@@ -105,6 +105,29 @@ export function closeImageViewer() {
   imageViewer.src = null;
 }
 
+/* ---------- профиль и настройки — раньше отдельные полноэкранные экраны
+   (state.screen = "profile"/"settings"), теперь модалки поверх текущего
+   экрана (по просьбе): тот же простой паттерн open/close, что и у
+   aboutModal ниже, только без содержимого в самом сторе — разметка и
+   данные остаются в ProfileScreen.svelte/SettingsScreen.svelte, эти два
+   компонента просто всегда смонтированы (см. +page.svelte) и сами решают,
+   рендерить ли себя, читая .open. ---------- */
+export const profileModal = $state({ open: false });
+export function openProfileModal() {
+  profileModal.open = true;
+}
+export function closeProfileModal() {
+  profileModal.open = false;
+}
+
+export const settingsModal = $state({ open: false });
+export function openSettingsModal() {
+  settingsModal.open = true;
+}
+export function closeSettingsModal() {
+  settingsModal.open = false;
+}
+
 /* ---------- "О программе" — та же модалка-паттерн, что у лидерборда
    (contentModal), но отдельный стейт: у лидерборда контент грузится
    асинхронно с сервера, у "О программе" — статический, и оба должны

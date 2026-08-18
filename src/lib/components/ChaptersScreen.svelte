@@ -145,6 +145,7 @@
               role="button"
               tabindex="-1"
               onclick={() => selectRow(i)}
+              ondblclick={(e) => { e.preventDefault(); toggleChapterCheck(c); }}
               onkeydown={(e) => (e.key === "Enter") && (e.preventDefault(), selectRow(i))}
             >
               <span

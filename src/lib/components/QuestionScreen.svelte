@@ -6,13 +6,11 @@
     answerMove,
     pressDigit,
     confirmPendingOrAdvance,
-    skipQuestion,
     questionNext,
     questionPrev,
     phaseMove,
     jumpToQuestion,
     selectOptionByClick,
-    goToNextUnanswered,
     requestExit,
     requestFinish,
     computeScore,
@@ -115,10 +113,16 @@
       pressDigit(Number(e.key));
     } else if (e.key === "Enter") {
       e.preventDefault();
+      // Ответ по Enter (или Enter без выбора) — фиксирует pending-выбор,
+      // если он есть, и сразу переходит к следующему нерешённому вопросу.
       confirmPendingOrAdvance();
     } else if (e.key === " ") {
       e.preventDefault();
-      skipQuestion();
+      // Space — не пропуск (раньше сбрасывал pending-выбор и вёл на
+      // следующий НЕрешённый вопрос), а обычный переход к следующему
+      // вопросу по порядку, независимо от того, отвечен он или нет —
+      // такое же поведение, как у стрелки "вправо"/кнопки "›" ниже.
+      questionNext();
     } else if (e.key === "ArrowRight") {
       e.preventDefault();
       questionNext();
@@ -155,6 +159,10 @@
     {#if isExam}
       <span class="q-timer" id="q-timer">{timerLabel}</span>
     {/if}
+    <button class="q-btn-finish" id="q-btn-finish" type="button" disabled={appState.questionsLoading} onclick={requestFinish}>Завершить</button>
+  </div>
+
+  <div class="q-nav-row">
     {#if canEditContent() && q}
       <button
         class="icon-btn q-edit-btn"
@@ -163,10 +171,6 @@
         onclick={() => (editingQuestion = true)}
       >✏️</button>
     {/if}
-  </div>
-
-  <div class="q-nav-row">
-    <button class="q-btn-finish" id="q-btn-finish" type="button" disabled={appState.questionsLoading} onclick={requestFinish}>Завершить</button>
 
     {#if isChapter}
       <div class="q-arrow-nav" id="q-arrow-nav">
@@ -231,15 +235,9 @@
             </li>
           {/each}
         </ul>
-        <p class="q-answer-line">ВАШ ОТВЕТ: <span id="q-answer-value">{confirmed === undefined ? "_" : confirmed + 1}</span></p>
         {#if revealed && q.explanation}
           <p class="q-explain" id="q-explain">{q.explanation}</p>
         {/if}
-        <div class="q-actions">
-          {#if confirmed !== undefined}
-            <button class="q-btn-continue" id="q-btn-continue" type="button" onclick={goToNextUnanswered}>Продолжить</button>
-          {/if}
-        </div>
       </div>
     {/if}
   </div>

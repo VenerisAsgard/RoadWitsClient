@@ -1,6 +1,6 @@
 [package]
 name = "roadwits-client"
-version = "1.4.5"
+version = "1.5.1"
 description = "Roadwits — клиент для изучения ПДД РБ"
 authors = ["VenerisAsgard <dev.va@icloud.com>"]
 edition = "2021"

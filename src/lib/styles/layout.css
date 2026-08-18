@@ -114,20 +114,23 @@ body {
   overflow-x: hidden;
 }
 
+/* Главное меню и тренировка по случайному билету — по просьбе увеличены
+   до той же ширины, что и тренировка по главам (#screen-chapters ниже),
+   раньше были заметно уже (820px). */
 #screen-menu {
   align-items: flex-start;
   margin: 0 auto;
   justify-content: center;
-  max-width: min(calc(820px * var(--k)), 92vw);
+  max-width: min(calc(1280px * var(--k)), 95vw);
 }
 /* Раньше был "голой" копией #screen-menu без рамки вокруг списка (см.
    .random-count-card в components.css) — центрирование той же ширины,
-   что и у меню, чтобы карточка не растягивалась на всю ширину .screen. */
+   что и у меню. */
 #screen-random-count {
   align-items: flex-start;
   margin: 0 auto;
   justify-content: center;
-  max-width: min(calc(820px * var(--k)), 92vw);
+  max-width: min(calc(1280px * var(--k)), 95vw);
 }
 #screen-chapters {
   max-width: min(calc(1280px * var(--k)), 95vw);
@@ -159,7 +162,18 @@ body {
   display: grid;
   grid-template-columns: minmax(calc(240px * var(--k)), calc(340px * var(--k))) 1fr;
   gap: 0;
-  height: min(calc(620px * var(--k)), 80vh);
+  /* fit-content, а не фиксированная height: при малом числе глав список
+     раньше всё равно растягивался на все 620px (chapter-list — flex:1),
+     из-за чего сверху оставался обычный паддинг (6px), а снизу — тот же
+     паддинг ПЛЮС пустое место нерастраченного flex, то есть отступы
+     получались явно разными. fit-content() даёт панели ужиматься по
+     высоте под фактическое содержимое и одновременно задаёт ГРИДУ
+     определённую (не auto) высоту трека при превышении лимита — только
+     так работает overflow-y:auto у .chapter-list ниже, простой max-height
+     тут работать не будет (grid-трек останется auto по контенту и просто
+     вылезет за рамку .split). Если глав много и список не помещается —
+     включается тот же внутренний скролл, что и раньше. */
+  height: fit-content(min(calc(620px * var(--k)), 80vh));
 }
 .split-list {
   display: flex;
@@ -263,6 +277,16 @@ body {
 }
 .result-info {
   flex: 1;
+  min-width: 0;
+}
+/* "Пройти ещё раз"/"В меню" — раньше стояли под сводкой (доп. ряд внутри
+   .result-info), теперь прижаты к правому верхнему углу того же ряда, что
+   датчик+сводка (margin-left:auto толкает их вправо в самом .result-top),
+   не занимая отдельную строку — освобождает высоту под .q-body (картинка
+   вопроса + разбор вариантов) ниже, ради которой это и делалось. */
+.result-actions {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 /* ---------- адаптив ---------- */
@@ -288,7 +312,7 @@ body {
   }
   .split {
     grid-template-columns: 1fr;
-    height: min(520px, 80vh);
+    height: fit-content(min(520px, 80vh));
   }
   .split-list {
     max-height: calc(180px * var(--k));
@@ -306,21 +330,46 @@ body {
   .q-arrow-nav {
     flex-basis: 100%;
   }
+  /* Тот же приём для итогов: датчик+сводка / кнопки "Пройти ещё раз"+"В
+     меню" в один ряд не помещаются — кнопки переносятся под низ, но
+     остаются прижаты к правому краю (justify-content ниже в components.css). */
+  .result-top {
+    flex-wrap: wrap;
+  }
+  .result-actions {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
 }
 
 /* ---------- управление вопросами (editor/admin, внутри детали главы) ---------- */
 .questions-manage {
   margin-top: 20px;
   border: 1px solid var(--line);
+  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
-  max-height: calc(280px * var(--k));
+  /* Раньше max-height: 280px обрезал список независимо от того, сколько
+     места реально было в панели — при короткой главе/описании снизу
+     .split-detail оставалась пустая полоса, а список вопросов не мог её
+     занять. flex:1 внутри .split-detail (тоже flex-column) отдаёт списку
+     всё свободное место до низа панели по просьбе; min-height — чтобы
+     список не схлопывался в полоску, когда места мало, свой скролл
+     (.editor-question-list) при этом работает как раньше. */
+  flex: 1;
+  min-height: calc(160px * var(--k));
 }
 .editor-question-list {
   list-style: none;
   margin: 0;
   padding: calc(4px * var(--k));
   overflow-y: auto;
+  /* flex:1 + min-height:0 — тот же приём, что у .modal-body (см. ниже):
+     без него список не сжимается меньше высоты своего контента и не
+     дотягивается до нового flex:1 у родителя (.questions-manage), поэтому
+     свободное место внизу панели осталось бы неиспользованным. */
+  flex: 1;
+  min-height: 0;
 }
 .editor-question-item {
   display: flex;
@@ -347,6 +396,15 @@ body {
   flex-direction: column;
   overflow: hidden;
 }
+/* ConfirmDialog смонтирован в +page.svelte выше по разметке, чем
+   ProfileScreen/SettingsScreen и другие модалки — при равном z-index
+   (90, как у обычного .modal-overlay) более поздние в DOM модалки
+   перекрывали диалог подтверждения (выход из аккаунта, очистка кэша),
+   хотя логически он должен быть поверх модалки, которая его открыла.
+   Отдельный z-index выше обычных модалок, но ниже сплэша/тостов. */
+.confirm-overlay {
+  z-index: 95;
+}
 /* Редактор вопроса — своя, более широкая модалка: текст вопроса,
    подсказка и превью с картинкой на стандартных 460px были тесными,
    особенно при включённом превью (см. render.openModal(..., "wide")). */
@@ -360,11 +418,15 @@ body {
   padding: calc(14px * var(--k)) calc(16px * var(--k));
 }
 .modal-body {
-  padding: 0 16px 16px;
+  /* Небольшой верхний отступ, чтобы контент не прилипал прямо к границе
+     шапки модалки (раньше padding-top был 0 — заголовок и первый элемент
+     тела соприкасались). У модалок с вкладками (.modal-tabs + .modal-body
+     ниже) отступ больше и это правило просто переопределяется. */
+  padding: calc(10px * var(--k)) 16px 16px;
   overflow-y: auto;
   /* Не даём скроллу списка внутри модалки "перетекать" на контейнеры
      экрана под ней, когда список долистан до конца (scroll chaining) —
-     вместе с use:lockBackgroundScroll в Modal.svelte/LeaderboardModal.svelte
+     вместе с use:lockBackgroundScroll в Modal.svelte/FriendsModal.svelte
      это то, что реально не даёт колесу мыши скроллить то, что под модалкой. */
   overscroll-behavior: contain;
   /* flex-item по умолчанию не сжимается меньше высоты своего контента
@@ -376,10 +438,16 @@ body {
   flex: 1;
   min-height: 0;
 }
-.modal-body form {
+.modal-body form:not(.friend-add-row) {
   display: flex;
   flex-direction: column;
   gap: calc(12px * var(--k));
+}
+/* Когда в модалке есть вкладки (.modal-tabs, см. components.css) — телу
+   нужен верхний отступ, которого обычно нет (обычная модалка сразу
+   начинается под .modal-header). */
+.modal-tabs + .modal-body {
+  padding-top: calc(12px * var(--k));
 }
 .modal-actions {
   display: flex;
@@ -508,17 +576,23 @@ body {
 }
 
 /* ---------- профиль ---------- */
-#screen-profile {
-  max-width: min(calc(720px * var(--k)), 92vw);
-}
-#screen-credits {
-  max-width: min(calc(640px * var(--k)), 92vw);
-}
+/* #screen-profile { max-width: ... } было здесь — профиль теперь модалка
+   (см. ProfileScreen.svelte/Modal.svelte), а не отдельный полноэкранный
+   #screen-profile, ширину задаёт .modal-box.wide в этом же файле. */
+/* Кнопка "Выйти" — в одной строке с аватаром (.profile-head), справа. */
 .profile-head {
   display: flex;
   align-items: center;
   gap: calc(16px * var(--k));
   margin-bottom: 20px;
+}
+.profile-head-name {
+  flex: 1;
+  min-width: 0;
+}
+.profile-head-logout {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 .profile-fields {
   display: grid;

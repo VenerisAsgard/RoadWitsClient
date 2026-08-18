@@ -32,7 +32,7 @@
   }
 </script>
 
-<div class="profile-settings">
+<div class="friends-block">
   <p class="panel-label">Друзья</p>
 
   <form class="friend-add-row" onsubmit={send}>

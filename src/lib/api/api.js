@@ -7,7 +7,7 @@
  * Адрес сервера и таймаут запроса вынесены в js/config.js — там единственное
  * место, которое нужно менять под другой backend (прод/стейджинг/свой порт).
  */
-import { SERVER_BASE_URL, REQUEST_TIMEOUT_MS } from "../config.js";
+import { SERVER_BASE_URL, REQUEST_TIMEOUT_MS, PHOTO_UPLOAD_TIMEOUT_MS } from "../config.js";
 
 const API_BASE_URL = SERVER_BASE_URL;
 
@@ -47,14 +47,14 @@ function readableDetail(detail, fallback) {
 
 /**
  * @param {string} path
- * @param {{method?: string, body?: any, token?: string|null}} [options]
+ * @param {{method?: string, body?: any, token?: string|null, timeoutMs?: number}} [options]
  */
-async function request(path, { method = "GET", body, token } = {}) {
+async function request(path, { method = "GET", body, token, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
   let res;
   try {
@@ -68,7 +68,18 @@ async function request(path, { method = "GET", body, token } = {}) {
     // Сетевая ошибка (сервер не запущен, неверный адрес в config.js, CORS
     // заблокировал запрос) или обрыв по таймауту — в обоих случаях fetch
     // бросает TypeError/AbortError без осмысленного текста для пользователя.
-    const timedOut = err?.name === "AbortError";
+    // Раньше "это наш таймаут" определялось только по err.name === "AbortError" —
+    // так помечает abort() большинство движков, но не гарантированно все
+    // (в вебвью Tauri на некоторых платформах/версиях исключение при отмене
+    // по сигналу может прийти с другим name). Из-за этого самый тяжёлый
+    // запрос в приложении — PATCH /auth/me/profile с фото (см.
+    // PHOTO_UPLOAD_TIMEOUT_MS) — на медленном канале иногда упирался в
+    // именно НАШ таймаут, но пользователю ошибочно показывалось "нет
+    // соединения с сервером", хотя соединение было — сервер просто не
+    // успевал ответить за отведённое время. controller.signal.aborted —
+    // надёжный признак того, что сработал именно наш abort(), независимо
+    // от того, как конкретный движок называет итоговое исключение.
+    const timedOut = err?.name === "AbortError" || controller.signal.aborted;
     throw new ApiError(0, timedOut ? "Сервер не отвечает" : "Нет соединения с сервером");
   } finally {
     window.clearTimeout(timeoutId);
@@ -185,6 +196,11 @@ export async function createChapter(token, { title, description, order }) {
   return normalizeChapter(raw, 0);
 }
 
+/**
+ * Меняет title и/или description главы. Роль editor теперь тоже может менять
+ * оба поля (бэкенд запрещает ей менять только order, см. routers/chapters.py) —
+ * отдельного "только title" вызова для fallback больше не нужно.
+ */
 export async function updateChapter(token, chapterId, { title, description }) {
   const raw = await request(`/chapters/${chapterId}`, {
     method: "PATCH",
@@ -286,7 +302,11 @@ export function updateProfile(token, { firstName, lastName, email, profilePhoto 
   // в body и бэкенд не тронет уже сохраненное фото (см. photo_provided на
   // сервере). Если явно передали null — это осознанное "убрать фото".
   if (profilePhoto !== undefined) body.profile_photo = profilePhoto;
-  return request("/auth/me/profile", { method: "PATCH", token, body });
+  // Отдельный (больший) таймаут только когда реально отправляется фото —
+  // остальные вызовы (просто имя/email, или явное удаление фото — null,
+  // маленькое тело) используют обычный REQUEST_TIMEOUT_MS.
+  const timeoutMs = profilePhoto ? PHOTO_UPLOAD_TIMEOUT_MS : undefined;
+  return request("/auth/me/profile", { method: "PATCH", token, body, timeoutMs });
 }
 
 /* ============================================================

@@ -202,11 +202,6 @@ export function answerMove(delta) {
   state.selected[q.id] = (current + delta + q.options.length) % q.options.length;
 }
 
-export function skipQuestion() {
-  delete state.selected[state.questions[state.currentQ]?.id];
-  goToNextUnanswered();
-}
-
 export function goToNextUnanswered() {
   const n = state.questions.length;
   if (!n) return;
@@ -297,21 +292,32 @@ export function pressDigit(digit) {
   }
 }
 
+/** Enter: если по текущему вопросу есть невыбранный (pending) вариант —
+ * фиксирует его как ответ (в т.ч. в exam-режиме — раньше hasPending
+ * специально исключал exam, из-за чего Enter в контрольном экзамене вообще
+ * не засчитывал ответ), а затем сразу переходит на следующий нерешённый
+ * вопрос. Если pending нет (ничего не выбрано, либо вопрос уже отвечен) —
+ * просто переходит на следующий нерешённый вопрос без изменений. Если
+ * нерешённых вопросов не осталось — goToNextUnanswered() сам завершает тест
+ * (см. её реализацию ниже). */
 export function confirmPendingOrAdvance() {
   const q = state.questions[state.currentQ];
-  if (!q) return false;
+  if (!q) return;
 
-  const hasPending = state.mode !== "exam" && state.selected[q.id] !== undefined;
+  const hasPending = state.selected[q.id] !== undefined;
   const alreadyAnswered = state.answers[q.id] !== undefined;
 
   if (hasPending && !alreadyAnswered) {
-    state.answers[q.id] = state.selected[q.id];
+    const idx = state.selected[q.id];
+    state.answers[q.id] = idx;
     delete state.selected[q.id];
-    return true;
+    if (state.mode === "exam") {
+      handleExamAnswer(q, idx);
+      if (state.examFailed) return;
+    }
   }
 
-  questionNext();
-  return false;
+  goToNextUnanswered();
 }
 
 export function questionPrev() {
@@ -430,20 +436,25 @@ export function menuConfirm() {
   const choice = MENU_ITEMS[state.menuIndex].id;
   if (choice === "chapter") {
     state.chapterIndex = 0;
-    state.checkedChapters = new Set();
+    checkedChaptersDirty = false;
+    // По просьбе: стандартно (по умолчанию) при входе в тренировку по
+    // главам должны быть отмечены ВСЕ главы, а не ни одной — раньше список
+    // стартовал пустым, и без сохранённой с прошлого раза настройки нужно
+    // было вручную отмечать нужные главы (либо жать "Отметить все").
+    state.checkedChapters = new Set(state.chapters.filter((c) => c.count > 0).map((c) => c.id));
     state.screen = "chapters";
     setHint(HINT_CHAPTERS);
-    // По просьбе: отметки глав — не разовый выбор на сессию, а сохранённая
-    // настройка (см. cache.getCheckedChapters/setCheckedChapters). Читаем
-    // асинхронно и подставляем, когда придёт — если к этому моменту
-    // пользователь уже успел сам что-то отметить или уйти с экрана,
-    // не перетираем (навигация стрелками по списку глав — chaptersMove —
-    // сама по себе не считается "уже отметил", поэтому здесь не проверяем
-    // chapterIndex). Отфильтровываем id, которых уже нет среди текущих
-    // глав (глава могла быть удалена редактором с тех пор).
+    // Отметки глав — не разовый выбор на сессию, а сохранённая настройка
+    // (см. cache.getCheckedChapters/setCheckedChapters): если в прошлый раз
+    // пользователь сам отметил конкретный набор глав — подставляем его
+    // поверх дефолтного "все отмечены", когда придёт ответ кэша. Если к
+    // этому моменту пользователь уже успел сам что-то поменять на экране
+    // (checkedChaptersDirty) или уйти с экрана — не перетираем. Отфильтровываем
+    // id, которых уже нет среди текущих глав (глава могла быть удалена
+    // редактором с тех пор).
     cache.getCheckedChapters().then((ids) => {
       if (!ids || !ids.length) return;
-      if (state.screen !== "chapters" || state.checkedChapters.size) return;
+      if (state.screen !== "chapters" || checkedChaptersDirty) return;
       const valid = ids.filter((id) => state.chapters.some((c) => c.id === id && c.count > 0));
       if (valid.length) state.checkedChapters = new Set(valid);
     });
@@ -503,6 +514,11 @@ export function returnToOrigin() {
    CHAPTERS (мультивыбор чекбоксами)
    ============================================================ */
 
+// Отмечает, что пользователь сам менял отметки глав на текущем заходе на
+// экран "chapters" — не даёт асинхронному ответу cache.getCheckedChapters()
+// (см. menuConfirm выше) перетереть уже сделанный пользователем выбор.
+let checkedChaptersDirty = false;
+
 export function chaptersMove(delta) {
   const n = state.chapters.length;
   if (!n) return;
@@ -511,6 +527,7 @@ export function chaptersMove(delta) {
 
 export function toggleChapterCheck(chapter) {
   if (!chapter || !(chapter.count > 0)) return;
+  checkedChaptersDirty = true;
   if (state.checkedChapters.has(chapter.id)) state.checkedChapters.delete(chapter.id);
   else state.checkedChapters.add(chapter.id);
   // Set — Svelte 5 не видит мутацию сама, форсируем реактивность переприсваиванием.
@@ -525,6 +542,7 @@ export function toggleChapterCheck(chapter) {
  * не участвуют — их и toggleChapterCheck выше не даёт отметить по
  * отдельности. */
 export function toggleAllChapters() {
+  checkedChaptersDirty = true;
   const selectable = state.chapters.filter((c) => c.count > 0);
   const allChecked = selectable.length > 0 && selectable.every((c) => state.checkedChapters.has(c.id));
   state.checkedChapters = allChecked ? new Set() : new Set(selectable.map((c) => c.id));

@@ -76,7 +76,10 @@ export const state = $state({
   questionsLoading: false,
 
   // --- навигация по экранам после входа ---
-  screen: "menu", // "menu" | "chapters" | "random-count" | "question" | "result" | "profile" | "settings" | "admin" | "credits"
+  screen: "menu", // "menu" | "chapters" | "random-count" | "question" | "result" | "admin"
+  // Экран-источник для возврата из админки (единственный оставшийся
+  // полноэкранный "дочерний" экран — профиль/настройки теперь модалки,
+  // см. Titlebar.svelte/ui.svelte.js, им это поле не нужно).
   profileReturnScreen: "menu",
   originScreen: "menu",
 

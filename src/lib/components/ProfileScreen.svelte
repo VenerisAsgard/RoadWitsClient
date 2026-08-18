@@ -1,10 +1,10 @@
 <script>
-  import { onMount } from "svelte";
   import { state as appState, ROLE_LABELS } from "$lib/state.svelte.js";
   import * as api from "$lib/api/api.js";
-  import { toast, confirmDialog } from "$lib/stores/ui.svelte.js";
+  import { toast, confirmDialog, profileModal, closeProfileModal } from "$lib/stores/ui.svelte.js";
   import { logout } from "$lib/auth.js";
-  import FriendsPanel from "$lib/components/FriendsPanel.svelte";
+  import { avatarColorStyle } from "$lib/avatar.js";
+  import Modal from "./Modal.svelte";
 
   function formatDate(iso) {
     if (!iso) return "—";
@@ -25,10 +25,7 @@
   function avatarStyle(user) {
     const photo = user?.profile_photo;
     if (photo) return `background: url(${photo}) center/cover`;
-    // По просьбе — вернули на var(--amber) (не var(--accent), не hsl по id).
-    // Текст фиксированно тёмный: amber светлый, белый текст на нём был бы
-    // плохо читаем.
-    return `background: var(--amber); color: #0b0d10`;
+    return avatarColorStyle(user?.id);
   }
 
   let firstName = $state(appState.user?.first_name || "");
@@ -38,6 +35,20 @@
 
   let photoInput = $state(null);
   let uploadingPhoto = $state(false);
+
+  // Профиль теперь модалка, всегда смонтированная (см. +page.svelte) — а
+  // не отдельный экран, который каждый раз пересоздавался бы заново при
+  // входе. Поля выше инициализированы один раз при первом монтировании,
+  // поэтому при каждом ОТКРЫТИИ модалки подтягиваем их заново из appState —
+  // иначе после правки в прошлый раз или смены пользователя показывались бы
+  // устаревшие значения.
+  $effect(() => {
+    if (profileModal.open) {
+      firstName = appState.user?.first_name || "";
+      lastName = appState.user?.last_name || "";
+      email = appState.user?.email || "";
+    }
+  });
 
   /* ---------- фото профиля: центр-кроп в квадрат + сжатие в JPEG перед
      отправкой (см. src-legacy/js/controls.js readPhotoAsDataUrl) — так
@@ -123,11 +134,10 @@
 
   /** Автосохранение имени/фамилии/email. Раньше в профиле была отдельная
    * кнопка "Сохранить" — по просьбе убрана: поля сохраняются сами по
-   * уходу фокуса с поля (onblur) и дополнительно при уходе с экрана
-   * кнопкой "Назад"/Esc (см. back() ниже), без лишнего клика. saving
-   * используется только для короткой надписи "Сохраняем…" у полей —
-   * отдельного тоста об успехе больше нет: он срабатывал бы на каждый
-   * blur и был бы навязчивым. */
+   * уходу фокуса с поля (onblur) и дополнительно при закрытии модалки
+   * (см. back() ниже), без лишнего клика. saving используется только для
+   * короткой надписи "Сохраняем…" у полей — отдельного тоста об успехе
+   * больше нет: он срабатывал бы на каждый blur и был бы навязчивым. */
   async function savePersonalDataIfChanged() {
     const unchanged =
       firstName.trim() === (appState.user?.first_name || "") &&
@@ -150,21 +160,9 @@
   }
 
   function back() {
-    savePersonalDataIfChanged(); // как и в оригинале — не блокирует переключение экрана
-    appState.screen = appState.profileReturnScreen || "menu";
+    savePersonalDataIfChanged(); // не блокирует закрытие модалки
+    closeProfileModal();
   }
-
-  function onKeydown(e) {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      back();
-    }
-  }
-
-  onMount(() => {
-    document.addEventListener("keydown", onKeydown);
-    return () => document.removeEventListener("keydown", onKeydown);
-  });
 
   async function handleLogout() {
     const ok = await confirmDialog({
@@ -179,10 +177,8 @@
   }
 </script>
 
-<section class="screen" id="screen-profile" data-screen="profile">
-  <div class="profile-card" id="profile-card">
-    <button class="ghost small profile-back" id="profile-back-btn" type="button" onclick={back}>← Назад</button>
-
+{#if profileModal.open}
+  <Modal title="Профиль" wide onclose={back}>
     <div class="profile-head">
       <!-- onmousedown preventDefault: клик мышью не даёт кнопке получить
            фокус вообще (а Tab+Enter с клавиатуры — по-прежнему даёт), чтобы
@@ -210,10 +206,11 @@
         bind:this={photoInput}
         onchange={onPhotoChange}
       />
-      <div>
+      <div class="profile-head-name">
         <h2>{[appState.user?.first_name, appState.user?.last_name].filter(Boolean).join(" ") || "Без имени"}</h2>
         <p class="profile-role">{ROLE_LABELS[appState.user?.user_type] || appState.user?.user_type}</p>
       </div>
+      <button id="logout-button" class="ghost small danger profile-head-logout" type="button" onclick={handleLogout}>Выйти</button>
     </div>
 
     <dl class="profile-fields">
@@ -231,9 +228,5 @@
       <label>Фамилия<input type="text" maxlength="100" bind:value={lastName} onblur={savePersonalDataIfChanged} /></label>
       <label>Email<input type="email" bind:value={email} onblur={savePersonalDataIfChanged} /></label>
     </div>
-
-    <FriendsPanel />
-  </div>
-
-  <button id="logout-button" class="ghost logout-btn" type="button" onclick={handleLogout}>Выйти</button>
-</section>
+  </Modal>
+{/if}

@@ -130,6 +130,22 @@ button.ghost.danger:hover {
   font-weight: 600;
   color: var(--ink);
 }
+/* Заголовок как кнопка входа в админку (только у админов, см.
+   Titlebar.svelte) — переопределяем базовые стили <button> (акцентный
+   фон, паддинг, радиус — см. правило "button" выше) так, чтобы кнопка
+   выглядела как обычный заголовок и только подсвечивалась акцентом при
+   наведении/фокусе, сигнализируя, что по ней можно кликнуть. */
+button.title {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+button.title:hover,
+button.title:focus-visible {
+  color: var(--accent);
+}
 
 .account-chip {
   display: flex;
@@ -175,10 +191,23 @@ button.ghost.danger:hover {
   background: var(--red);
 }
 .traffic.minimize {
-  background: var(--amber);
+  background: var(--yellow);
 }
 .traffic.maximize {
   background: var(--green);
+}
+/* Квадрат "развернуть" раньше был символом □ — его глиф в большинстве
+   шрифтов визуально смещён от центра своего line-box (лишнее пустое
+   место сверху/снизу зависит от шрифта), из-за чего flex-центрирование
+   кнопки (align-items/justify-content: center у .traffic) центрировало
+   сам line-box, а не видимый квадрат внутри него. Рисуем квадрат самой
+   рамкой span'а — тогда центрируется то, что реально видно. */
+.traffic.maximize span {
+  width: calc(8px * var(--k));
+  height: calc(8px * var(--k));
+  border: calc(1.4px * var(--k)) solid rgba(0, 0, 0, 0.7);
+  border-radius: 1px;
+  padding: 0;
 }
 
 /* ---------- вход по Product Key ---------- */
@@ -268,9 +297,9 @@ button.ghost.danger:hover {
   background: var(--accent);
   color: var(--bg);
   box-shadow: 0 0 14px 2px color-mix(in srgb, var(--accent) 50%, transparent);
-  animation: pulse-amber 1.8s ease-in-out infinite;
+  animation: pulse-accent 1.8s ease-in-out infinite;
 }
-@keyframes pulse-amber {
+@keyframes pulse-accent {
   0%,
   100% {
     opacity: 1;
@@ -391,6 +420,11 @@ button.ghost.danger:hover {
 /* ---------- главы ---------- */
 .split {
   border: 1px solid var(--line);
+  /* Скругления по просьбе — раньше рамка была прямоугольной. overflow:
+     hidden обрезает фоны .split-list/.split-detail под тот же радиус,
+     иначе их прямые углы вылезали бы за скруглённую рамку. */
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 .split-list {
   background: var(--panel);
@@ -569,7 +603,7 @@ button.ghost.danger:hover {
   font-family: var(--font-mono);
   font-size: calc(16px * var(--k));
   font-weight: 700;
-  color: var(--amber);
+  color: var(--accent);
   border: 1px solid var(--line);
   padding: calc(3px * var(--k)) calc(10px * var(--k));
 }
@@ -583,7 +617,7 @@ button.ghost.danger:hover {
   transition: border-color var(--transition-fast);
 }
 .q-image-wrap:hover {
-  border-color: var(--amber);
+  border-color: var(--accent);
 }
 /* Клик по картинке в WebKitGTK (Tauri/Linux) местами трактуется как выделение —
    тот же класс проблемы, что и с avatar-upload-btn (см. ai_work.md, п.16):
@@ -672,17 +706,6 @@ button.ghost.danger:hover {
   color: var(--red);
 }
 
-.q-answer-line {
-  font-family: var(--font-mono);
-  font-size: calc(14px * var(--k));
-  color: var(--muted);
-  margin: 0 0 10px;
-  letter-spacing: 0.03em;
-}
-.q-answer-line #q-answer-value {
-  color: var(--amber);
-  font-weight: 700;
-}
 .q-explain {
   font-size: calc(13.5px * var(--k));
   color: var(--muted);
@@ -797,9 +820,11 @@ button.ghost.danger:hover {
   color: var(--muted);
 }
 
-/* ---------- ряд навигации под топбаром: "Завершить" слева (красная,
-   принудительно заканчивает тест раньше времени), а справа — либо
-   вкладки-точки (random/exam), либо стрелки со счётчиком (chapter);
+/* ---------- ряд навигации под топбаром: слева — карандаш редактирования
+   вопроса (только editor/admin, см. QuestionScreen.svelte — раньше был
+   в q-topbar, "Завершить" была здесь; по просьбе поменяли местами:
+   "Завершить" теперь в q-topbar справа, карандаш — здесь), справа —
+   либо вкладки-точки (random/exam), либо стрелки со счётчиком (chapter);
    вкладки центрируются в оставшемся месте, а не прижаты к краю ---------- */
 .q-nav-row {
   display: flex;
@@ -922,34 +947,6 @@ button.ghost.danger:hover {
 .q-phase-arrow:disabled {
   opacity: 0.3;
   cursor: not-allowed;
-}
-
-/* ---------- "Продолжить" под вопросом — появляется вместо прежней
-   постоянной кнопки "Завершить" здесь, только когда на текущий вопрос
-   уже есть подтверждённый ответ (см. render.renderQuestion) ---------- */
-.q-actions {
-  display: flex;
-  margin-top: 14px;
-  min-height: calc(38px * var(--k)); /* держит место, чтобы кнопка не дёргала раскладку при появлении */
-}
-.q-btn-continue {
-  font-family: var(--font-mono);
-  font-size: calc(12.5px * var(--k));
-  padding: calc(9px * var(--k)) calc(16px * var(--k));
-  border: 1px solid var(--accent);
-  background: var(--panel);
-  color: var(--accent);
-  cursor: pointer;
-  transition:
-    background var(--transition-fast),
-    transform var(--transition-fast);
-}
-.q-btn-continue:hover {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  transform: translateY(-1px);
-}
-.q-btn-continue:active {
-  transform: translateY(0) scale(0.96);
 }
 
 /* Тонкие скроллбары теперь заданы глобально в reset.css — там же пояснение,
@@ -1330,6 +1327,36 @@ button.ghost.danger:hover {
 .modal-header h2 {
   font-size: calc(16px * var(--k));
 }
+/* ---------- вкладки в модалке (FriendsModal.svelte: "Лидерборд"/"Друзья") ---------- */
+.modal-tabs {
+  display: flex;
+  gap: calc(6px * var(--k));
+  padding: calc(10px * var(--k)) calc(16px * var(--k)) 0;
+}
+.modal-tab {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: calc(12.5px * var(--k));
+  padding: calc(7px * var(--k)) calc(10px * var(--k));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+.modal-tab:hover {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+.modal-tab.active {
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .modal-text {
   color: var(--muted);
   font-size: calc(14px * var(--k));
@@ -1381,13 +1408,13 @@ button.ghost.danger:hover {
   font-size: calc(12.5px * var(--k));
   line-height: 1.4;
   padding: calc(8px * var(--k)) calc(10px * var(--k));
-  border: 1px solid var(--amber-dim);
+  border: 1px solid var(--accent-dim);
   border-radius: var(--radius-sm, 6px);
-  background: rgba(255, 176, 32, 0.08);
-  color: var(--amber);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
 }
 
-/* ---------- кнопка "назад" — переиспользуется на chapters/profile/settings/admin/credits ---------- */
+/* ---------- кнопка "назад" — переиспользуется на chapters/profile/settings/admin ---------- */
 .profile-back,
 .screen-back {
   align-self: flex-start;
@@ -1479,16 +1506,6 @@ button.ghost.danger:hover {
    (см. layout.css), которое уже ограничено так же, как #screen-menu. */
 .random-count-card {
   width: 100%;
-}
-.logout-btn {
-  align-self: stretch;
-  margin-top: calc(10px * var(--k));
-  color: var(--red);
-  border-color: var(--amber-dim);
-}
-.logout-btn:hover {
-  background: rgba(255, 77, 77, 0.1);
-  border-color: var(--red);
 }
 .profile-footer-btn {
   align-self: stretch;
@@ -1692,9 +1709,9 @@ button.ghost.danger:hover {
   font-family: var(--font-mono);
   font-size: calc(15px * var(--k));
   letter-spacing: 0.06em;
-  color: var(--amber);
+  color: var(--accent);
   background: var(--panel-2);
-  border: 1px dashed var(--amber-dim);
+  border: 1px dashed var(--accent-dim);
   border-radius: var(--radius-md);
   padding: calc(12px * var(--k));
   margin: 0;
@@ -1729,8 +1746,6 @@ button.ghost.danger:hover {
   align-items: center;
   gap: calc(6px * var(--k));
   margin-left: auto;
-  padding-right: calc(4px * var(--k));
-  border-right: 1px solid var(--line);
 }
 .status-chip {
   display: flex;
@@ -1765,11 +1780,17 @@ button.ghost.danger:hover {
   background: var(--green);
 }
 .status-chip[data-status="degraded"] .status-chip-dot {
-  background: var(--amber);
+  background: var(--accent);
 }
 .status-chip[data-status="offline"] .status-chip-dot {
   background: var(--red);
 }
+/* Раньше у .status-chip-version слева была разделительная полоска
+   (border-left) и скругление обнулялось с этой стороны, чтобы пилюля
+   визуально "стыковалась" с соседним статус-чипом — по просьбе полоску
+   убрали: теперь это самостоятельная пилюля со скруглением по всем
+   четырём углам, как и обычный .status-chip, а промежуток между ними
+   даёт gap у .status-chip-group. */
 .status-chip-version:hover {
   color: var(--accent);
 }
@@ -1783,7 +1804,7 @@ button.ghost.danger:hover {
 }
 
 /* ---------- добавлено в client4: индикатор фазы экзамена, счётчик ошибок ---------- */
-.q-phase { font-family: var(--font-mono); font-size: 12px; color: var(--amber); text-transform: uppercase; letter-spacing: .06em; }
+.q-phase { font-family: var(--font-mono); font-size: 12px; color: var(--accent); text-transform: uppercase; letter-spacing: .06em; }
 .result-errors { font-family: var(--font-mono); font-size: 12px; color: var(--red); margin: 0 0 12px; }
 .toast-info { border-left-color: var(--accent); }
 
@@ -1866,7 +1887,13 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
   }
 }
 
-.theme-switch {
+label.theme-switch {
+  /* Селектор именно label.theme-switch (а не просто .theme-switch) —
+     специфичность должна быть не ниже, чем у .modal-body label
+     (components.css, блок модалок): та задаёт flex-direction:column
+     всем <label> внутри модалки и, при равной специфичности с обычным
+     .theme-switch, была бы применена позже по порядку в файле, из-за
+     чего иконки луны/солнца вставали в колонку вместо строки. */
   position: relative; /* контекст позиционирования для скрытого input ниже */
   display: inline-flex;
   flex-direction: row;
@@ -2268,8 +2295,7 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
 
 /* visual step4: result screen spacing safety */
 .result-summary,
-.result-errors,
-.result-actions {
+.result-errors {
   margin-top: calc(10px * var(--k));
 }
 

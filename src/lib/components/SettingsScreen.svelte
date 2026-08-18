@@ -1,15 +1,16 @@
 <script>
-  import { onMount } from "svelte";
-  import { state as appState, isLightTheme, isAdmin, ACCENT_PRESETS, accentColor } from "$lib/state.svelte.js";
+  import { state as appState, isLightTheme, ACCENT_PRESETS, accentColor } from "$lib/state.svelte.js";
   import * as api from "$lib/api/api.js";
   import * as cache from "$lib/api/cache.js";
-  import { toast, confirmDialog, openAboutModal } from "$lib/stores/ui.svelte.js";
+  import { toast, confirmDialog, settingsModal, closeSettingsModal } from "$lib/stores/ui.svelte.js";
   import { refreshAllCache } from "$lib/api/questions.js";
+  import Modal from "./Modal.svelte";
 
   // Настройки — раньше жили внутри ProfileScreen.svelte вперемешку с личными
-  // данными; вынесены в отдельный экран по просьбе (см. ai_work.md todo):
-  // тема, акцентный цвет, офлайн-кэш и (для админов) вход в админку — сюда,
-  // личные данные/фото/лицензия/друзья/выход — остались в профиле.
+  // данными; вынесены в отдельный экран, а теперь (по просьбе) — в отдельную
+  // модалку: тема, акцентный цвет, офлайн-кэш. Вход в админку и "О
+  // программе" отсюда убраны (см. Titlebar.svelte — админка теперь по
+  // клику на "Roadwits", "О программе" — по клику на версию в титлбаре).
 
   function formatBytes(n) {
     if (n < 1024) return `${n} Б`;
@@ -81,6 +82,18 @@
     cacheStatus = await cache.getStatus();
   }
 
+  // Настройки теперь модалка, всегда смонтированная (см. +page.svelte), а
+  // не отдельный экран, пересоздающийся заново при каждом входе — поэтому
+  // тему/акцент/статус кэша подтягиваем заново при каждом ОТКРЫТИИ модалки
+  // (раньше это делал onMount, срабатывавший при каждом заходе на экран).
+  $effect(() => {
+    if (settingsModal.open) {
+      lightTheme = isLightTheme();
+      accent = accentColor();
+      loadCacheStatus();
+    }
+  });
+
   // Без связи с сервером обновлять/чистить дисковый кэш нельзя (по просьбе):
   // "Обновить кэш" в любом случае требует сети (это и есть его смысл — забрать
   // свежие данные), а "Очистить кэш" офлайн просто оставило бы приложение без
@@ -129,39 +142,10 @@
     toast("Кэш очищен", "info");
     await loadCacheStatus();
   }
-
-  function back() {
-    // Настройки теперь открываются напрямую из титлбара (рядом с
-    // лидербордом), а не только изнутри профиля — как и у ProfileScreen,
-    // возвращаемся на экран-источник (Titlebar.openSettings/openProfile
-    // запоминают его в profileReturnScreen), а не всегда в "profile".
-    appState.screen = appState.profileReturnScreen || "menu";
-  }
-
-  function onKeydown(e) {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      back();
-    }
-  }
-
-  onMount(() => {
-    loadCacheStatus();
-    document.addEventListener("keydown", onKeydown);
-    return () => document.removeEventListener("keydown", onKeydown);
-  });
-
-  function openAdmin() {
-    appState.screen = "admin";
-  }
 </script>
 
-<section class="screen" id="screen-settings" data-screen="settings">
-  <div class="profile-card">
-    <button class="ghost small screen-back" type="button" onclick={back}>← Назад</button>
-
-    <h2 class="settings-title">Настройки</h2>
-
+{#if settingsModal.open}
+  <Modal title="Настройки" wide onclose={closeSettingsModal}>
     <div class="profile-settings first">
       <p class="panel-label">Тема оформления</p>
       <label class="theme-switch" title="Тема оформления">
@@ -232,16 +216,5 @@
         <p class="modal-hint">Нет связи с сервером — управление кэшем временно недоступно.</p>
       {/if}
     </div>
-
-    {#if isAdmin()}
-      <div class="profile-settings">
-        <p class="panel-label">Администрирование</p>
-        <button class="chapter-start" type="button" onclick={openAdmin}>🛠️ Панель администрирования</button>
-      </div>
-    {/if}
-
-    <div class="profile-settings">
-      <button class="ghost small" type="button" onclick={openAboutModal}>ℹ️ О программе</button>
-    </div>
-  </div>
-</section>
+  </Modal>
+{/if}

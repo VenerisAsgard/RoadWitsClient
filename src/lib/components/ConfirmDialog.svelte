@@ -36,7 +36,7 @@
 </script>
 
 {#if c.open}
-  <div class="modal-overlay" id="modal-overlay" use:lockBackgroundScroll>
+  <div class="modal-overlay confirm-overlay" id="modal-overlay" use:lockBackgroundScroll>
     <div class="modal-box" class:danger={c.danger} role="dialog" aria-modal="true">
       <div class="modal-header">
         <h2 id="modal-title">{c.title}</h2>
