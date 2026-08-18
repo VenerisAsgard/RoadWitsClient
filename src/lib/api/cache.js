@@ -261,6 +261,40 @@ export async function setCachedUser(fingerprint, user) {
   }
 }
 
+const CHECKED_CHAPTERS_PREFIX = "rw_checkedchapters_";
+
+/** Ключ намеренно вне baseKey()/CACHE_PREFIX (в отличие от списка глав и
+ * вопросов) — это не контент, который "Очистить кэш" должна стирать вместе
+ * с закэшированными вопросами (см. clearAll ниже, он чистит только
+ * baseKey()-префикс), а личная настройка "какие главы отмечены", которая
+ * должна пережить очистку кэша. Как и getCachedUser — привязана к
+ * fingerprint+userId, чтобы не подставлялась другому аккаунту на этом же
+ * устройстве. */
+function checkedChaptersKey() {
+  const fp = state.fingerprint || "nofp";
+  const uid = state.user?.id ?? "anon";
+  return `${CHECKED_CHAPTERS_PREFIX}${fp}_${uid}`;
+}
+
+/** @returns {Promise<number[]|null>} */
+export async function getCheckedChapters() {
+  try {
+    const ids = await idbGet(checkedChaptersKey());
+    return Array.isArray(ids) ? ids : null;
+  } catch {
+    return null;
+  }
+}
+
+/** @param {number[]} ids */
+export async function setCheckedChapters(ids) {
+  try {
+    await idbSet(checkedChaptersKey(), ids);
+  } catch {
+    // офлайн/диск недоступен — просто не сохранится между заходами, не критично
+  }
+}
+
 /** Все ключи дискового кэша (главы + вопросы всех глав) этого устройства+
  * аккаунта — НЕ включает USER_CACHE_PREFIX (кэш пользователя переживает
  * "Очистить кэш"/reloadChapters нарочно: это не контент вопросов, а просто

@@ -81,10 +81,19 @@
 
   function optionClass(i) {
     let cls = "q-option";
-    if (highlighted === i) cls += " selected";
+    // До раскрытия ответа — обычная подсветка выбора акцентом. После
+    // раскрытия (revealed) верный/неверный вариант красится зелёным/красным
+    // (.correct/.wrong ниже) — класс "selected" больше не добавляем, иначе
+    // поздний CSS-хвост (.q-option.selected{border-color:var(--accent)},
+    // конец components.css, "visual step2") перебивает зелёную/красную
+    // рамку акцентной по одинаковой специфичности, но более позднему
+    // порядку в файле. По просьбе: правильный ответ не должен обводиться
+    // акцентом.
     if (revealed) {
       if (i === q.correctIndex) cls += " correct";
       else if (i === confirmed) cls += " wrong";
+    } else if (highlighted === i) {
+      cls += " selected";
     }
     return cls;
   }

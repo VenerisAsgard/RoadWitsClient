@@ -185,24 +185,6 @@ export async function createChapter(token, { title, description, order }) {
   return normalizeChapter(raw, 0);
 }
 
-export async function updateChapterTitle(token, chapterId, title) {
-  // Намеренно отправляем только title — так этим же вызовом может
-  // пользоваться и editor (ему бэкенд разрешает менять только его).
-  const raw = await request(`/chapters/${chapterId}`, {
-    method: "PATCH",
-    token,
-    body: { title },
-  });
-  return normalizeChapter(raw, 0);
-}
-
-/**
- * Как updateChapterTitle, но заодно шлёт description — используется формой
- * редактирования главы (см. admin.js chapterFormHtml), которая теперь
- * позволяет менять описание так же, как при создании. Роли, которым бэкенд
- * не разрешает менять description (editor — см. комментарий выше), получат
- * 403 на это поле; в таком случае откатываемся на updateChapterTitle.
- */
 export async function updateChapter(token, chapterId, { title, description }) {
   const raw = await request(`/chapters/${chapterId}`, {
     method: "PATCH",

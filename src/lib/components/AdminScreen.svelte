@@ -23,6 +23,7 @@
     { field: "first_name", label: "Имя" },
     { field: "license_until", label: "Годен до" },
     { field: "is_blocked", label: "Статус" },
+    { field: "device_count", label: "Устройства" },
     { field: "created_at", label: "Создана" },
   ];
 
@@ -138,10 +139,11 @@
                     {lic.is_blocked ? "Заблокирован" : "Активна"}
                   </span>
                 </td>
+                <td class="license-devices">{lic.device_count ?? 0}/{lic.max_devices ?? 1}</td>
                 <td class="license-created">{lic.created_at ? formatDate(lic.created_at) : "—"}</td>
                 <td class="license-controls">
                   <button class="icon-btn tiny" type="button" title="Продлить на 30 дней" onclick={() => extendLicenseById(lic.id)}>+30д</button>
-                  <button class="icon-btn tiny danger" type="button" title="Сбросить устройство" onclick={() => resetDeviceById(lic.id)}>↻</button>
+                  <button class="icon-btn tiny danger" type="button" title="Сбросить устройства ({lic.device_count ?? 0}/{lic.max_devices ?? 1})" onclick={() => resetDeviceById(lic.id)}>↻</button>
                   <button
                     class="icon-btn tiny"
                     type="button"

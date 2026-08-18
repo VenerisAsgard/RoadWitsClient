@@ -1,8 +1,9 @@
 <script>
   import { state, ROLE_LABELS } from "$lib/state.svelte.js";
   import { isTouchDevice } from "$lib/device.js";
-  import { openContentModal, setHint } from "$lib/stores/ui.svelte.js";
+  import { openContentModal, setHint, openAboutModal } from "$lib/stores/ui.svelte.js";
   import { loadLeaderboard } from "$lib/friends.svelte.js";
+  import { checkConnection } from "$lib/connection.js";
 
   const initial = $derived(
     (state.user?.first_name || state.user?.email || "?").trim().charAt(0).toUpperCase() || "?",
@@ -14,8 +15,10 @@
   const avatarStyle = $derived.by(() => {
     const photo = state.user?.profile_photo;
     if (photo) return `background: url(${photo}) center/cover`;
-    const hue = ((state.user?.id || 0) * 47) % 360;
-    return `background: hsl(${hue}, 55%, 40%)`;
+    // По просьбе — вернули на var(--amber) (не var(--accent), не hsl по id).
+    // Текст фиксированно тёмный: amber светлый, белый текст на нём был бы
+    // плохо читаем.
+    return `background: var(--amber); color: #0b0d10`;
   });
   const displayName = $derived(
     [state.user?.first_name, state.user?.last_name].filter(Boolean).join(" ") ||
@@ -55,6 +58,13 @@
     state.screen = "settings";
     setHint([]);
   }
+
+  // По клику на статус — принудительная проверка связи с сервером (по
+  // просьбе, см. раньше StatusBar.svelte — теперь перенесено сюда, ближе
+  // к кнопке "Свернуть").
+  function onStatusClick() {
+    checkConnection({ manual: true });
+  }
 </script>
 
 <!-- Кастомный титлбар (decorations:false в tauri.conf.json). -->
@@ -78,6 +88,35 @@
       <span class="settings-label">Настройки</span>
     </button>
   {/if}
+
+  <!-- Статус сервера + версия — раньше отдельная строка status-bar внизу
+       окна (см. --status-h в variables.css), перенесено сюда по просьбе:
+       ближе к "Свернуть" (на touch — просто ближе к правому краю, окно
+       и так на весь экран, своих кнопок свернуть/закрыть тут нет), и
+       внизу окна освобождается место. Вне {#if !isTouchDevice} ниже —
+       раньше StatusBar был виден всегда, независимо от типа устройства. -->
+  <div class="status-chip-group">
+    <button
+      type="button"
+      class="status-chip"
+      data-status={state.connectionStatus}
+      disabled={state.connectionStatus === "checking"}
+      title={state.connectionStatus === "checking" ? "Проверка…" : `${state.connectionDetail} · нажмите, чтобы проверить снова`}
+      onclick={onStatusClick}
+    >
+      <span class="status-chip-dot"></span>
+      {#if state.connectionStatus === "checking"}
+        Проверка…
+      {:else if state.connectionStatus === "ok"}
+        Онлайн
+      {:else if state.connectionStatus === "degraded"}
+        Проблемы
+      {:else}
+        Нет связи
+      {/if}
+    </button>
+    <button type="button" class="status-chip status-chip-version" title="О программе" onclick={openAboutModal}>{state.appVersion}</button>
+  </div>
 
   {#if !isTouchDevice}
     <div class="window-buttons">

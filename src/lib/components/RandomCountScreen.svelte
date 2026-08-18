@@ -41,6 +41,7 @@
       {#each RANDOM_COUNT_OPTIONS as count, i (count)}
         <li>
           <div class="menu-item" class:active={i === state.randomCountIndex} role="button" tabindex="-1"
+            onmouseenter={() => (state.randomCountIndex = i)}
             onclick={() => {
               state.randomCountIndex = i;
               randomCountConfirm();

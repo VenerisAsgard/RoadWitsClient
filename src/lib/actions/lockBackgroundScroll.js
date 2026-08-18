@@ -17,28 +17,58 @@
  * лежит внутри самого оверлея. Скролл внутри модалки (.modal-body)
  * при этом работает как обычно, потому что он — часть node.
  *
+ * Вложенные модалки (например QuestionFormModal поверх
+ * QuestionSearchModal — форма редактирования, открытая по ✏️ из
+ * результатов поиска): обе модалки — это отдельные <Modal>, а значит
+ * ДВА независимых .modal-overlay, которые в DOM лежат РЯДОМ (не
+ * вложены друг в друга — Svelte-компоненты, а не HTML-вложенность), у
+ * каждого свой use:lockBackgroundScroll. Без стека ниже — каждый вызов
+ * этого экшна вешал СВОЙ собственный window-листенер: то есть при двух
+ * открытых модалках слушателей уже два, и оба проверяют "лежит ли
+ * target внутри МОЕГО узла". Для внешней (search) модалки узел формы
+ * редактирования — не потомок (это сосед в дереве), поэтому её
+ * листенер решал "target снаружи" и глушил скролл ВНУТРИ формы
+ * редактирования — хотя визуально она поверх и должна получать колесо
+ * первой. Починено общим стеком узлов на модуль: слушатель всего один
+ * на оба wheel/touchmove, и он всегда сверяется только с последним
+ * (самым верхним из открытых, т.е. смонтированным позже всех) узлом —
+ * так учитывается вложенность модалок любой глубины.
+ *
  * @param {HTMLElement} node
  */
+
+/** @type {HTMLElement[]} */
+const lockStack = [];
+let listenersInstalled = false;
+
+/** @param {Event} e */
+function onWheel(e) {
+  const top = lockStack[lockStack.length - 1];
+  if (top && e.target instanceof Node && !top.contains(e.target)) e.preventDefault();
+}
+/** @param {Event} e */
+function onTouchMove(e) {
+  const top = lockStack[lockStack.length - 1];
+  if (top && e.target instanceof Node && !top.contains(e.target)) e.preventDefault();
+}
+
 export function lockBackgroundScroll(node) {
-  /** @param {Event} e */
-  function isOutside(e) {
-    return e.target instanceof Node && !node.contains(e.target);
+  lockStack.push(node);
+  if (!listenersInstalled) {
+    window.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: false, capture: true });
+    listenersInstalled = true;
   }
-  /** @param {WheelEvent} e */
-  function onWheel(e) {
-    if (isOutside(e)) e.preventDefault();
-  }
-  /** @param {TouchEvent} e */
-  function onTouchMove(e) {
-    if (isOutside(e)) e.preventDefault();
-  }
-  window.addEventListener("wheel", onWheel, { passive: false, capture: true });
-  window.addEventListener("touchmove", onTouchMove, { passive: false, capture: true });
 
   return {
     destroy() {
-      window.removeEventListener("wheel", onWheel, true);
-      window.removeEventListener("touchmove", onTouchMove, true);
+      const i = lockStack.indexOf(node);
+      if (i !== -1) lockStack.splice(i, 1);
+      if (lockStack.length === 0 && listenersInstalled) {
+        window.removeEventListener("wheel", onWheel, true);
+        window.removeEventListener("touchmove", onTouchMove, true);
+        listenersInstalled = false;
+      }
     },
   };
 }

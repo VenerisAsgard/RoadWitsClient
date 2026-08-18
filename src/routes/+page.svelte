@@ -19,11 +19,11 @@
   import AdminScreen from "$lib/components/AdminScreen.svelte";
   import CreditsScreen from "$lib/components/CreditsScreen.svelte";
   import Placeholder from "$lib/components/Placeholder.svelte";
-  import StatusBar from "$lib/components/StatusBar.svelte";
   import ToastStack from "$lib/components/ToastStack.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import ImageViewer from "$lib/components/ImageViewer.svelte";
   import LeaderboardModal from "$lib/components/LeaderboardModal.svelte";
+  import AboutModal from "$lib/components/AboutModal.svelte";
   import HintBar from "$lib/components/HintBar.svelte";
   import EditorTooltip from "$lib/components/EditorTooltip.svelte";
 
@@ -111,10 +111,10 @@
   </div>
 {/if}
 
-<StatusBar />
 <ConfirmDialog />
 <ImageViewer />
 <LeaderboardModal />
+<AboutModal />
 <EditorTooltip />
 <ToastStack />
 <Splash />

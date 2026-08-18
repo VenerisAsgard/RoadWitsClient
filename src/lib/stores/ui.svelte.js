@@ -41,6 +41,11 @@ const confirmState = $state({
   confirmLabel: "Ок",
   cancelLabel: "Отмена",
   danger: false,
+  /** Если задано — под текстом рисуется .product-key-box с этим значением
+   * и кнопкой "копировать" (см. ConfirmDialog.svelte). Нужно для диалога
+   * подтверждения выхода: там показываем Product Key, чтобы можно было
+   * скопировать его перед уходом из аккаунта. */
+  copyText: "",
   /** @type {((result: boolean) => void)|null} */
   _resolve: null,
 });
@@ -50,16 +55,24 @@ export function confirmDialogState() {
 }
 
 /**
- * @param {{title: string, text: string, confirmLabel?: string, cancelLabel?: string, danger?: boolean}} options
+ * @param {{title: string, text: string, confirmLabel?: string, cancelLabel?: string, danger?: boolean, copyText?: string}} options
  * @returns {Promise<boolean>}
  */
-export function confirmDialog({ title, text, confirmLabel = "Ок", cancelLabel = "Отмена", danger = false }) {
+export function confirmDialog({
+  title,
+  text,
+  confirmLabel = "Ок",
+  cancelLabel = "Отмена",
+  danger = false,
+  copyText = "",
+}) {
   return new Promise((resolve) => {
     confirmState.title = title;
     confirmState.text = text;
     confirmState.confirmLabel = confirmLabel;
     confirmState.cancelLabel = cancelLabel;
     confirmState.danger = danger;
+    confirmState.copyText = copyText;
     confirmState._resolve = resolve;
     confirmState.open = true;
   });
@@ -90,6 +103,19 @@ export function openImageViewer(src) {
 }
 export function closeImageViewer() {
   imageViewer.src = null;
+}
+
+/* ---------- "О программе" — та же модалка-паттерн, что у лидерборда
+   (contentModal), но отдельный стейт: у лидерборда контент грузится
+   асинхронно с сервера, у "О программе" — статический, и оба должны
+   уметь быть открыты независимо (например, "О программе" по клику на
+   версию, не закрывая лидерборд, если вдруг оба как-то открыты разом). ---------- */
+export const aboutModal = $state({ open: false });
+export function openAboutModal() {
+  aboutModal.open = true;
+}
+export function closeAboutModal() {
+  aboutModal.open = false;
 }
 
 /* ---------- подсказка "автор · дата" при наведении на строку вопроса в

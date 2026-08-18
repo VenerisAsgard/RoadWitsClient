@@ -254,17 +254,20 @@ button.ghost.danger:hover {
   background: var(--red);
   color: var(--bg);
 }
-/* "текущий" вопрос — кольцо поверх любого цвета заливки */
+/* "текущий" вопрос — кольцо поверх любого цвета заливки. По просьбе —
+   акцентом (было var(--ink), не реагировало на смену акцентного цвета
+   в настройках). */
 .q-dot.current {
-  box-shadow: 0 0 0 2px var(--ink);
+  box-shadow: 0 0 0 2px var(--accent);
 }
 /* Кроме одного случая: текущий И ещё не отвечен — тогда сама точка
-   пульсирует янтарным, это явный маркер "ты здесь, ответь" (тот же
-   приём, что раньше был у сигнальной рейки в состоянии idle). */
+   пульсирует акцентом, это явный маркер "ты здесь, ответь" (тот же
+   приём, что раньше был у сигнальной рейки в состоянии idle; раньше
+   был захардкожен в янтарный вместо var(--accent)). */
 .q-dot[data-state="empty"].current {
-  background: var(--amber);
+  background: var(--accent);
   color: var(--bg);
-  box-shadow: 0 0 14px 2px rgba(255, 176, 32, 0.5);
+  box-shadow: 0 0 14px 2px color-mix(in srgb, var(--accent) 50%, transparent);
   animation: pulse-amber 1.8s ease-in-out infinite;
 }
 @keyframes pulse-amber {
@@ -470,6 +473,39 @@ button.ghost.danger:hover {
   cursor: default;
 }
 
+/* "Отметить все" — строка над списком глав, тот же визуальный язык, что
+   и у .c-checkbox отдельной главы. */
+.chapter-select-all {
+  display: flex;
+  align-items: center;
+  gap: calc(10px * var(--k));
+  padding: calc(8px * var(--k)) calc(12px * var(--k));
+  font-size: calc(13px * var(--k));
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.chapter-select-all:hover {
+  color: var(--ink);
+}
+.chapter-select-all .c-checkbox {
+  flex: 0 0 calc(18px * var(--k));
+  width: calc(18px * var(--k));
+  font-size: calc(16px * var(--k));
+  line-height: 1;
+  color: var(--faint);
+}
+.chapter-select-all[aria-checked="true"] .c-checkbox {
+  color: var(--accent);
+}
+/* Частично отмечено (не все, но хотя бы одна) — тот же пустой квадрат,
+   что и "ничего не отмечено", но акцентом, чтобы отличаться от обоих
+   крайних состояний, не заводя третий глиф специально под это. */
+.chapter-select-all .c-checkbox.partial {
+  color: var(--accent);
+}
+
 .split-detail .d-eyebrow {
   font-family: var(--font-mono);
   font-size: calc(12px * var(--k));
@@ -492,7 +528,7 @@ button.ghost.danger:hover {
 .d-count {
   font-family: var(--font-mono);
   font-size: calc(13px * var(--k));
-  color: var(--amber);
+  color: var(--accent);
   margin: 0;
 }
 .d-selected {
@@ -650,7 +686,7 @@ button.ghost.danger:hover {
 .q-explain {
   font-size: calc(13.5px * var(--k));
   color: var(--muted);
-  border-left: 2px solid var(--amber);
+  border-left: 2px solid var(--accent);
   padding-left: 12px;
   margin: 0;
 }
@@ -668,7 +704,7 @@ button.ghost.danger:hover {
 }
 .gauge-fill {
   fill: none;
-  stroke: var(--amber);
+  stroke: var(--accent);
   stroke-width: 12;
   stroke-linecap: butt;
   stroke-dasharray: 540;
@@ -1117,9 +1153,9 @@ button.ghost.danger:hover {
   color: var(--red);
 }
 .icon-btn.active {
-  border-color: var(--amber);
-  color: var(--amber);
-  background: rgba(255, 176, 32, 0.1);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 /* ---------- друзья: заявки (входящие/исходящие) + список + добавление по email ---------- */
@@ -1195,12 +1231,12 @@ button.ghost.danger:hover {
   height: calc(30px * var(--k));
   font-size: calc(16px * var(--k));
   font-weight: 700;
-  color: var(--amber);
-  border-color: var(--amber-dim);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 .friend-add-btn:hover {
-  border-color: var(--amber);
-  background: rgba(255, 176, 32, 0.1);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .c-controls,
@@ -1535,6 +1571,17 @@ button.ghost.danger:hover {
   color: var(--ink);
   margin: 0;
 }
+/* ---------- "О программе" в виде модалки (AboutModal.svelte) ---------- */
+/* Раньше блоки .credits-* жили внутри .credits-card (свой padding/gap на
+   полноэкранном .screen-credits) — здесь тот же контент лежит прямо в
+   .modal-body (своя рамка/фон уже даёт modal-box), недостающий вертикальный
+   отступ между секциями и от заголовка модалки восполняет этот класс. */
+.about-body {
+  display: flex;
+  flex-direction: column;
+  gap: calc(18px * var(--k));
+  padding-top: calc(16px * var(--k));
+}
 .profile-head h2 {
   font-size: calc(20px * var(--k));
   margin: 0 0 2px;
@@ -1636,9 +1683,11 @@ button.ghost.danger:hover {
   }
 }
 
-/* ---------- разовый показ Product Key после выдачи лицензии ----------
-   Ключ выдаётся один раз и больше нигде не показывается, поэтому это
-   отдельный блок с кнопкой "Скопировать", а не строчка в alert(). */
+/* ---------- показ Product Key (выдача лицензии, диалог логаута) ----------
+   Изначально был разовый показ сразу после выдачи лицензии (ProductKeyModal).
+   Теперь тот же блок переиспользуется в ConfirmDialog (copyText) — например,
+   в диалоге подтверждения логаута, чтобы можно было скопировать ключ перед
+   выходом (GET /auth/me с недавних пор отдаёт product_key). */
 .product-key-box {
   font-family: var(--font-mono);
   font-size: calc(15px * var(--k));
@@ -1651,6 +1700,16 @@ button.ghost.danger:hover {
   margin: 0;
   text-align: center;
   word-break: break-all;
+  /* flex: раньше был просто текстовый блок (ProductKeyModal — там кнопка
+     "копировать" отдельно, в .modal-actions), теперь этот же блок иногда
+     содержит кнопку копирования прямо внутри себя (ConfirmDialog copyText) —
+     flex с центрированием и переносом одинаково хорошо ведёт себя в обоих
+     случаях: с одним ребенком (просто текст) и с текстом+кнопкой. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: calc(8px * var(--k));
   /* единственное место, где текст обязан выделяться мышью — reset.css
      глобально это выключает. */
   -webkit-user-select: text;
@@ -1658,11 +1717,75 @@ button.ghost.danger:hover {
 }
 
 /* ---------- добавлено в client3: индикатор соединения, стопка тостов, настройки профиля, светлая тема ---------- */
-.belarus-mark{display:flex;align-items:center;gap:10px;margin:0 0 10px;color:var(--muted);font-family:var(--font-mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase}.belarus-mark .belarus-flag{font-size:26px}.connection-status{font-family:var(--font-mono);font-size:11px;color:var(--muted);background:none;border:none;padding:0;margin:0;cursor:pointer}.connection-status:hover{color:var(--ink)}.connection-status:disabled{cursor:default}.connection-status[data-status="ok"]{color:var(--green)}.connection-status[data-status="ok"]:hover{color:var(--green)}.connection-status[data-status="degraded"]{color:var(--amber)}.connection-status[data-status="degraded"]:hover{color:var(--amber)}.connection-status[data-status="offline"]{color:var(--red)}.connection-status[data-status="offline"]:hover{color:var(--red)}.app-version{font-family:var(--font-mono);font-size:11px;color:var(--faint);margin-left:10px;padding-left:10px;border-left:1px solid var(--line)}.toast-stack{position:fixed;right:18px;bottom:18px;z-index:130;display:flex;flex-direction:column;gap:8px;align-items:flex-end}.profile-settings{margin-top:22px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:10px}.profile-settings label:not(.theme-switch){display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}:root[data-theme="light"]{--bg:#f4f5f7;--panel:#fff;--panel-2:#e9edf2;--ink:#18202a;--muted:#5d6875;--faint:#87919e;--line:#d1d8e0;color-scheme:light}:root[data-theme="light"] .q-image-wrap{background:#fff}
+.belarus-mark{display:flex;align-items:center;gap:10px;margin:0 0 10px;color:var(--muted);font-family:var(--font-mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase}.belarus-mark .belarus-flag{font-size:26px}.toast-stack{position:fixed;right:18px;bottom:18px;z-index:130;display:flex;flex-direction:column;gap:8px;align-items:flex-end}.profile-settings{margin-top:22px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:10px}.profile-settings label:not(.theme-switch){display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}:root[data-theme="light"]{--bg:#e7e9ec;--panel:#fff;--panel-2:#dde1e6;--ink:#18202a;--muted:#5d6875;--faint:#87919e;--line:#c3cbd4;color-scheme:light}:root[data-theme="light"] .q-image-wrap{background:#fff}
+/* .connection-status/.app-version (StatusBar.svelte, строка внизу окна)
+   были здесь — компонент больше не используется (см. Titlebar.svelte,
+   .status-chip-group ниже, тот же функционал перенесён туда по просьбе).
+   Правила убраны как мёртвые — старые классы больше нигде не рендерятся. */
+
+/* ---------- статус сервера + версия в титлбаре (Titlebar.svelte) ---------- */
+.status-chip-group {
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--k));
+  margin-left: auto;
+  padding-right: calc(4px * var(--k));
+  border-right: 1px solid var(--line);
+}
+.status-chip {
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--k));
+  font-family: var(--font-mono);
+  font-size: calc(11px * var(--k));
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: calc(4px * var(--k)) calc(8px * var(--k));
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+.status-chip:hover {
+  background: var(--panel-2);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.status-chip:disabled {
+  cursor: default;
+}
+.status-chip-dot {
+  width: calc(7px * var(--k));
+  height: calc(7px * var(--k));
+  border-radius: 50%;
+  background: var(--faint);
+  flex: 0 0 auto;
+}
+.status-chip[data-status="ok"] .status-chip-dot {
+  background: var(--green);
+}
+.status-chip[data-status="degraded"] .status-chip-dot {
+  background: var(--amber);
+}
+.status-chip[data-status="offline"] .status-chip-dot {
+  background: var(--red);
+}
+.status-chip-version:hover {
+  color: var(--accent);
+}
+@media (max-width: 720px) {
+  /* На узких окнах текст статуса/версии в титлбаре только мешает —
+     оставляем цветную точку-индикатор и саму кнопку кликабельной
+     (см. тот же приём для .trophy-label/.settings-label чуть выше). */
+  .status-chip span:not(.status-chip-dot) {
+    display: none;
+  }
+}
+
 /* ---------- добавлено в client4: индикатор фазы экзамена, счётчик ошибок ---------- */
 .q-phase { font-family: var(--font-mono); font-size: 12px; color: var(--amber); text-transform: uppercase; letter-spacing: .06em; }
 .result-errors { font-family: var(--font-mono); font-size: 12px; color: var(--red); margin: 0 0 12px; }
-.toast-info { border-left-color: var(--amber); }
+.toast-info { border-left-color: var(--accent); }
 
 /* ---------- офлайн-кэш вопросов (профиль, см. render.renderCacheStatus) ---------- */
 .cache-status {
@@ -1680,7 +1803,7 @@ button.ghost.danger:hover {
   color: var(--green);
 }
 .cache-status-line[data-status="degraded"] {
-  color: var(--amber);
+  color: var(--accent);
 }
 .cache-status-line[data-status="offline"] {
   color: var(--red);
@@ -1806,8 +1929,7 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
   transform: translateX(calc(18px * var(--k)));
 }
 .theme-switch input:focus-visible ~ .theme-switch-track {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: none;
 }
 
 .avatar-upload-btn {
@@ -1889,8 +2011,8 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
   background: var(--panel-2);
 }
 .leaderboard-row-me {
-  background: rgba(255, 176, 32, 0.12);
-  border: 1px solid var(--amber-dim);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
 }
 .leaderboard-rank {
   width: calc(24px * var(--k));
@@ -2025,6 +2147,11 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
   color: var(--faint);
   font-family: var(--font-mono);
 }
+.admin-table .license-devices {
+  color: var(--faint);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
 .admin-table .license-key {
   display: flex;
   align-items: center;
@@ -2101,7 +2228,7 @@ input[type=file]::file-selector-button { background: var(--panel-2); color: var(
   border-radius: calc(8px * var(--k));
   padding-top: calc(10px * var(--k));
   padding-bottom: calc(10px * var(--k));
-  background: color-mix(in srgb, var(--amber) 8%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .result-info {

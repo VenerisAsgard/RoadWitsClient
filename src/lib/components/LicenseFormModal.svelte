@@ -7,12 +7,18 @@
   let userType = $state("student");
   let email = $state("");
   let licenseDays = $state(365);
+  let maxDevices = $state(1);
   let saving = $state(false);
 
   async function submit(e) {
     e.preventDefault();
     saving = true;
-    const created = await createLicense({ userType, email: email.trim(), licenseDays: Number(licenseDays) });
+    const created = await createLicense({
+      userType,
+      email: email.trim(),
+      licenseDays: Number(licenseDays),
+      maxDevices: Number(maxDevices),
+    });
     saving = false;
     if (created) {
       onclose?.();
@@ -38,6 +44,14 @@
     <label>
       Срок действия, дней
       <input type="number" min="1" required bind:value={licenseDays} />
+    </label>
+    <label>
+      Устройств (до 3х)
+      <select class="select-styled" bind:value={maxDevices}>
+        <option value={1}>1</option>
+        <option value={2}>2</option>
+        <option value={3}>3</option>
+      </select>
     </label>
     <div class="modal-actions">
       <button type="button" class="ghost" onclick={() => onclose?.()}>Отмена</button>

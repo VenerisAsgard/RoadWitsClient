@@ -433,6 +433,20 @@ export function menuConfirm() {
     state.checkedChapters = new Set();
     state.screen = "chapters";
     setHint(HINT_CHAPTERS);
+    // По просьбе: отметки глав — не разовый выбор на сессию, а сохранённая
+    // настройка (см. cache.getCheckedChapters/setCheckedChapters). Читаем
+    // асинхронно и подставляем, когда придёт — если к этому моменту
+    // пользователь уже успел сам что-то отметить или уйти с экрана,
+    // не перетираем (навигация стрелками по списку глав — chaptersMove —
+    // сама по себе не считается "уже отметил", поэтому здесь не проверяем
+    // chapterIndex). Отфильтровываем id, которых уже нет среди текущих
+    // глав (глава могла быть удалена редактором с тех пор).
+    cache.getCheckedChapters().then((ids) => {
+      if (!ids || !ids.length) return;
+      if (state.screen !== "chapters" || state.checkedChapters.size) return;
+      const valid = ids.filter((id) => state.chapters.some((c) => c.id === id && c.count > 0));
+      if (valid.length) state.checkedChapters = new Set(valid);
+    });
   } else if (choice === "random") {
     state.screen = "random-count";
     setHint(HINT_RANDOM_COUNT);
@@ -501,6 +515,20 @@ export function toggleChapterCheck(chapter) {
   else state.checkedChapters.add(chapter.id);
   // Set — Svelte 5 не видит мутацию сама, форсируем реактивность переприсваиванием.
   state.checkedChapters = new Set(state.checkedChapters);
+  cache.setCheckedChapters([...state.checkedChapters]);
+}
+
+/** "Отметить все" — стандартная логика чекбокса в шапке списка (как в
+ * почте/файловых менеджерах): если отмечены не все доступные для выбора
+ * главы (в т.ч. если не отмечена ни одна) — отмечает все; если уже
+ * отмечены все — снимает все отметки. Главы без вопросов (count === 0)
+ * не участвуют — их и toggleChapterCheck выше не даёт отметить по
+ * отдельности. */
+export function toggleAllChapters() {
+  const selectable = state.chapters.filter((c) => c.count > 0);
+  const allChecked = selectable.length > 0 && selectable.every((c) => state.checkedChapters.has(c.id));
+  state.checkedChapters = allChecked ? new Set() : new Set(selectable.map((c) => c.id));
+  cache.setCheckedChapters([...state.checkedChapters]);
 }
 
 export function chaptersConfirm() {

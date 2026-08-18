@@ -51,6 +51,7 @@
           class:active={i === state.menuIndex}
           role="button"
           tabindex="-1"
+          onmouseenter={() => (state.menuIndex = i)}
           onclick={() => {
             state.menuIndex = i;
             menuConfirm();

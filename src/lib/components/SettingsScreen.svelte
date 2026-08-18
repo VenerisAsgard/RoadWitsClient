@@ -3,7 +3,7 @@
   import { state as appState, isLightTheme, isAdmin, ACCENT_PRESETS, accentColor } from "$lib/state.svelte.js";
   import * as api from "$lib/api/api.js";
   import * as cache from "$lib/api/cache.js";
-  import { toast, confirmDialog } from "$lib/stores/ui.svelte.js";
+  import { toast, confirmDialog, openAboutModal } from "$lib/stores/ui.svelte.js";
   import { refreshAllCache } from "$lib/api/questions.js";
 
   // Настройки — раньше жили внутри ProfileScreen.svelte вперемешку с личными
@@ -154,9 +154,6 @@
   function openAdmin() {
     appState.screen = "admin";
   }
-  function openCredits() {
-    appState.screen = "credits";
-  }
 </script>
 
 <section class="screen" id="screen-settings" data-screen="settings">
@@ -244,7 +241,7 @@
     {/if}
 
     <div class="profile-settings">
-      <button class="ghost small" type="button" onclick={openCredits}>ℹ️ О программе</button>
+      <button class="ghost small" type="button" onclick={openAboutModal}>ℹ️ О программе</button>
     </div>
   </div>
 </section>

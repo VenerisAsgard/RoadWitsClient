@@ -1,8 +1,8 @@
 <script>
   import { onMount } from "svelte";
   import { state as appState, canEditContent, isAdmin } from "$lib/state.svelte.js";
-  import { chaptersMove, toggleChapterCheck, chaptersConfirm, returnToMenu } from "$lib/quiz.js";
-  import { refreshEditorQuestions, confirmDeleteChapter, confirmDeleteQuestion } from "$lib/admin.js";
+  import { chaptersMove, toggleChapterCheck, toggleAllChapters, chaptersConfirm, returnToMenu } from "$lib/quiz.js";
+  import { refreshEditorQuestions, confirmDeleteChapter } from "$lib/admin.js";
   import { showEqTooltip, hideEqTooltip } from "$lib/stores/ui.svelte.js";
   import ChapterFormModal from "./ChapterFormModal.svelte";
   import QuestionFormModal from "./QuestionFormModal.svelte";
@@ -10,14 +10,19 @@
 
   const current = $derived(appState.chapters[appState.chapterIndex]);
   const checkedCount = $derived(appState.checkedChapters.size);
+  // По просьбе: старт только если отмечена хотя бы одна глава (галочкой) —
+  // раньше можно было начать тренировку и без единой отметки, по одной лишь
+  // текущей выделенной строке в списке (просто клик по строке, не по
+  // чекбоксу).
   const startLabel = $derived(
     checkedCount
       ? `Начать по ${checkedCount} ${checkedCount === 1 ? "главе" : "главам"}`
-      : current && (current.count || 0) > 0
-        ? "Начать тренировку"
-        : "Нет вопросов",
+      : "Отметьте хотя бы одну главу",
   );
-  const startDisabled = $derived(!checkedCount && !(current && (current.count || 0) > 0));
+  const startDisabled = $derived(!checkedCount);
+  const selectableChapters = $derived(appState.chapters.filter((c) => (c.count || 0) > 0));
+  const allChaptersChecked = $derived(selectableChapters.length > 0 && selectableChapters.every((c) => appState.checkedChapters.has(c.id)));
+  const someChaptersChecked = $derived(!allChaptersChecked && selectableChapters.some((c) => appState.checkedChapters.has(c.id)));
 
   let editingChapter = $state(null); // null=закрыто, false=создание, объект=правка
   let editingQuestion = $state(null); // null=закрыто, false=создание, объект=правка
@@ -113,6 +118,20 @@
         {/if}
       </div>
 
+      {#if selectableChapters.length > 0}
+        <div
+          class="chapter-select-all"
+          role="checkbox"
+          tabindex="0"
+          aria-checked={allChaptersChecked ? "true" : someChaptersChecked ? "mixed" : "false"}
+          onclick={toggleAllChapters}
+          onkeydown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), toggleAllChapters())}
+        >
+          <span class="c-checkbox" class:partial={someChaptersChecked}>{allChaptersChecked ? "🗹" : "☐"}</span>
+          <span>Отметить все</span>
+        </div>
+      {/if}
+
       <ul class="chapter-list" id="chapter-list">
         {#each appState.chapters as c, i (c.id)}
           {@const hasQuestions = (c.count || 0) > 0}
@@ -146,7 +165,7 @@
                   }
                 }}
               >
-                {checked ? "☑" : "☐"}
+                {checked ? "🗹" : "☐"}
               </span>
               <span class="c-num">{String(c.num ?? i + 1).padStart(2, "0")}</span>
               <span class="c-title">{c.title}</span>
@@ -187,7 +206,6 @@
         {#if checkedCount}
           <p class="d-selected">Отмечено глав: {checkedCount}</p>
         {/if}
-        <p class="d-hint">Space или клик по ☐ — отметить главу (можно несколько)</p>
         <button class="chapter-start" disabled={startDisabled} onclick={chaptersConfirm}>{startLabel}</button>
 
         {#if canEditContent()}
@@ -210,7 +228,6 @@
                     <span class="eq-text">{q.text}</span>
                     <span class="eq-controls">
                       <button class="icon-btn tiny" type="button" title="Редактировать" onclick={() => (editingQuestion = q)}>✏️</button>
-                      <button class="icon-btn tiny danger" type="button" title="Удалить" onclick={() => confirmDeleteQuestion(q.id)}>❌</button>
                     </span>
                   </li>
                 {/each}

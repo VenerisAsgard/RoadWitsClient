@@ -25,7 +25,7 @@
 </script>
 
 <Modal title="Лицензия создана" onclose={() => onclose?.()}>
-  <p class="modal-text">Product Key показывается только сейчас и больше нигде не появится.</p>
+  <p class="modal-text">Product Key этой лицензии — сохраните его, он понадобится для входа.</p>
   <p class="product-key-box" bind:this={boxEl}>{productKey}</p>
   <div class="modal-actions">
     <button type="button" class="ghost" onclick={() => onclose?.()}>Закрыть</button>

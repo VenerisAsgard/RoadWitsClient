@@ -18,6 +18,7 @@
 /**
  * @typedef {Object} User
  * @property {number} id
+ * @property {string} product_key
  * @property {string} email
  * @property {string|null} first_name
  * @property {string|null} last_name
@@ -60,6 +61,8 @@
  * @property {string|null} last_name
  * @property {string|null} license_until
  * @property {boolean} is_blocked
+ * @property {number} max_devices
+ * @property {number} device_count
  * @property {string} [created_at]
  */
 

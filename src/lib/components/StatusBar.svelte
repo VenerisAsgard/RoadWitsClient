@@ -1,6 +1,7 @@
 <script>
   import { state } from "$lib/state.svelte.js";
   import { checkConnection } from "$lib/connection.js";
+  import { openAboutModal } from "$lib/stores/ui.svelte.js";
 
   // По клику на статус — принудительная проверка связи с сервером (по
   // просьбе), не дожидаясь следующего тика фонового опроса (см. connection.js).
@@ -30,5 +31,5 @@
       Сервер: нет связи — попробуйте отключить VPN
     {/if}
   </button>
-  <span id="app-version" class="app-version">{state.appVersion}</span>
+  <button type="button" id="app-version" class="app-version" title="О программе" onclick={openAboutModal}>{state.appVersion}</button>
 </div>

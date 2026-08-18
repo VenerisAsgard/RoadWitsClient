@@ -1,6 +1,7 @@
 <script>
   import Modal from "./Modal.svelte";
   import { buildQuestionIndex, findSimilarQuestions } from "$lib/admin.js";
+  import QuestionFormModal from "./QuestionFormModal.svelte";
 
   let { onclose } = $props();
 
@@ -8,6 +9,7 @@
   let results = $state([]);
   let searched = $state(false);
   let timer = null;
+  let editingQuestion = $state(null); // вопрос (объект) | null
 
   const indexPromise = buildQuestionIndex();
 
@@ -49,9 +51,16 @@
             <span class="qs-badge" class:exact={r.exact}>
               {r.exact ? "точное совпадение" : `~${Math.round(r.score * 100)}%`}
             </span>
+            <button class="icon-btn tiny" type="button" title="Редактировать" onclick={() => (editingQuestion = r.question)}>✏️</button>
           </li>
         {/each}
       {/if}
     </ul>
   </div>
 </Modal>
+
+{#if editingQuestion}
+  {#key editingQuestion}
+    <QuestionFormModal question={editingQuestion} onclose={() => (editingQuestion = null)} />
+  {/key}
+{/if}

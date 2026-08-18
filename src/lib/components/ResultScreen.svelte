@@ -7,7 +7,11 @@
   const GAUGE_CIRCUMFERENCE = 540;
   const r = $derived(appState.lastResult ?? { correct: 0, total: 0, pct: 0, passed: null, isExam: false, score: 0, incorrect: 0 });
 
-  const gaugeColor = $derived(r.isExam ? (r.passed ? "var(--green)" : "var(--red)") : "var(--amber)");
+  // По просьбе: круг результата всегда акцентом — независимо от режима
+  // (раньше в экзамене красился зелёным/красным по сдал/не сдал; статус
+  // сдачи и так виден по тексту verdict/result-errors ниже, красный/зелёный
+  // тут больше не нужны).
+  const gaugeColor = "var(--accent)";
   const gaugeOffset = $derived(GAUGE_CIRCUMFERENCE - (GAUGE_CIRCUMFERENCE * r.pct) / 100);
   const verdict = $derived(r.isExam ? (r.passed ? "Сдал" : "Не сдал") : "Готово");
 

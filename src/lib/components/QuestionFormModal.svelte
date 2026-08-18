@@ -1,7 +1,7 @@
 <script>
   import { untrack } from "svelte";
   import Modal from "./Modal.svelte";
-  import { createQuestion, updateQuestionById, buildQuestionIndex, findSimilarQuestions, fileToBase64 } from "$lib/admin.js";
+  import { createQuestion, updateQuestionById, buildQuestionIndex, findSimilarQuestions, fileToBase64, confirmDeleteQuestion } from "$lib/admin.js";
   import { toast } from "$lib/stores/ui.svelte.js";
   import { state as appState } from "$lib/state.svelte.js";
 
@@ -28,7 +28,6 @@
   let fileInput = $state(null);
   let filePreviewUrl = $state(null); // data URL нового выбранного файла — для превью
   let imageRemoved = $state(false);
-  let previewOn = $state(false);
   let saving = $state(false);
   let dupWarning = $state(null); // { exact, chapterTitle, text, id, question, moreCount } | null
   let dupTimer = null;
@@ -88,6 +87,19 @@
     dupTimer = setTimeout(checkDuplicates, 350);
   }
   checkDuplicates(); // и сразу при открытии формы, не только по вводу
+
+  let deleting = $state(false);
+  async function onDelete() {
+    // question.chapterId — та же логика, что и в submit() ниже: см.
+    // questions.js withChapterId; запасной вариант — глава, выбранная в
+    // редакторе (на случай очень старого закэшированного вопроса без
+    // этого поля).
+    const chapterId = question?.chapterId ?? appState.chapters[appState.chapterIndex]?.id;
+    deleting = true;
+    const ok = await confirmDeleteQuestion(chapterId, question.id);
+    deleting = false;
+    if (ok) onclose?.();
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -197,34 +209,12 @@
     <button type="button" class="ghost small" onclick={addAnswerRow}>+ вариант ответа</button>
 
     <div class="modal-actions">
-      <button type="button" class="ghost" onclick={() => (previewOn = !previewOn)}>
-        {previewOn ? "🙈 Скрыть предпросмотр" : "👁 Предпросмотр"}
-      </button>
+      {#if question}
+        <button type="button" class="ghost danger" disabled={deleting || saving} onclick={onDelete}>🗑 Удалить вопрос</button>
+      {/if}
       <span class="modal-actions-spacer"></span>
       <button type="button" class="ghost" onclick={() => onclose?.()}>Отмена</button>
       <button type="submit" disabled={saving}>{question ? "Сохранить" : "Создать"}</button>
     </div>
-
-    {#if previewOn}
-      <div class="question-preview">
-        <p class="modal-hint">Так вопрос увидит проходящий тест:</p>
-        {#if filePreviewUrl || showCurrentImage}
-          <div class="q-image-wrap qp-image-wrap">
-            <img alt="Иллюстрация к вопросу" src={filePreviewUrl || question.image} />
-          </div>
-        {/if}
-        <p class="q-text">{text.trim() || "Текст вопроса появится здесь…"}</p>
-        <ul class="q-options">
-          {#each answers as a, i}
-            <li class="q-option" class:correct={a.correct}>
-              <span class="o-key">{i + 1}</span><span>{a.text.trim() || `Вариант ${i + 1}`}</span>
-            </li>
-          {/each}
-        </ul>
-        {#if hint.trim()}
-          <p class="q-explain">{hint.trim()}</p>
-        {/if}
-      </div>
-    {/if}
   </form>
 </Modal>

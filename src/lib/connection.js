@@ -1,12 +1,14 @@
 /**
  * Проверка связи с сервером (GET /health) — обновляет
- * state.connectionStatus/connectionDetail, которые читает StatusBar.svelte.
+ * state.connectionStatus/connectionDetail, которые читает Titlebar.svelte
+ * (.status-chip-group; раньше — StatusBar.svelte, строка внизу окна,
+ * перенесена в титлбар по просьбе).
  *
  * Раньше это была локальная функция прямо внутри onMount в +page.svelte:
  * дергалась один раз при старте и затем по таймеру (HEALTHCHECK_POLL_MS).
  * Вынесена в отдельный модуль, чтобы её же можно было дёрнуть вручную — по
- * клику на статус "Сервер онлайн" в StatusBar (принудительная проверка,
- * по просьбе), не дожидаясь следующего тика фонового опроса.
+ * клику на статус в титлбаре (принудительная проверка, по просьбе), не
+ * дожидаясь следующего тика фонового опроса.
  */
 import { state } from "./state.svelte.js";
 import * as api from "./api/api.js";

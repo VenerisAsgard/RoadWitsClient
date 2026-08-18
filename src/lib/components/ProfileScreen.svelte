@@ -25,8 +25,10 @@
   function avatarStyle(user) {
     const photo = user?.profile_photo;
     if (photo) return `background: url(${photo}) center/cover`;
-    const hue = ((user?.id || 0) * 47) % 360;
-    return `background: hsl(${hue}, 55%, 40%)`;
+    // По просьбе — вернули на var(--amber) (не var(--accent), не hsl по id).
+    // Текст фиксированно тёмный: amber светлый, белый текст на нём был бы
+    // плохо читаем.
+    return `background: var(--amber); color: #0b0d10`;
   }
 
   let firstName = $state(appState.user?.first_name || "");
@@ -167,10 +169,11 @@
   async function handleLogout() {
     const ok = await confirmDialog({
       title: "Выйти из аккаунта?",
-      text: `Понадобится снова ввести Product Key, чтобы войти.${appState.user?.product_key ? `\n\nВаш Product Key: ${appState.user.product_key}` : ""}`,
+      text: "Понадобится снова ввести Product Key, чтобы войти. Скопируйте его сейчас, если не уверены, что он сохранён где-то ещё:",
       confirmLabel: "Да, выйти",
       cancelLabel: "Остаться",
       danger: true,
+      copyText: appState.user?.product_key ?? "",
     });
     if (ok) await logout();
   }

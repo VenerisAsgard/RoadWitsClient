@@ -47,19 +47,10 @@ export async function createChapter(title, description) {
 
 export async function renameChapter(chapter, title, description) {
   try {
-    try {
-      await api.updateChapter(state.token, chapter.id, { title, description });
-    } catch (err) {
-      // Роль editor: бэкенд разрешает менять только title — если запрос с
-      // description отклонён именно поэтому, тихо повторяем без него, чтобы
-      // хотя бы название сохранилось.
-      if (err instanceof api.ApiError && err.status === 403) {
-        await api.updateChapterTitle(state.token, chapter.id, title);
-        toast("Название сохранено, описание может менять только администратор", "info");
-      } else {
-        throw err;
-      }
-    }
+    // Роль editor теперь тоже может менять title и description (бэкенд
+    // запрещает ей менять только order) — отдельный fallback без description
+    // больше не нужен, 403 здесь означает реальную ошибку прав/данных.
+    await api.updateChapter(state.token, chapter.id, { title, description });
     await reloadChapters();
     return true;
   } catch (err) {
@@ -144,7 +135,7 @@ export async function updateQuestionById(chapterId, questionId, payload) {
   }
 }
 
-export async function confirmDeleteQuestion(questionId) {
+export async function confirmDeleteQuestion(chapterId, questionId) {
   const ok = await confirmDialog({
     title: "Удалить вопрос?",
     text: "Это действие нельзя отменить.",
@@ -152,13 +143,14 @@ export async function confirmDeleteQuestion(questionId) {
     cancelLabel: "Отмена",
     danger: true,
   });
-  if (!ok) return;
+  if (!ok) return false;
   try {
-    const chapter = state.chapters[state.chapterIndex];
-    await api.deleteQuestion(state.token, chapter.id, questionId);
+    await api.deleteQuestion(state.token, chapterId, questionId);
     await reloadChapters();
+    return true;
   } catch (err) {
     toast(err instanceof api.ApiError ? err.message : "Не удалось удалить вопрос", "error");
+    return false;
   }
 }
 
@@ -318,12 +310,16 @@ export async function copyLicenseKey(productKey) {
   }
 }
 
-export async function createLicense({ userType, email, licenseDays }) {
+export async function createLicense({ userType, email, licenseDays, maxDevices }) {
   try {
     const created = await api.createLicense(state.token, {
       user_type: userType,
       email: email || null,
       license_days: licenseDays,
+      // Сколько устройств можно привязать к лицензии одновременно (1..3 на
+      // бэкенде, см. LicenseCreateRequest.max_devices) — по умолчанию 1,
+      // если форма ничего не передала.
+      max_devices: maxDevices || 1,
     });
     await loadLicenses();
     return created; // { product_key, ... } — показывается один раз вызывающим кодом
