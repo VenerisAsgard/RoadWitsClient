@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT d.id FROM devices d\n        JOIN user_devices ud ON ud.device_id = d.id\n        WHERE ud.user_id = $1 AND d.fingerprint = $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "649859dc1f50596b4c919f6a958ea85e5313b7019d04ca47314c5ad61f20a801"
+}

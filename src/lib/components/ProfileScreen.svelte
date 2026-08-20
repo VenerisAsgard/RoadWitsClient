@@ -35,6 +35,7 @@
 
   let photoInput = $state(null);
   let uploadingPhoto = $state(false);
+  let uploadPercent = $state(0);
 
   // Профиль теперь модалка, всегда смонтированная (см. +page.svelte) — а
   // не отдельный экран, который каждый раз пересоздавался бы заново при
@@ -56,9 +57,9 @@
      размеру и не весит непомерно много в base64. GIF отправляется как
      есть (без кропа/сжатия — они потушили бы анимацию), просто с
      проверкой итогового размера. ---------- */
-  const AVATAR_SIZE = 480;
+  const AVATAR_SIZE = 640; // было 480 — по просьбе увеличено для более чёткой аватарки
   const AVATAR_JPEG_QUALITY = 0.85;
-  const MAX_PHOTO_DATA_URL_LENGTH = 2_000_000;
+  const MAX_PHOTO_DATA_URL_LENGTH = 4_000_000; // было 2_000_000 — тот же запрос, лимит касается только GIF (см. выше)
 
   function readFileAsDataUrl(file) {
     return new Promise((resolve, reject) => {
@@ -115,19 +116,25 @@
       return;
     }
     uploadingPhoto = true;
+    uploadPercent = 0;
     try {
-      const updated = await api.updateProfile(appState.token, {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        email: email.trim(),
-        profilePhoto: dataUrl,
-      });
+      const updated = await api.updateProfile(
+        appState.token,
+        {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim(),
+          profilePhoto: dataUrl,
+        },
+        { onUploadProgress: (fraction) => (uploadPercent = Math.round(fraction * 100)) },
+      );
       appState.user = { ...appState.user, ...updated };
       toast("Фото обновлено", "success");
     } catch (err) {
       toast(err instanceof api.ApiError ? err.message : "Не удалось сохранить фото", "error");
     } finally {
       uploadingPhoto = false;
+      uploadPercent = 0;
       if (photoInput) photoInput.value = "";
     }
   }
@@ -197,7 +204,13 @@
         <span class="avatar large" style={avatarStyle(appState.user)}>
           {appState.user?.profile_photo ? "" : initialsOf(appState.user)}
         </span>
-        <span class="avatar-upload-hint">{uploadingPhoto ? "Загрузка…" : "Сменить фото"}</span>
+        <span class="avatar-upload-hint">
+          {#if uploadingPhoto}
+            {uploadPercent > 0 ? `Загрузка… ${uploadPercent}%` : "Загрузка…"}
+          {:else}
+            Сменить фото
+          {/if}
+        </span>
       </button>
       <input
         type="file"

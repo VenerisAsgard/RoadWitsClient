@@ -1835,11 +1835,39 @@ button.title:focus-visible {
   color: var(--faint);
   margin: 0;
 }
+.cache-progress-bar {
+  width: 100%;
+  height: calc(6px * var(--k));
+  border-radius: calc(3px * var(--k));
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.cache-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  /* Плавно подтягивается к новому проценту при каждом report() из
+     refreshAllCache, а не дёргается скачками между главами. */
+  transition: width 0.25s ease-out;
+}
 .cache-actions {
   display: flex;
   gap: calc(8px * var(--k));
   flex-wrap: wrap;
   margin-top: calc(4px * var(--k));
+}
+.cache-force-toggle {
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--k));
+  font-size: calc(12px * var(--k));
+  color: var(--faint);
+  margin-top: calc(6px * var(--k));
+  cursor: pointer;
+}
+.cache-force-toggle input[type="checkbox"] {
+  margin: 0;
 }
 
 /* ---------- инпуты файлов + тема для select (дальше переопределяется кастомным

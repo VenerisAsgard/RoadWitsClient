@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+package roadwits.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Главы курса и задания (вопросы/ответы). Это внутренний API: is_correct
+// не скрывается, проверку ответов студента делает клиент, не сервер.
+service ContentService {
+  // Доступно любому авторизованному пользователю.
+  rpc ListChapters(ListChaptersRequest) returns (ListChaptersResponse);
+  // editor и admin.
+  rpc CreateChapter(CreateChapterRequest) returns (Chapter);
+  // editor и admin; editor не может менять order (см. UpdateChapterRequest).
+  rpc UpdateChapter(UpdateChapterRequest) returns (Chapter);
+  // Только admin. Каскадно удаляет все questions/answers главы.
+  rpc DeleteChapter(DeleteChapterRequest) returns (DeleteChapterResponse);
+
+  rpc ListQuestions(ListQuestionsRequest) returns (ListQuestionsResponse);
+  rpc GetQuestion(GetQuestionRequest) returns (Question);
+  rpc CreateQuestion(CreateQuestionRequest) returns (Question);
+  rpc UpdateQuestion(UpdateQuestionRequest) returns (Question);
+  rpc DeleteQuestion(DeleteQuestionRequest) returns (DeleteQuestionResponse);
+}
+
+message Chapter {
+  int64 id = 1;
+  string title = 2;
+  optional string description = 3;
+  int32 order = 4;
+  int32 question_count = 5;
+  optional int64 created_by_id = 6;
+  optional string created_by_email = 7;
+}
+
+message ListChaptersRequest {}
+
+message ListChaptersResponse {
+  repeated Chapter chapters = 1;
+}
+
+message CreateChapterRequest {
+  string title = 1;
+  optional string description = 2;
+  int32 order = 3;
+}
+
+message UpdateChapterRequest {
+  int64 chapter_id = 1;
+  // Presence (proto3 optional) отличает "не менять" от "менять": order
+  // присутствует в запросе <=> клиент действительно просит сменить порядок,
+  // а это разрешено только admin (editor получит PERMISSION_DENIED).
+  optional string title = 2;
+  optional string description = 3;
+  optional int32 order = 4;
+}
+
+message DeleteChapterRequest {
+  int64 chapter_id = 1;
+}
+
+message DeleteChapterResponse {}
+
+message Answer {
+  int64 id = 1;
+  string text = 2;
+  bool is_correct = 3;
+}
+
+message AnswerInput {
+  string text = 1;
+  bool is_correct = 2;
+}
+
+message Question {
+  int64 id = 1;
+  int64 chapter_id = 2;
+  string text = 3;
+  int32 order = 4;
+  optional string hint = 5;
+  optional string image_base64 = 6;
+  optional int64 created_by_id = 7;
+  optional string created_by_email = 8;
+  google.protobuf.Timestamp created_at = 9;
+  repeated Answer answers = 10;
+}
+
+message ListQuestionsRequest {
+  int64 chapter_id = 1;
+}
+
+message ListQuestionsResponse {
+  repeated Question questions = 1;
+}
+
+message GetQuestionRequest {
+  int64 chapter_id = 1;
+  int64 question_id = 2;
+}
+
+message CreateQuestionRequest {
+  int64 chapter_id = 1;
+  string text = 2;
+  int32 order = 3;
+  optional string hint = 4;
+  optional string image_base64 = 5;
+  // Минимум 2 варианта, ровно один is_correct=true (проверяется на сервере).
+  repeated AnswerInput answers = 6;
+}
+
+message UpdateQuestionRequest {
+  int64 chapter_id = 1;
+  int64 question_id = 2;
+  optional string text = 3;
+  optional int32 order = 4;
+  optional string hint = 5;
+  optional string image_base64 = 6;
+  // repeated-поля не поддерживают proto3 "optional", поэтому presence
+  // выражена отдельным флагом: answers_provided=true значит "полностью
+  // заменить набор ответов содержимым answers" (даже если answers пуст —
+  // впрочем пустой список не пройдет валидацию "минимум 2 варианта").
+  repeated AnswerInput answers = 7;
+  bool answers_provided = 8;
+}
+
+message DeleteQuestionRequest {
+  int64 chapter_id = 1;
+  int64 question_id = 2;
+}
+
+message DeleteQuestionResponse {}

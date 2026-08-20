@@ -76,7 +76,7 @@
   /* ---------- офлайн-кэш вопросов (перенесено из ProfileScreen как есть) ---------- */
   let cacheStatus = $state(/** @type {{hasChapterList: boolean, chaptersFresh: boolean, cachedChapterCount: number, totalChapters: number, approxBytes: number, newestSavedAt: number|null}|null} */ (null));
   let cacheBusy = $state(false);
-  let cacheProgress = $state(null);
+  let cacheProgress = $state(/** @type {{chaptersDone: number, chaptersTotal: number, questionsDone: number, questionsTotal: number}|null} */ (null));
 
   async function loadCacheStatus() {
     cacheStatus = await cache.getStatus();
@@ -100,19 +100,49 @@
   // единственного источника вопросов, который у него в этот момент есть.
   const cacheLockedOffline = $derived(appState.connectionStatus === "offline");
 
+  /** Проценты для полосы прогресса — по вопросам (даёт честную долю: глава
+   * с полусотней вопросов и глава из трёх иначе выглядели бы одинаковым
+   * "шагом"). questionsTotal неизвестен только в самый первый тик (до
+   * первого report() в refreshAllCache) — тогда используем главы как
+   * временную оценку, чтобы бар не дёргался от 0 к реальному проценту. */
+  const cachePercent = $derived.by(() => {
+    if (!cacheProgress) return 0;
+    if (cacheProgress.questionsTotal > 0) {
+      return Math.round((cacheProgress.questionsDone / cacheProgress.questionsTotal) * 100);
+    }
+    if (cacheProgress.chaptersTotal > 0) {
+      return Math.round((cacheProgress.chaptersDone / cacheProgress.chaptersTotal) * 100);
+    }
+    return 0;
+  });
+
+  // Принудительная перекачка: обычно не нужна (свежие главы и так
+  // пропускаются автоматически, см. refreshAllCache/cache.js TTL) — но
+  // если правки на сервере почему-то не подхватились (редкий случай,
+  // например TTL ещё не истёк, а контент уже поменяли на другом
+  // устройстве) — этот флажок снимает проверку "уже свежее" и качает
+  // всё заново, как раньше вело себя "Обновить кэш сейчас" безусловно.
+  let forceRefresh = $state(false);
+
   async function onRefreshCache() {
     if (cacheLockedOffline) {
       toast("Нет связи с сервером — обновление кэша недоступно офлайн", "error");
       return;
     }
     cacheBusy = true;
-    cacheProgress = { done: 0, total: 0 };
+    cacheProgress = { chaptersDone: 0, chaptersTotal: 0, questionsDone: 0, questionsTotal: 0 };
     try {
-      const { chapters, cached, textOnly } = await refreshAllCache((done, total) => (cacheProgress = { done, total }));
-      if (cached < chapters) {
+      const { chapters, cached, textOnly, failedChapters, skipped } = await refreshAllCache((p) => (cacheProgress = p), {
+        force: forceRefresh,
+      });
+      if (failedChapters) {
+        toast(`Кэш обновлён частично: ${failedChapters} из ${chapters} глав не ответили — попробуются снова при следующем обновлении`, "error");
+      } else if (cached < chapters) {
         toast(`Закэшировано ${cached} из ${chapters} глав — остальным не хватило места (обычно из-за фото к вопросам)`, "error");
       } else if (textOnly) {
         toast(`Кэш обновлён: ${chapters} глав (у ${textOnly} офлайн-версия без фото — не хватило места)`, "info");
+      } else if (skipped) {
+        toast(`Кэш обновлён: ${chapters} глав (${skipped} уже были свежими — скачивать заново не понадобилось)`, "success");
       } else {
         toast(`Кэш обновлён: ${chapters} глав`, "success");
       }
@@ -178,7 +208,13 @@
       <p class="panel-label">Офлайн-кэш вопросов</p>
       <div class="cache-status">
         {#if cacheBusy && cacheProgress}
-          <p class="cache-status-line" data-status="degraded">Кэшируем главы… {cacheProgress.done} из {cacheProgress.total}</p>
+          <p class="cache-status-line" data-status="degraded">
+            Кэшируем главы… вопросов {cacheProgress.questionsDone} из {cacheProgress.questionsTotal || "?"}
+            {#if cacheProgress.chaptersTotal}(глава {cacheProgress.chaptersDone} из {cacheProgress.chaptersTotal}){/if}
+          </p>
+          <div class="cache-progress-bar" role="progressbar" aria-valuenow={cachePercent} aria-valuemin="0" aria-valuemax="100">
+            <div class="cache-progress-fill" style="width: {cachePercent}%"></div>
+          </div>
         {:else if !cacheStatus}
           <p class="loading">Проверяем…</p>
         {:else if !cacheStatus.hasChapterList && cacheStatus.cachedChapterCount === 0}
@@ -212,6 +248,10 @@
           onclick={onClearCache}
         >🗑️ Очистить кэш</button>
       </div>
+      <label class="cache-force-toggle" title="Обычно не нужно — свежие главы и так пропускаются автоматически">
+        <input type="checkbox" bind:checked={forceRefresh} disabled={cacheBusy || cacheLockedOffline} />
+        Перекачать всё заново, даже уже свежее
+      </label>
       {#if cacheLockedOffline}
         <p class="modal-hint">Нет связи с сервером — управление кэшем временно недоступно.</p>
       {/if}

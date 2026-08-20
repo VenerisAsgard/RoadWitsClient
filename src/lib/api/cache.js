@@ -192,6 +192,17 @@ async function writeEntry(key, value) {
   }
 }
 
+/** Точечно инвалидирует дисковый кэш вопросов ОДНОЙ главы — в отличие от
+ * clearAll(), не трогает кэш остальных глав. Нужна там, где правка/
+ * создание/удаление вопроса гарантированно затронуло только эту главу
+ * (см. admin.js reloadChapters): раньше в таких случаях безусловно
+ * вызывался clearAll(), из-за чего создание одного вопроса сбрасывало
+ * кэш вообще ВСЕХ глав, и следующий поиск по всем вопросам заново тянул
+ * их с сервера — по несколько секунд на медленном канале. */
+export function clearChapterQuestions(chapterId) {
+  return idbDelete(chapterQuestionsKey(chapterId));
+}
+
 export async function getChapters() {
   const e = await readEntry(chaptersKey());
   return isFresh(e) ? e.value : null;

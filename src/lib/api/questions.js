@@ -45,31 +45,115 @@ export async function loadChapterQuestions(chapterId) {
  * дойдёт до каждой главы, а сразу тянет с сервера список глав и вопросы
  * КАЖДОЙ главы по очереди, обновляя дисковый кэш. Специально по одной
  * главе за раз, а не Promise.all — так onProgress даёт честный счётчик
- * "готово X из Y", и на слабом канале запросы не толкаются одновременно.
- * chapterId, на котором не хватило места на диске (см. cache.js),
- * просто не даст своей главе закэшироваться — остальные это не остановит,
- * а вызывающий код (renderCacheStatus) покажет актуальное состояние по
- * cache.getStatus() уже после того, как всё это отработает.
+ * и на слабом канале запросы не толкаются одновременно.
+ *
+ * onProgress получает { chaptersDone, chaptersTotal, questionsDone,
+ * questionsTotal } — questionsTotal берётся из question_count, который
+ * бэкенд отдаёт вместе со списком глав, ещё до похода за самими вопросами,
+ * так что прогресс-бар сразу знает общее число и показывает реальную долю
+ * скачанных вопросов, а не просто "глава N из M" (одна глава с полусотней
+ * фото-вопросов и глава из трёх вопросов раньше занимали в индикаторе
+ * одинаковый "один шаг"). questionsDone теперь растёт не только между
+ * главами, но и ВНУТРИ главы, по мере того как приходят её вопросы (см.
+ * api.listQuestions/requestQuestionsWithProgress в api.js) — раньше глава
+ * из полусотни вопросов "висела" на месте до последнего байта ответа, а
+ * потом сразу вся засчитывалась разом.
+ *
+ * Оптимизация загрузки: глава, чей дисковый кэш ещё не протух (см. TTL_MS
+ * в cache.js), с сервера вообще не перезапрашивается — "Обновить кэш
+ * сейчас" раньше безусловно перекачивало ВСЕ главы целиком (включая все
+ * фото) при каждом нажатии, даже если ничего не изменилось с прошлого
+ * раза. Теперь свежие главы просто засчитываются как уже готовые — это и
+ * есть тот самый смысл TTL (см. заголовок cache.js), просто раньше кнопка
+ * его игнорировала. force=true (см. ниже) отключает эту проверку, если
+ * когда-нибудь понадобится настоящая безусловная перекачка.
+ *
+ * Ошибка на одной главе (например, сервер не успел ответить за отведённое
+ * время — см. QUESTIONS_FETCH_TIMEOUT_MS в config.js) больше не обрывает
+ * весь процесс: остальные главы всё равно докачиваются, а неудавшиеся
+ * просто останутся на прежней (возможно, более старой) версии кэша и
+ * попробуют снова при следующем "Обновить кэш" — вызывающий код (см.
+ * SettingsScreen.svelte) сообщает об этом отдельным тостом через
+ * failedChapters, вместо одной общей ошибки "сервер не отвечает" без
+ * подробностей.
+ * @param {(progress: {chaptersDone: number, chaptersTotal: number, questionsDone: number, questionsTotal: number}) => void} [onProgress]
+ * @param {{force?: boolean}} [options] — force=true пропускает проверку
+ *   свежести кэша и перекачивает вообще все главы, как раньше.
  */
-export async function refreshAllCache(onProgress) {
+export async function refreshAllCache(onProgress, { force = false } = {}) {
   const chapters = await api.listChapters(state.token);
   state.chapters = chapters;
   await cache.setChapters(chapters);
   state.questionPoolCache = null; // главы могли обновиться — старый пул для random/exam больше не актуален
 
-  const total = chapters.length;
-  onProgress?.(0, total);
+  const chaptersTotal = chapters.length;
+  const questionsTotal = chapters.reduce((sum, c) => sum + (c.count || 0), 0);
+  let chaptersDone = 0;
+  let questionsDone = 0;
   let cached = 0;
   let textOnly = 0;
-  for (let i = 0; i < chapters.length; i++) {
-    const questions = await api.listQuestions(state.token, chapters[i].id);
-    // setChapterQuestions() возвращает "full"/"text"/false — раньше провал
-    // молча терялся, и кнопка "Обновить кэш" рапортовала об успехе, даже
-    // если реально не закэшировалась ни одна глава (см. cache.js).
-    const result = await cache.setChapterQuestions(chapters[i].id, questions);
-    if (result) cached++;
-    if (result === "text") textOnly++;
-    onProgress?.(i + 1, total);
+  let skipped = 0;
+  let failedChapters = 0;
+
+  const report = () => onProgress?.({ chaptersDone, chaptersTotal, questionsDone, questionsTotal });
+  report();
+
+  for (const chapter of chapters) {
+    try {
+      // Пропускаем сеть целиком, если на диске уже есть свежая (не старше
+      // TTL_MS) копия этой главы — см. пояснение про оптимизацию выше.
+      if (!force) {
+        const fresh = await cache.getChapterQuestions(chapter.id);
+        if (fresh) {
+          cached++;
+          skipped++;
+          questionsDone += fresh.length;
+          chaptersDone++;
+          report();
+          continue;
+        }
+      }
+
+      // Прогресс ВНУТРИ главы: questionsDone уже учитывает предыдущие
+      // главы (questionsDoneBefore) — onQuestionProgress репортует
+      // АБСОЛЮТНОЕ число вопросов, пришедших в этой главе на данный
+      // момент, поэтому просто складываем с тем, что было накоплено раньше.
+      const questionsDoneBefore = questionsDone;
+      const onChapterProgress = (n) => {
+        questionsDone = questionsDoneBefore + n;
+        report();
+      };
+
+      let questions;
+      try {
+        questions = await api.listQuestions(state.token, chapter.id, onChapterProgress);
+      } catch (err) {
+        // Один повтор перед тем, как считать главу неудавшейся: "сервер
+        // не отвечает" на медленном канале (см. QUESTIONS_FETCH_TIMEOUT_MS)
+        // часто оказывается разовой заминкой, а не реальным обрывом связи —
+        // повтор почти всегда проходит и избавляет от лишнего ручного клика
+        // "Обновить кэш ещё раз". Настоящий обрыв связи (err.status === 0
+        // и это не таймаут) повторять бессмысленно — сеть либо есть, либо
+        // нет прямо сейчас.
+        const retryable = err instanceof api.ApiError && err.status === 0;
+        if (!retryable) throw err;
+        questionsDone = questionsDoneBefore;
+        questions = await api.listQuestions(state.token, chapter.id, onChapterProgress);
+      }
+      // setChapterQuestions() возвращает "full"/"text"/false — раньше провал
+      // молча терялся, и кнопка "Обновить кэш" рапортовала об успехе, даже
+      // если реально не закэшировалась ни одна глава (см. cache.js).
+      const result = await cache.setChapterQuestions(chapter.id, questions);
+      if (result) cached++;
+      if (result === "text") textOnly++;
+      questionsDone = questionsDoneBefore + questions.length; // точное число — на случай, если эвристика прогресса не досчиталась
+    } catch {
+      // См. пояснение выше — не прерываем цикл, просто считаем главу
+      // неудавшейся и идём дальше.
+      failedChapters++;
+    }
+    chaptersDone++;
+    report();
   }
-  return { chapters: total, cached, textOnly };
+  return { chapters: chaptersTotal, cached, textOnly, failedChapters, skipped };
 }

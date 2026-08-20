@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package roadwits.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+// Управление лицензиями: создание, продление, блокировка, сброс устройства,
+// удаление. Доступно только пользователям с user_type=admin (проверяется на
+// каждом методе через AuthInterceptor + ролевую проверку в обработчике).
+service AdminService {
+  rpc CreateLicense(CreateLicenseRequest) returns (License);
+  rpc ListLicenses(ListLicensesRequest) returns (ListLicensesResponse);
+  rpc GetLicense(GetLicenseRequest) returns (License);
+  rpc ExtendLicense(ExtendLicenseRequest) returns (License);
+  rpc BlockLicense(BlockLicenseRequest) returns (License);
+  rpc UnblockLicense(UnblockLicenseRequest) returns (License);
+  rpc ResetDevice(ResetDeviceRequest) returns (License);
+  // Необратимо удаляет лицензию. Админ не может удалить сам себя.
+  rpc DeleteLicense(DeleteLicenseRequest) returns (DeleteLicenseResponse);
+}
+
+message License {
+  int64 id = 1;
+  string product_key = 2;
+  optional string email = 3;
+  optional string first_name = 4;
+  optional string last_name = 5;
+  google.protobuf.Timestamp license_until = 6;
+  string user_type = 7;
+  bool is_blocked = 8;
+  int32 max_devices = 9;
+  int32 device_count = 10;
+  google.protobuf.Struct settings = 11;
+  google.protobuf.Struct payment_info = 12;
+}
+
+message CreateLicenseRequest {
+  int32 license_days = 1; // срок действия лицензии в днях от текущего момента
+  optional string email = 2;
+  optional string first_name = 3;
+  optional string last_name = 4;
+  string user_type = 5; // "admin" | "editor" | "student"
+  google.protobuf.Struct payment_info = 6;
+  int32 max_devices = 7; // 1..MAX_DEVICES_LIMIT (см. сервер)
+}
+
+message ListLicensesRequest {}
+
+message ListLicensesResponse {
+  repeated License licenses = 1;
+}
+
+message GetLicenseRequest {
+  int64 user_id = 1;
+}
+
+message ExtendLicenseRequest {
+  int64 user_id = 1;
+  int32 extra_days = 2;
+}
+
+message BlockLicenseRequest {
+  int64 user_id = 1;
+}
+
+message UnblockLicenseRequest {
+  int64 user_id = 1;
+}
+
+message ResetDeviceRequest {
+  int64 user_id = 1;
+}
+
+message DeleteLicenseRequest {
+  int64 user_id = 1;
+}
+
+message DeleteLicenseResponse {}

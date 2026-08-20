@@ -22,12 +22,33 @@ import { toast, confirmDialog } from "./stores/ui.svelte.js";
 
 /** Главы могли поменяться (создание/правка/удаление главы ИЛИ вопроса
  * внутри неё — у главы меняется question_count) — перечитываем список
- * целиком и сбрасываем всё, что от него зависит. */
-export async function reloadChapters() {
+ * целиком.
+ *
+ * affectedChapterId, если передан, говорит, что реально поменялось
+ * СОДЕРЖИМОЕ вопросов ровно этой одной главы (создание/правка/удаление
+ * вопроса) — тогда точечно инвалидируем дисковый кэш и индекс поиска
+ * только для неё. Раньше здесь безусловно вызывался cache.clearAll() и
+ * обнулялся весь questionIndex при ЛЮБОМ изменении (даже правке одного
+ * вопроса) — из-за этого создание вопроса ощутимо "подвисало", а следующий
+ * за ним поиск по всем вопросам заново перекачивал с сервера вообще всё,
+ * а не только изменившуюся главу. Создание/переименование самой главы
+ * (affectedChapterId не передан) содержимого уже закэшированных вопросов
+ * не меняет — кэш и индекс остальных глав в этом случае не трогаем совсем. */
+export async function reloadChapters(affectedChapterId = null) {
   state.chapters = await api.listChapters(state.token);
   state.questionPoolCache = null; // состав вопросов мог поменяться
-  await cache.clearAll(); // дисковый кэш вопросов по главам тоже мог устареть
-  questionIndex = null; // индекс для поиска/дубликатов построен на старых данных
+
+  if (affectedChapterId != null) {
+    await cache.clearChapterQuestions(affectedChapterId);
+    if (questionIndex) {
+      try {
+        questionIndex[affectedChapterId] = await loadChapterQuestions(affectedChapterId);
+      } catch {
+        delete questionIndex[affectedChapterId]; // глава удалена или временно недоступна
+      }
+    }
+  }
+
   if (state.chapterIndex >= state.chapters.length) {
     state.chapterIndex = Math.max(0, state.chapters.length - 1);
   }
@@ -71,7 +92,7 @@ export async function confirmDeleteChapter(chapter) {
   try {
     await api.deleteChapter(state.token, chapter.id);
     state.chapterIndex = Math.max(0, state.chapterIndex - 1);
-    await reloadChapters();
+    await reloadChapters(chapter.id); // заодно подчищает кэш/индекс удалённой главы
   } catch (err) {
     toast(err instanceof api.ApiError ? err.message : "Не удалось удалить главу", "error");
   }
@@ -99,7 +120,7 @@ export async function createQuestion(payload) {
   try {
     const chapter = state.chapters[state.chapterIndex];
     await api.createQuestion(state.token, chapter.id, payload);
-    await reloadChapters();
+    await reloadChapters(chapter.id);
     return true;
   } catch (err) {
     toast(err instanceof api.ApiError ? err.message : "Не удалось сохранить вопрос", "error");
@@ -127,7 +148,7 @@ export async function updateQuestionById(chapterId, questionId, payload) {
     // вопроса, без выхода из теста и повторной загрузки билета.
     const qIdx = state.questions.findIndex((q) => q.id === questionId);
     if (qIdx !== -1) state.questions[qIdx] = { ...state.questions[qIdx], ...withChapter };
-    await reloadChapters();
+    await reloadChapters(chapterId);
     return true;
   } catch (err) {
     toast(err instanceof api.ApiError ? err.message : "Не удалось сохранить вопрос", "error");
@@ -146,7 +167,7 @@ export async function confirmDeleteQuestion(chapterId, questionId) {
   if (!ok) return false;
   try {
     await api.deleteQuestion(state.token, chapterId, questionId);
-    await reloadChapters();
+    await reloadChapters(chapterId);
     return true;
   } catch (err) {
     toast(err instanceof api.ApiError ? err.message : "Не удалось удалить вопрос", "error");

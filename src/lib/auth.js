@@ -8,7 +8,7 @@ import { state } from "./state.svelte.js";
 import * as api from "./api/api.js";
 import * as device from "./device.js";
 import * as cache from "./api/cache.js";
-import { toast, setHint } from "./stores/ui.svelte.js";
+import { toast, setHint, closeProfileModal, closeSettingsModal } from "./stores/ui.svelte.js";
 import { loadChapters, HINT_MENU } from "./quiz.js";
 
 async function enterApp(user) {
@@ -81,6 +81,12 @@ export async function submitLogin(productKey) {
 }
 
 export async function logout() {
+  // Меню профиля/настроек — отдельные модалки (см. stores/ui.svelte.js),
+  // не завязанные на state.loggedIn, поэтому просто сбросить состояние
+  // недостаточно: без явного закрытия окно профиля оставалось открытым
+  // поверх экрана логина после выхода из аккаунта.
+  closeProfileModal();
+  closeSettingsModal();
   // Таймер экзамена мог остаться запущенным, если выйти прямо из теста.
   clearInterval(state.timerHandle ?? undefined);
   state.timerHandle = null;

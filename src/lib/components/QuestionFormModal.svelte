@@ -181,17 +181,26 @@
 
     <label>
       Фото (необязательно)
-      <input type="file" accept="image/*" bind:this={fileInput} onchange={onFileChange} />
+      <!-- Нативная кнопка <input type="file"> подписана системной локалью
+           браузера ("Choose File" в WebKitGTK даже при русском интерфейсе
+           приложения), а не текстом из HTML — переименовать её напрямую
+           нельзя. Поэтому прячем input и триггерим его кликом по обычной
+           кнопке с нужной подписью (тот же приём, что и у фото профиля,
+           см. ProfileScreen.svelte/avatar-upload-btn). -->
+      <button type="button" class="ghost small file-picker-btn" onclick={() => fileInput?.click()}>
+        Выбрать фото
+      </button>
+      <input type="file" accept="image/*" class="hidden" bind:this={fileInput} onchange={onFileChange} />
     </label>
     {#if filePreviewUrl}
       <div class="qf-image-wrap">
         <img alt="Новое фото вопроса" src={filePreviewUrl} />
-        <button type="button" class="icon-btn tiny danger" title="Убрать выбранный файл" onclick={removeCurrentImage}>❌</button>
+        <button id="qf-image-remove" type="button" class="icon-btn tiny danger" title="Убрать выбранный файл" onclick={removeCurrentImage}>❌</button>
       </div>
     {:else if showCurrentImage}
       <div class="qf-image-wrap">
         <img alt="Текущее фото вопроса" src={question.image} />
-        <button type="button" class="icon-btn tiny danger" title="Удалить фото" onclick={removeCurrentImage}>❌</button>
+        <button id="qf-image-remove" type="button" class="icon-btn tiny danger" title="Удалить фото" onclick={removeCurrentImage}>❌</button>
       </div>
       <p class="modal-hint">Текущее фото показано выше. Выбери новый файл, чтобы заменить, или удали крестиком.</p>
     {/if}

@@ -7,7 +7,7 @@
  * Адрес сервера и таймаут запроса вынесены в js/config.js — там единственное
  * место, которое нужно менять под другой backend (прод/стейджинг/свой порт).
  */
-import { SERVER_BASE_URL, REQUEST_TIMEOUT_MS, PHOTO_UPLOAD_TIMEOUT_MS } from "../config.js";
+import { SERVER_BASE_URL, REQUEST_TIMEOUT_MS, PHOTO_UPLOAD_TIMEOUT_MS, QUESTIONS_FETCH_TIMEOUT_MS } from "../config.js";
 
 const API_BASE_URL = SERVER_BASE_URL;
 
@@ -100,6 +100,134 @@ async function request(path, { method = "GET", body, token, timeoutMs = REQUEST_
   return res.json();
 }
 
+/**
+ * Как request(), но читает тело ответа потоково и репортит прогресс по мере
+ * того, как в потоке появляются ЦЕЛИКОМ пришедшие вопросы — используется
+ * только для GET .../questions (см. listQuestions), у которого тело может
+ * весить мегабайты (все фото главы разом). Раньше прогресс кэширования
+ * (см. questions.js refreshAllCache) мог сдвинуться только ПОСЛЕ того, как
+ * придёт всё тело целиком — глава из полусотни вопросов "зависала" на месте
+ * до последнего байта, а потом сразу вся засчитывалась разом.
+ *
+ * onProgress(questionsSoFar) — эвристика: у каждого QuestionOut с бэкенда
+ * ровно одно поле "created_by_email" на верхнем уровне объекта (см. карту
+ * API в ai_work.md), а у вложенных answers[] такого поля нет — поэтому
+ * подсчёт вхождений этой подстроки в уже накопленном тексте ответа надёжно
+ * говорит, сколько вопросов уже полностью доехало, без разбора JSON на
+ * каждый чанк (разбираем целиком только один раз, в конце).
+ *
+ * Если окружение не даёт читать тело потоково (res.body/getReader
+ * недоступны — бывает у некоторых WebView), тихо откатывается на обычное
+ * ожидание всего ответа: запрос всё равно проходит, просто без дробного
+ * прогресса по вопросам.
+ * @param {string} path
+ * @param {{token?: string|null, timeoutMs?: number, onProgress?: (n: number) => void}} [options]
+ */
+async function requestQuestionsWithProgress(path, { token, timeoutMs = REQUEST_TIMEOUT_MS, onProgress } = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    let res;
+    try {
+      res = await fetch(`${API_BASE_URL}${path}`, { method: "GET", headers, signal: controller.signal });
+    } catch (err) {
+      const timedOut = err?.name === "AbortError" || controller.signal.aborted;
+      throw new ApiError(0, timedOut ? "Сервер не отвечает" : "Нет соединения с сервером");
+    }
+
+    if (!res.ok) {
+      let detail = res.statusText;
+      try {
+        const data = await res.json();
+        detail = readableDetail(data.detail, detail);
+      } catch {
+        // ответ не JSON — оставляем statusText
+      }
+      throw new ApiError(res.status, detail);
+    }
+
+    if (!res.body || !res.body.getReader) return await res.json();
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let text = "";
+    let counted = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        text += decoder.decode(value, { stream: true });
+        if (onProgress) {
+          const next = (text.match(/"created_by_email"\s*:/g) || []).length;
+          if (next > counted) {
+            counted = next;
+            onProgress(counted);
+          }
+        }
+      }
+    } catch (err) {
+      const timedOut = err?.name === "AbortError" || controller.signal.aborted;
+      throw new ApiError(0, timedOut ? "Сервер не отвечает" : "Нет соединения с сервером");
+    }
+    return JSON.parse(text);
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * PATCH /auth/me/profile через XMLHttpRequest, а не через общий request() —
+ * только у XHR есть событие upload.onprogress, дающее РЕАЛЬНЫЙ процент
+ * отправки тела на медленном канале (см. SERVER_BASE_URL — арендованная
+ * линия). Нужен именно для фото: это единственный запрос в приложении, чьё
+ * тело может заметно долго отправляться (десятки–сотни КБ, см.
+ * ProfileScreen.svelte) — раньше на всё это время пользователь видел просто
+ * крутилку "Загрузка…", неотличимую от настоящего зависания.
+ * @param {{timeoutMs: number, onUploadProgress?: (fraction: number) => void}} options
+ */
+function patchProfileWithProgress(token, body, { timeoutMs, onUploadProgress }) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PATCH", `${API_BASE_URL}/auth/me/profile`);
+    xhr.timeout = timeoutMs;
+    xhr.setRequestHeader("Content-Type", "application/json");
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    if (xhr.upload && onUploadProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onUploadProgress(e.loaded / e.total);
+      };
+    }
+
+    xhr.onload = () => {
+      let data = null;
+      try {
+        data = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        // ответ не JSON — если статус не ok, разберётся как fallback ниже
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data);
+      } else {
+        reject(new ApiError(xhr.status, readableDetail(data?.detail, xhr.statusText || "Ошибка сервера")));
+      }
+    };
+    // ontimeout — сработал именно xhr.timeout (наш таймаут, тот же смысл,
+    // что и AbortError/controller.signal.aborted у fetch-версии в request()),
+    // onerror — настоящий обрыв соединения. Разные сообщения пользователю
+    // по той же причине, что описана в request() выше.
+    xhr.ontimeout = () => reject(new ApiError(0, "Сервер не отвечает"));
+    xhr.onerror = () => reject(new ApiError(0, "Нет соединения с сервером"));
+    xhr.onabort = () => reject(new ApiError(0, "Запрос отменён"));
+
+    xhr.send(JSON.stringify(body));
+  });
+}
+
 /* ============================================================
    AUTH
    ============================================================ */
@@ -176,8 +304,23 @@ export async function listChapters(token) {
   return sorted.map(normalizeChapter);
 }
 
-export async function listQuestions(token, chapterId) {
-  const raw = await request(`/chapters/${chapterId}/questions`, { token });
+/**
+ * @param {string|null} token
+ * @param {number} chapterId
+ * @param {(questionsSoFar: number) => void} [onProgress] — см.
+ *   requestQuestionsWithProgress: вызывается по мере того, как в ответе
+ *   появляются целиком пришедшие вопросы, а не один раз в самом конце.
+ */
+export async function listQuestions(token, chapterId, onProgress) {
+  // Свой (увеличенный) таймаут — см. QUESTIONS_FETCH_TIMEOUT_MS в config.js:
+  // ответ несёт все фото вопросов главы разом, дефолтного REQUEST_TIMEOUT_MS
+  // на медленном канале не всегда хватает, особенно при кэшировании всех
+  // глав подряд (см. questions.js refreshAllCache).
+  const raw = await requestQuestionsWithProgress(`/chapters/${chapterId}/questions`, {
+    token,
+    timeoutMs: QUESTIONS_FETCH_TIMEOUT_MS,
+    onProgress,
+  });
   return raw.map(normalizeQuestion);
 }
 
@@ -295,18 +438,55 @@ export function deleteLicense(token, userId) {
    updateSettings выше, это не произвольный JSON, а конкретные поля).
    ============================================================ */
 
-export function updateProfile(token, { firstName, lastName, email, profilePhoto }) {
+/**
+ * @param {string|null} token
+ * @param {{firstName?: string, lastName?: string, email?: string, profilePhoto?: string|null}} fields
+ * @param {{onUploadProgress?: (fraction: number) => void}} [options] — фракция
+ *   0..1 отправки тела, актуальна только когда реально передаётся фото
+ *   (см. ниже) — используется в ProfileScreen.svelte, чтобы вместо голой
+ *   надписи "Загрузка…" показать реальный процент и было видно, что запрос
+ *   не завис, а действительно передаёт данные.
+ */
+export async function updateProfile(token, { firstName, lastName, email, profilePhoto }, { onUploadProgress } = {}) {
   const body = { first_name: firstName || null, last_name: lastName || null, email: email || null };
   // profilePhoto специально undefined-able: если вызывающий код не передал
   // это поле вовсе (например, сохраняет только имя/email), поле не уйдет
   // в body и бэкенд не тронет уже сохраненное фото (см. photo_provided на
   // сервере). Если явно передали null — это осознанное "убрать фото".
   if (profilePhoto !== undefined) body.profile_photo = profilePhoto;
-  // Отдельный (больший) таймаут только когда реально отправляется фото —
-  // остальные вызовы (просто имя/email, или явное удаление фото — null,
-  // маленькое тело) используют обычный REQUEST_TIMEOUT_MS.
-  const timeoutMs = profilePhoto ? PHOTO_UPLOAD_TIMEOUT_MS : undefined;
-  return request("/auth/me/profile", { method: "PATCH", token, body, timeoutMs });
+
+  if (!profilePhoto) {
+    // Обычный случай (имя/email, либо явное удаление фото — null, лёгкое
+    // тело) — как и раньше, общий request() с обычным REQUEST_TIMEOUT_MS.
+    return request("/auth/me/profile", { method: "PATCH", token, body });
+  }
+
+  // С фото — свой (больший) таймаут, XHR ради прогресса отправки (см.
+  // patchProfileWithProgress выше) и сверка после таймаута (см. ниже).
+  try {
+    return await patchProfileWithProgress(token, body, { timeoutMs: PHOTO_UPLOAD_TIMEOUT_MS, onUploadProgress });
+  } catch (err) {
+    // status === 0 у ApiError здесь означает именно "не дождались ответа"
+    // (наш таймаут или обрыв связи), а не то, что сервер отверг запрос —
+    // см. ontimeout/onerror в patchProfileWithProgress. На таком канале
+    // (см. SERVER_BASE_URL — арендованная линия) вполне бывает так, что
+    // ЗАПРОС сервер получил и обработал, а вот ОТВЕТ обратно не дошёл —
+    // тогда показывать пользователю "не удалось сохранить" и заставлять
+    // заливать фото заново неверно: сверяемся отдельным лёгким GET
+    // /auth/me — если сервер сейчас отвечает и уже показывает именно то
+    // фото, что мы отправляли, значит сохранение прошло, просто ответ на
+    // PATCH потерялся/не успел за timeoutMs.
+    if (err instanceof ApiError && err.status === 0) {
+      try {
+        const current = await me(token);
+        if (current && current.profile_photo === profilePhoto) return current;
+      } catch {
+        // сверка тоже не прошла — сервера сейчас действительно не видно,
+        // оставляем исходную ошибку как есть
+      }
+    }
+    throw err;
+  }
 }
 
 /* ============================================================

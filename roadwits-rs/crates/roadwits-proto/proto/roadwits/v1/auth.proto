@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package roadwits.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+// Вход по Product Key (без паролей) и информация о текущей лицензии.
+service AuthService {
+  // Логин по product_key + fingerprint устройства. Выдает JWT.
+  rpc Login(LoginRequest) returns (LoginResponse);
+  // Текущий пользователь по токену из metadata "authorization: Bearer <token>".
+  rpc Me(MeRequest) returns (MeResponse);
+  // Полностью заменяет settings текущего пользователя произвольным JSON-объектом.
+  rpc UpdateSettings(UpdateSettingsRequest) returns (MeResponse);
+  // Пользователь сам меняет имя/фамилию/email/фото.
+  rpc UpdateProfile(UpdateProfileRequest) returns (MeResponse);
+}
+
+message LoginRequest {
+  // Product Key лицензии, формат AAAAAA_BBBBBB_CCCCCC_DDDDDD.
+  string product_key = 1;
+  // Уникальный отпечаток устройства, генерируется на клиенте.
+  string fingerprint = 2;
+}
+
+message LoginResponse {
+  string access_token = 1;
+  string token_type = 2; // всегда "bearer"
+}
+
+message MeRequest {}
+
+message MeResponse {
+  int64 id = 1;
+  // Раньше product_key не отдавался в Me — теперь отдается: пользователь и
+  // так уже знает свой ключ (иначе не смог бы залогиниться).
+  string product_key = 2;
+  optional string email = 3;
+  optional string first_name = 4;
+  optional string last_name = 5;
+  google.protobuf.Timestamp license_until = 6;
+  string user_type = 7; // "admin" | "editor" | "student"
+  bool is_blocked = 8;
+  google.protobuf.Struct settings = 9;
+  optional string profile_photo = 10;
+}
+
+message UpdateSettingsRequest {
+  google.protobuf.Struct settings = 1;
+}
+
+message UpdateProfileRequest {
+  // Каждое поле использует proto3 "optional" (field presence): отсутствие
+  // поля в запросе значит "не трогать", присутствие (даже с пустым значением)
+  // значит "заменить". Для profile_photo пустая строка трактуется как явный
+  // сброс фото (аналог передачи null в JSON), непустая — как новое фото.
+  optional string first_name = 1;
+  optional string last_name = 2;
+  optional string email = 3;
+  optional string profile_photo = 4;
+}

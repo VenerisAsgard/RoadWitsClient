@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM answers WHERE question_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "be1a9af016efdc16f16d3d4bdb8d0eca96fc1f5b91e70b461ba0459690f3d542"
+}
