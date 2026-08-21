@@ -80,7 +80,6 @@ jobs:
           sudo add-apt-repository -y ppa:flatpak/stable
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder appstream gnupg2 pinentry-curses
-          protoc --version
           flatpak --version
           flatpak-builder --version
           flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
