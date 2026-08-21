@@ -43,13 +43,14 @@ jobs:
           npm install -g npm@10.9.2
           npm ci --legacy-peer-deps
           
-      - name: install protoc
-        run: |
-          if [ "${{ runner.os }}" = "macOS" ]; then
-            brew install protobuf
-          elif [ "${{ runner.os }}" = "Windows" ]; then
-            choco install protobuf --version 21.12 --no-progress
-          fi
+      - name: install protoc on macOS
+        run: brew install protobuf
+        if: runner.os == 'macOS'
+
+      - name: install protoc on Windows
+        run: choco install protobuf --version 21.12 --no-progress
+        shell: pwsh
+        if: runner.os == 'Windows'
 
       - name: build & publish
         uses: tauri-apps/tauri-action@v0
@@ -88,6 +89,7 @@ jobs:
           sudo add-apt-repository -y ppa:flatpak/stable
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder appstream gnupg2 pinentry-curses protobuf-compiler
+          protoc --version
           flatpak --version
           flatpak-builder --version
           flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
