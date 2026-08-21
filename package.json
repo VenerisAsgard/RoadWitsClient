@@ -1,7 +1,7 @@
 {
   "name": "roadwits-client",
   "private": true,
-  "version": "1.5.4",
+  "version": "1.5.5",
   "description": "Roadwits — клиент для изучения ПДД РБ. Фронтенд: SvelteKit (static adapter) + Vite, отдаётся Tauri как статика.",
   "type": "module",
   "scripts": {
