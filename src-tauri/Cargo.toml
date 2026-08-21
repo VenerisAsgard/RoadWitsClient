@@ -1,6 +1,6 @@
 [package]
 name = "roadwits-client"
-version = "1.5.5"
+version = "1.5.6"
 description = "Roadwits — клиент для изучения ПДД РБ"
 authors = ["VenerisAsgard <dev.va@icloud.com>"]
 edition = "2021"
@@ -10,6 +10,7 @@ tauri-build = { version = "2", features = [] }
 # Генерация Rust-кода из .proto (proto/roadwits/v1/*.proto) при сборке —
 # см. build.rs и src/grpc/mod.rs.
 tonic-build = "0.11"
+protoc-bin-vendored = "3"
 
 [dependencies]
 tauri = { version = "2", features = ["devtools"] }
