@@ -11,6 +11,9 @@ use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 use uuid::Uuid;
 
+mod grpc;
+use grpc::commands as grpc_cmd;
+
 /* ============================================================
    Хранение сессии (fingerprint устройства, JWT).
 
@@ -304,6 +307,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .manage(grpc::GrpcChannel::new())
         .invoke_handler(tauri::generate_handler![
             get_fingerprint,
             save_token,
@@ -311,7 +315,34 @@ pub fn run() {
             clear_token,
             is_flatpak,
             flatpak_update_and_restart,
-            download_and_run_installer
+            download_and_run_installer,
+            grpc_cmd::login,
+            grpc_cmd::me,
+            grpc_cmd::update_settings,
+            grpc_cmd::update_profile,
+            grpc_cmd::list_chapters,
+            grpc_cmd::create_chapter,
+            grpc_cmd::update_chapter,
+            grpc_cmd::delete_chapter,
+            grpc_cmd::list_questions,
+            grpc_cmd::create_question,
+            grpc_cmd::update_question,
+            grpc_cmd::delete_question,
+            grpc_cmd::list_licenses,
+            grpc_cmd::create_license,
+            grpc_cmd::extend_license,
+            grpc_cmd::block_license,
+            grpc_cmd::unblock_license,
+            grpc_cmd::reset_device,
+            grpc_cmd::delete_license,
+            grpc_cmd::send_friend_request,
+            grpc_cmd::list_incoming_friend_requests,
+            grpc_cmd::list_outgoing_friend_requests,
+            grpc_cmd::accept_friend_request,
+            grpc_cmd::remove_friendship,
+            grpc_cmd::list_friends,
+            grpc_cmd::get_leaderboard,
+            grpc_cmd::health
         ])
         .setup(|app| {
             // Окно создаётся скрытым (tauri.conf.json → windows[0].visible:

@@ -1,25 +1,21 @@
 /**
- * Всё общение с backend'ом (roadwits-server) — в этом файле и только в нём.
- * Остальной код (quiz.js, auth.js, render.js) не знает про fetch, про формат
- * JSON конкретных эндпоинтов бэкенда и т.п. — он работает с уже нормализованными
- * объектами (см. normalizeChapter/normalizeQuestion ниже).
+ * Всё общение с backend'ом — в этом файле и только в нём (тот же принцип,
+ * что был раньше). Раньше это был fetch/XHR прямо из webview на REST-сервер
+ * (FastAPI, JSON, порт 8000); теперь сервер — gRPC (roadwits-rs, tonic,
+ * порт 50051), а обычным браузерным fetch до gRPC/HTTP2 не достучаться —
+ * поэтому весь сетевой код переехал в Rust (см. src-tauri/src/grpc/) и
+ * здесь заменён на invoke(...) к Tauri-командам.
  *
- * Адрес сервера и таймаут запроса вынесены в js/config.js — там единственное
- * место, которое нужно менять под другой backend (прод/стейджинг/свой порт).
+ * Сигнатуры экспортируемых функций (login, me, listChapters, createQuestion
+ * и т.д.) НЕ изменились — остальной фронтенд (quiz.js, auth.js, admin.js,
+ * экраны) как вызывал их, так и вызывает, ничего не зная о том, что под
+ * капотом раньше был JSON+HTTP, а теперь Protobuf+gRPC. Формы возвращаемых
+ * объектов (snake_case-поля вроде question_count, is_correct,
+ * created_by_email) тоже сохранены — их отдаёт уже Rust-сторона (см.
+ * grpc/commands.rs), specifically чтобы normalizeChapter/normalizeQuestion
+ * ниже не пришлось трогать.
  */
-import { SERVER_BASE_URL, REQUEST_TIMEOUT_MS, PHOTO_UPLOAD_TIMEOUT_MS, QUESTIONS_FETCH_TIMEOUT_MS } from "../config.js";
-
-const API_BASE_URL = SERVER_BASE_URL;
-
-export async function health() {
-  const res = await fetch(`${API_BASE_URL}/health`);
-  if (!res.ok) throw new ApiError(res.status, "Сервер недоступен");
-  return res.json();
-}
-
-export function updateSettings(token, settings) {
-  return request("/auth/me/settings", { method: "PATCH", token, body: { settings } });
-}
+import { Channel, invoke } from "@tauri-apps/api/core";
 
 export class ApiError extends Error {
   constructor(status, message) {
@@ -28,204 +24,42 @@ export class ApiError extends Error {
   }
 }
 
-// FastAPI при ошибке валидации кладет в detail список объектов {loc, msg, type}
-// вместо строки. Бэкенд теперь сам приводит это к строке (см. main.py
-// readable_validation_error), но на случай сетевой ошибки, старого бэкенда без
-// этого хендлера или detail неожиданной формы — клиент тоже не должен упасть
-// в "[object Object]": здесь разбираем ЛЮБУЮ форму detail в читаемый текст.
-function readableDetail(detail, fallback) {
-  if (typeof detail === "string" && detail.trim()) return detail;
-  if (Array.isArray(detail)) {
-    const parts = detail
-      .map((item) => (item && typeof item === "object" ? item.msg : item))
-      .filter((msg) => typeof msg === "string" && msg.trim());
-    if (parts.length) return parts.join("; ");
-  }
-  if (detail && typeof detail === "object" && typeof detail.msg === "string") return detail.msg;
-  return fallback;
-}
-
 /**
- * @param {string} path
- * @param {{method?: string, body?: any, token?: string|null, timeoutMs?: number}} [options]
+ * Команды в src-tauri/src/grpc/commands.rs при ошибке возвращают Err(String),
+ * где строка — JSON {"status": <число>, "message": <текст>} (см.
+ * grpc/error.rs status_to_js): status === 0 сохраняет тот же смысл, что и
+ * раньше при fetch — "не дождались ответа/сервер недоступен", а не "сервер
+ * ответил отказом" (на этом различии завязана логика offline-режима в
+ * auth.js tryAutoLogin и сверки после таймаута в updateProfile ниже).
+ * Если Tauri почему-то вернул что-то, не похожее на этот формат (внутренняя
+ * ошибка invoke, а не наша команда) — не роняем вызывающий код неведомым
+ * исключением, а заворачиваем как есть в ApiError(500, ...).
  */
-async function request(path, { method = "GET", body, token, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
-  const headers = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-
-  let res;
-  try {
-    res = await fetch(`${API_BASE_URL}${path}`, {
-      method,
-      headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-      signal: controller.signal,
-    });
-  } catch (err) {
-    // Сетевая ошибка (сервер не запущен, неверный адрес в config.js, CORS
-    // заблокировал запрос) или обрыв по таймауту — в обоих случаях fetch
-    // бросает TypeError/AbortError без осмысленного текста для пользователя.
-    // Раньше "это наш таймаут" определялось только по err.name === "AbortError" —
-    // так помечает abort() большинство движков, но не гарантированно все
-    // (в вебвью Tauri на некоторых платформах/версиях исключение при отмене
-    // по сигналу может прийти с другим name). Из-за этого самый тяжёлый
-    // запрос в приложении — PATCH /auth/me/profile с фото (см.
-    // PHOTO_UPLOAD_TIMEOUT_MS) — на медленном канале иногда упирался в
-    // именно НАШ таймаут, но пользователю ошибочно показывалось "нет
-    // соединения с сервером", хотя соединение было — сервер просто не
-    // успевал ответить за отведённое время. controller.signal.aborted —
-    // надёжный признак того, что сработал именно наш abort(), независимо
-    // от того, как конкретный движок называет итоговое исключение.
-    const timedOut = err?.name === "AbortError" || controller.signal.aborted;
-    throw new ApiError(0, timedOut ? "Сервер не отвечает" : "Нет соединения с сервером");
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-
-  if (!res.ok) {
-    let detail = res.statusText;
+function toApiError(err) {
+  if (typeof err === "string") {
     try {
-      const data = await res.json();
-      detail = readableDetail(data.detail, detail);
+      const parsed = JSON.parse(err);
+      if (parsed && typeof parsed.status === "number" && typeof parsed.message === "string") {
+        return new ApiError(parsed.status, parsed.message);
+      }
     } catch {
-      // ответ не JSON — оставляем statusText
+      // не наш формат — падаем в общий случай ниже
     }
-    throw new ApiError(res.status, detail);
+    return new ApiError(500, err);
   }
-
-  if (res.status === 204) return undefined;
-  return res.json();
+  return new ApiError(500, err?.message || "Неизвестная ошибка");
 }
 
-/**
- * Как request(), но читает тело ответа потоково и репортит прогресс по мере
- * того, как в потоке появляются ЦЕЛИКОМ пришедшие вопросы — используется
- * только для GET .../questions (см. listQuestions), у которого тело может
- * весить мегабайты (все фото главы разом). Раньше прогресс кэширования
- * (см. questions.js refreshAllCache) мог сдвинуться только ПОСЛЕ того, как
- * придёт всё тело целиком — глава из полусотни вопросов "зависала" на месте
- * до последнего байта, а потом сразу вся засчитывалась разом.
- *
- * onProgress(questionsSoFar) — эвристика: у каждого QuestionOut с бэкенда
- * ровно одно поле "created_by_email" на верхнем уровне объекта (см. карту
- * API в ai_work.md), а у вложенных answers[] такого поля нет — поэтому
- * подсчёт вхождений этой подстроки в уже накопленном тексте ответа надёжно
- * говорит, сколько вопросов уже полностью доехало, без разбора JSON на
- * каждый чанк (разбираем целиком только один раз, в конце).
- *
- * Если окружение не даёт читать тело потоково (res.body/getReader
- * недоступны — бывает у некоторых WebView), тихо откатывается на обычное
- * ожидание всего ответа: запрос всё равно проходит, просто без дробного
- * прогресса по вопросам.
- * @param {string} path
- * @param {{token?: string|null, timeoutMs?: number, onProgress?: (n: number) => void}} [options]
- */
-async function requestQuestionsWithProgress(path, { token, timeoutMs = REQUEST_TIMEOUT_MS, onProgress } = {}) {
-  const headers = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-
+async function call(command, args) {
   try {
-    let res;
-    try {
-      res = await fetch(`${API_BASE_URL}${path}`, { method: "GET", headers, signal: controller.signal });
-    } catch (err) {
-      const timedOut = err?.name === "AbortError" || controller.signal.aborted;
-      throw new ApiError(0, timedOut ? "Сервер не отвечает" : "Нет соединения с сервером");
-    }
-
-    if (!res.ok) {
-      let detail = res.statusText;
-      try {
-        const data = await res.json();
-        detail = readableDetail(data.detail, detail);
-      } catch {
-        // ответ не JSON — оставляем statusText
-      }
-      throw new ApiError(res.status, detail);
-    }
-
-    if (!res.body || !res.body.getReader) return await res.json();
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let text = "";
-    let counted = 0;
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        text += decoder.decode(value, { stream: true });
-        if (onProgress) {
-          const next = (text.match(/"created_by_email"\s*:/g) || []).length;
-          if (next > counted) {
-            counted = next;
-            onProgress(counted);
-          }
-        }
-      }
-    } catch (err) {
-      const timedOut = err?.name === "AbortError" || controller.signal.aborted;
-      throw new ApiError(0, timedOut ? "Сервер не отвечает" : "Нет соединения с сервером");
-    }
-    return JSON.parse(text);
-  } finally {
-    window.clearTimeout(timeoutId);
+    return await invoke(command, args);
+  } catch (err) {
+    throw toApiError(err);
   }
 }
 
-/**
- * PATCH /auth/me/profile через XMLHttpRequest, а не через общий request() —
- * только у XHR есть событие upload.onprogress, дающее РЕАЛЬНЫЙ процент
- * отправки тела на медленном канале (см. SERVER_BASE_URL — арендованная
- * линия). Нужен именно для фото: это единственный запрос в приложении, чьё
- * тело может заметно долго отправляться (десятки–сотни КБ, см.
- * ProfileScreen.svelte) — раньше на всё это время пользователь видел просто
- * крутилку "Загрузка…", неотличимую от настоящего зависания.
- * @param {{timeoutMs: number, onUploadProgress?: (fraction: number) => void}} options
- */
-function patchProfileWithProgress(token, body, { timeoutMs, onUploadProgress }) {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PATCH", `${API_BASE_URL}/auth/me/profile`);
-    xhr.timeout = timeoutMs;
-    xhr.setRequestHeader("Content-Type", "application/json");
-    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-
-    if (xhr.upload && onUploadProgress) {
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) onUploadProgress(e.loaded / e.total);
-      };
-    }
-
-    xhr.onload = () => {
-      let data = null;
-      try {
-        data = xhr.responseText ? JSON.parse(xhr.responseText) : null;
-      } catch {
-        // ответ не JSON — если статус не ok, разберётся как fallback ниже
-      }
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(data);
-      } else {
-        reject(new ApiError(xhr.status, readableDetail(data?.detail, xhr.statusText || "Ошибка сервера")));
-      }
-    };
-    // ontimeout — сработал именно xhr.timeout (наш таймаут, тот же смысл,
-    // что и AbortError/controller.signal.aborted у fetch-версии в request()),
-    // onerror — настоящий обрыв соединения. Разные сообщения пользователю
-    // по той же причине, что описана в request() выше.
-    xhr.ontimeout = () => reject(new ApiError(0, "Сервер не отвечает"));
-    xhr.onerror = () => reject(new ApiError(0, "Нет соединения с сервером"));
-    xhr.onabort = () => reject(new ApiError(0, "Запрос отменён"));
-
-    xhr.send(JSON.stringify(body));
-  });
+export async function health() {
+  return call("health");
 }
 
 /* ============================================================
@@ -233,31 +67,68 @@ function patchProfileWithProgress(token, body, { timeoutMs, onUploadProgress }) 
    ============================================================ */
 
 export function login(productKey, fingerprint) {
-  return request("/auth/login", {
-    method: "POST",
-    body: { product_key: productKey, fingerprint },
-  });
+  return call("login", { productKey, fingerprint });
 }
 
 export function me(token) {
-  return request("/auth/me", { token });
+  return call("me", { token });
+}
+
+export function updateSettings(token, settings) {
+  return call("update_settings", { token, settings });
+}
+
+/**
+ * profilePhoto специально может быть undefined: если вызывающий код не
+ * передал это поле вовсе (например, сохраняет только имя/email), ключ не
+ * уйдёт в аргументы invoke() вовсе (JSON.stringify/сериализация Tauri
+ * отбрасывают undefined-свойства) — на Rust-стороне соответствующий
+ * Option<String>-параметр десериализуется в None, а это и значит "не
+ * менять фото" (см. grpc/commands.rs update_profile). Явный null — осознанный
+ * сброс фото, "" на сервере трактуется так же (см. api_migration_map.md).
+ *
+ * onUploadProgress: раньше здесь был РЕАЛЬНЫЙ процент отправки тела через
+ * XMLHttpRequest.upload.onprogress — invoke() такого не даёт (это не потоковая
+ * передача, а один вызов на весь запрос). Чтобы в ProfileScreen.svelte не
+ * пропадала обратная связь на медленном канале совсем, эмулируем прогресс:
+ * плавно растим процент до 90% пока ждём ответа, и сразу показываем 100% по
+ * завершении. Это не точный процент отправки, а просто "видно, что идёт
+ * работа, а не зависание".
+ */
+export async function updateProfile(token, { firstName, lastName, email, profilePhoto }, { onUploadProgress } = {}) {
+  const args = { token, firstName: firstName || null, lastName: lastName || null, email: email || null };
+  if (profilePhoto !== undefined) args.profilePhoto = profilePhoto;
+
+  if (!profilePhoto || !onUploadProgress) {
+    return call("update_profile", args);
+  }
+
+  let fraction = 0;
+  const timer = window.setInterval(() => {
+    fraction = Math.min(0.9, fraction + 0.1);
+    onUploadProgress(fraction);
+  }, 300);
+  try {
+    const result = await call("update_profile", args);
+    onUploadProgress(1);
+    return result;
+  } finally {
+    window.clearInterval(timer);
+  }
 }
 
 /* ============================================================
    ГЛАВЫ И ВОПРОСЫ
-   Бэкенд отдаёт поля в своей форме (question_count, is_correct
-   на каждом варианте ответа и т.д.) — normalize* приводят это
-   к форме, которой пользуется quiz.js/render.js, чтобы им не
-   нужно было знать про структуру ответа бэкенда.
+   Бэкенд (Rust-сторона, grpc/commands.rs) уже отдаёт поля в привычной
+   фронтенду форме (question_count, is_correct на каждом варианте ответа
+   и т.д.) — normalize* здесь по-прежнему нужны (сортировка, дефолты,
+   определение MIME картинки, вычисление correctIndex), просто больше не
+   имеют дела с сырым HTTP-ответом.
    ============================================================ */
 
 function normalizeChapter(raw, index) {
   return {
     id: raw.id,
-    // Порядковый номер для бейджа в списке — ВСЕГДА позиция в массиве, не raw.order:
-    // order по умолчанию 0 у каждой новой главы (см. ChapterCreate на бэкенде),
-    // и "0 ?? index+1" из-за ?? не подставляет фолбэк (0 — не null/undefined),
-    // так что при использовании order все главы показывали бы "00".
     num: index + 1,
     title: raw.title,
     description: raw.description ?? "",
@@ -266,13 +137,11 @@ function normalizeChapter(raw, index) {
 }
 
 function detectImageMime(base64) {
-  // Достаточно первых символов base64, чтобы отличить самые частые форматы —
-  // "data:image/*" не валиден по спецификации, поэтому угадываем конкретный тип.
   if (base64.startsWith("iVBORw0KGgo")) return "image/png";
   if (base64.startsWith("/9j/")) return "image/jpeg";
   if (base64.startsWith("R0lGOD")) return "image/gif";
   if (base64.startsWith("UklGR")) return "image/webp";
-  return "image/png"; // разумный дефолт, если сигнатура не распознана
+  return "image/png";
 }
 
 function normalizeQuestion(raw) {
@@ -283,210 +152,162 @@ function normalizeQuestion(raw) {
     options: raw.answers.map((a) => a.text),
     correctIndex,
     explanation: raw.hint ?? "",
-    image: raw.image_base64
-      ? `data:${detectImageMime(raw.image_base64)};base64,${raw.image_base64}`
-      : null,
-    // Автор/дата создания — бэкенд их и так отдаёт (см. QuestionOut на
-    // сервере), раньше клиент их просто не читал. Нужны для подсказки при
-    // наведении в списке вопросов редактора (см. render.renderEditorQuestionList).
+    image: raw.image_base64 ? `data:${detectImageMime(raw.image_base64)};base64,${raw.image_base64}` : null,
     createdByEmail: raw.created_by_email ?? null,
     createdAt: raw.created_at ?? null,
   };
 }
 
 export async function listChapters(token) {
-  const raw = await request("/chapters", { token });
-  // Порядок глав в интерфейсе — по названию, а не по порядку/id с бэкенда
-  // (по просьбе): раньше `num`-бейдж и порядок в списке были просто позицией
-  // в ответе сервера (тем самым — фактически по id/order). localeCompare с
-  // "ru" даёт корректную сортировку кириллицы (порядок алфавита, а не байтов).
+  const raw = await call("list_chapters", { token });
   const sorted = [...raw].sort((a, b) => String(a.title ?? "").localeCompare(String(b.title ?? ""), "ru"));
   return sorted.map(normalizeChapter);
 }
 
 /**
- * @param {string|null} token
+ * ListQuestions на сервере — server-streaming: вопросы главы приходят по
+ * сети по одному, отдельными gRPC-сообщениями, а не все разом одним
+ * большим ответом (см. content.proto/content_svc.rs). На Rust-стороне
+ * команда list_questions (см. grpc/commands.rs) сама ничего не
+ * возвращает — каждый пришедший по стриму вопрос она тут же пересылает
+ * дальше через tauri::ipc::Channel, отдельным IPC-сообщением. Здесь эти
+ * сообщения и собираются в массив по мере поступления, поэтому onProgress
+ * (если передан) можно звать сразу, как только пришёл очередной вопрос, а
+ * не только один раз в самом конце.
+ * @param {string} token
  * @param {number} chapterId
- * @param {(questionsSoFar: number) => void} [onProgress] — см.
- *   requestQuestionsWithProgress: вызывается по мере того, как в ответе
- *   появляются целиком пришедшие вопросы, а не один раз в самом конце.
+ * @param {(n: number) => void} [onProgress] — n = сколько вопросов главы
+ *   уже пришло (растёт с каждым сообщением, а не только "готово/не готово").
  */
+async function requestQuestionsWithProgress(token, chapterId, onProgress) {
+  const questions = [];
+  const onEvent = new Channel();
+  onEvent.onmessage = (question) => {
+    questions.push(question);
+    onProgress?.(questions.length);
+  };
+  try {
+    await invoke("list_questions", { token, chapterId, onEvent });
+  } catch (err) {
+    throw toApiError(err);
+  }
+  return questions;
+}
+
 export async function listQuestions(token, chapterId, onProgress) {
-  // Свой (увеличенный) таймаут — см. QUESTIONS_FETCH_TIMEOUT_MS в config.js:
-  // ответ несёт все фото вопросов главы разом, дефолтного REQUEST_TIMEOUT_MS
-  // на медленном канале не всегда хватает, особенно при кэшировании всех
-  // глав подряд (см. questions.js refreshAllCache).
-  const raw = await requestQuestionsWithProgress(`/chapters/${chapterId}/questions`, {
-    token,
-    timeoutMs: QUESTIONS_FETCH_TIMEOUT_MS,
-    onProgress,
-  });
+  const raw = await requestQuestionsWithProgress(token, chapterId, onProgress);
   return raw.map(normalizeQuestion);
 }
 
 /* ============================================================
    Управление главами и заданиями — доступно editor/admin,
-   бэкенд сам проверяет права (403, если роли не хватает) —
+   бэкенд сам проверяет права (PERMISSION_DENIED, если роли не хватает) —
    здесь просто вызовы, без дублирования проверки прав на клиенте.
    ============================================================ */
 
 export async function createChapter(token, { title, description, order }) {
-  const raw = await request("/chapters", {
-    method: "POST",
-    token,
-    body: { title, description: description || null, order: order ?? 0 },
-  });
+  const raw = await call("create_chapter", { token, title, description: description || null, order: order ?? 0 });
   return normalizeChapter(raw, 0);
 }
 
 /**
- * Меняет title и/или description главы. Роль editor теперь тоже может менять
- * оба поля (бэкенд запрещает ей менять только order, см. routers/chapters.py) —
- * отдельного "только title" вызова для fallback больше не нужно.
+ * Меняет title и/или description главы. order сознательно не передаём —
+ * его presence на сервере означает намерение сменить порядок, а это
+ * разрешено только admin (см. grpc/commands.rs update_chapter).
  */
 export async function updateChapter(token, chapterId, { title, description }) {
-  const raw = await request(`/chapters/${chapterId}`, {
-    method: "PATCH",
+  const raw = await call("update_chapter", {
     token,
-    body: { title, description: description || null },
+    chapterId,
+    title,
+    description: description || null,
   });
   return normalizeChapter(raw, 0);
 }
 
 export function deleteChapter(token, chapterId) {
-  return request(`/chapters/${chapterId}`, { method: "DELETE", token });
+  return call("delete_chapter", { token, chapterId });
 }
 
 export async function createQuestion(token, chapterId, payload) {
-  const raw = await request(`/chapters/${chapterId}/questions`, {
-    method: "POST",
+  const raw = await call("create_question", {
     token,
-    body: {
-      text: payload.text,
-      order: payload.order ?? 0,
-      hint: payload.hint || null,
-      image_base64: payload.imageBase64 || null,
-      answers: payload.answers, // [{text, is_correct}]
-    },
+    chapterId,
+    text: payload.text,
+    order: payload.order ?? 0,
+    hint: payload.hint || null,
+    imageBase64: payload.imageBase64 || null,
+    answers: payload.answers, // [{text, is_correct}]
   });
   return normalizeQuestion(raw);
 }
 
+/**
+ * payload.answers может быть undefined (правка вопроса без изменения
+ * ответов) — answersProvided явно говорит серверу, менять ли их (см.
+ * api_migration_map.md: repeated-поля не поддерживают proto3 optional,
+ * поэтому presence выражена отдельным флагом).
+ */
 export async function updateQuestion(token, chapterId, questionId, payload) {
-  const raw = await request(`/chapters/${chapterId}/questions/${questionId}`, {
-    method: "PATCH",
+  const raw = await call("update_question", {
     token,
-    body: {
-      text: payload.text,
-      order: payload.order,
-      hint: payload.hint,
-      image_base64: payload.imageBase64,
-      answers: payload.answers, // [{text, is_correct}] или undefined, если не меняем
-    },
+    chapterId,
+    questionId,
+    text: payload.text,
+    order: payload.order,
+    hint: payload.hint,
+    imageBase64: payload.imageBase64,
+    answers: payload.answers ?? [],
+    answersProvided: payload.answers !== undefined,
   });
   return normalizeQuestion(raw);
 }
 
 export function deleteQuestion(token, chapterId, questionId) {
-  return request(`/chapters/${chapterId}/questions/${questionId}`, {
-    method: "DELETE",
-    token,
-  });
+  return call("delete_question", { token, chapterId, questionId });
 }
 
 /* ============================================================
-   Управление лицензиями — только admin, бэкенд сам проверяет
-   права (require_admin). Ответы не нормализуем — это внутренние
-   админские данные, поля бэкенда (product_key, user_type,
-   license_until, is_blocked) уже говорящие сами по себе.
+   Управление лицензиями — только admin, бэкенд сам проверяет права.
+   Ответы не нормализуем — это внутренние админские данные, поля с
+   Rust-стороны (product_key, user_type, license_until, is_blocked)
+   уже говорящие сами по себе.
    ============================================================ */
 
 export function listLicenses(token) {
-  return request("/admin/licenses", { token });
+  return call("list_licenses", { token });
 }
 
 export function createLicense(token, payload) {
-  return request("/admin/licenses", { method: "POST", token, body: payload });
-}
-
-export function extendLicense(token, userId, extraDays) {
-  return request(`/admin/licenses/${userId}/extend`, {
-    method: "POST",
+  return call("create_license", {
     token,
-    body: { extra_days: extraDays },
+    userType: payload.user_type,
+    email: payload.email ?? null,
+    firstName: payload.first_name ?? null,
+    lastName: payload.last_name ?? null,
+    licenseDays: payload.license_days,
+    maxDevices: payload.max_devices,
   });
 }
 
+export function extendLicense(token, userId, extraDays) {
+  return call("extend_license", { token, userId, extraDays });
+}
+
 export function blockLicense(token, userId) {
-  return request(`/admin/licenses/${userId}/block`, { method: "POST", token });
+  return call("block_license", { token, userId });
 }
 
 export function unblockLicense(token, userId) {
-  return request(`/admin/licenses/${userId}/unblock`, { method: "POST", token });
+  return call("unblock_license", { token, userId });
 }
 
 export function resetDevice(token, userId) {
-  return request(`/admin/licenses/${userId}/reset-device`, { method: "POST", token });
+  return call("reset_device", { token, userId });
 }
 
 export function deleteLicense(token, userId) {
-  return request(`/admin/licenses/${userId}`, { method: "DELETE", token });
-}
-
-/* ============================================================
-   ПРОФИЛЬ — имя/фамилия/email пользователя (в отличие от
-   updateSettings выше, это не произвольный JSON, а конкретные поля).
-   ============================================================ */
-
-/**
- * @param {string|null} token
- * @param {{firstName?: string, lastName?: string, email?: string, profilePhoto?: string|null}} fields
- * @param {{onUploadProgress?: (fraction: number) => void}} [options] — фракция
- *   0..1 отправки тела, актуальна только когда реально передаётся фото
- *   (см. ниже) — используется в ProfileScreen.svelte, чтобы вместо голой
- *   надписи "Загрузка…" показать реальный процент и было видно, что запрос
- *   не завис, а действительно передаёт данные.
- */
-export async function updateProfile(token, { firstName, lastName, email, profilePhoto }, { onUploadProgress } = {}) {
-  const body = { first_name: firstName || null, last_name: lastName || null, email: email || null };
-  // profilePhoto специально undefined-able: если вызывающий код не передал
-  // это поле вовсе (например, сохраняет только имя/email), поле не уйдет
-  // в body и бэкенд не тронет уже сохраненное фото (см. photo_provided на
-  // сервере). Если явно передали null — это осознанное "убрать фото".
-  if (profilePhoto !== undefined) body.profile_photo = profilePhoto;
-
-  if (!profilePhoto) {
-    // Обычный случай (имя/email, либо явное удаление фото — null, лёгкое
-    // тело) — как и раньше, общий request() с обычным REQUEST_TIMEOUT_MS.
-    return request("/auth/me/profile", { method: "PATCH", token, body });
-  }
-
-  // С фото — свой (больший) таймаут, XHR ради прогресса отправки (см.
-  // patchProfileWithProgress выше) и сверка после таймаута (см. ниже).
-  try {
-    return await patchProfileWithProgress(token, body, { timeoutMs: PHOTO_UPLOAD_TIMEOUT_MS, onUploadProgress });
-  } catch (err) {
-    // status === 0 у ApiError здесь означает именно "не дождались ответа"
-    // (наш таймаут или обрыв связи), а не то, что сервер отверг запрос —
-    // см. ontimeout/onerror в patchProfileWithProgress. На таком канале
-    // (см. SERVER_BASE_URL — арендованная линия) вполне бывает так, что
-    // ЗАПРОС сервер получил и обработал, а вот ОТВЕТ обратно не дошёл —
-    // тогда показывать пользователю "не удалось сохранить" и заставлять
-    // заливать фото заново неверно: сверяемся отдельным лёгким GET
-    // /auth/me — если сервер сейчас отвечает и уже показывает именно то
-    // фото, что мы отправляли, значит сохранение прошло, просто ответ на
-    // PATCH потерялся/не успел за timeoutMs.
-    if (err instanceof ApiError && err.status === 0) {
-      try {
-        const current = await me(token);
-        if (current && current.profile_photo === profilePhoto) return current;
-      } catch {
-        // сверка тоже не прошла — сервера сейчас действительно не видно,
-        // оставляем исходную ошибку как есть
-      }
-    }
-    throw err;
-  }
+  return call("delete_license", { token, userId });
 }
 
 /* ============================================================
@@ -494,29 +315,29 @@ export async function updateProfile(token, { firstName, lastName, email, profile
    ============================================================ */
 
 export function sendFriendRequest(token, email) {
-  return request("/friends/requests", { method: "POST", token, body: { email } });
+  return call("send_friend_request", { token, email });
 }
 
 export function listIncomingFriendRequests(token) {
-  return request("/friends/requests/incoming", { token });
+  return call("list_incoming_friend_requests", { token });
 }
 
 export function listOutgoingFriendRequests(token) {
-  return request("/friends/requests/outgoing", { token });
+  return call("list_outgoing_friend_requests", { token });
 }
 
 export function acceptFriendRequest(token, friendshipId) {
-  return request(`/friends/requests/${friendshipId}/accept`, { method: "POST", token });
+  return call("accept_friend_request", { token, friendshipId });
 }
 
 export function removeFriendship(token, friendshipId) {
-  return request(`/friends/requests/${friendshipId}`, { method: "DELETE", token });
+  return call("remove_friendship", { token, friendshipId });
 }
 
 export function listFriends(token) {
-  return request("/friends", { token });
+  return call("list_friends", { token });
 }
 
 export function getLeaderboard(token) {
-  return request("/friends/leaderboard", { token });
+  return call("get_leaderboard", { token });
 }

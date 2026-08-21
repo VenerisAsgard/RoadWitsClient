@@ -16,7 +16,11 @@ service ContentService {
   // Только admin. Каскадно удаляет все questions/answers главы.
   rpc DeleteChapter(DeleteChapterRequest) returns (DeleteChapterResponse);
 
-  rpc ListQuestions(ListQuestionsRequest) returns (ListQuestionsResponse);
+  // Server-streaming: вопросы прилетают по одному отдельными сообщениями
+  // (а не всей главой разом одним большим ответом), каждый — как только
+  // готов на сервере (текст + ответы + фото, если есть). Клиенту не нужно
+  // ждать самый тяжёлый вопрос главы, чтобы получить первый.
+  rpc ListQuestions(ListQuestionsRequest) returns (stream Question);
   rpc GetQuestion(GetQuestionRequest) returns (Question);
   rpc CreateQuestion(CreateQuestionRequest) returns (Question);
   rpc UpdateQuestion(UpdateQuestionRequest) returns (Question);
@@ -87,10 +91,6 @@ message Question {
 
 message ListQuestionsRequest {
   int64 chapter_id = 1;
-}
-
-message ListQuestionsResponse {
-  repeated Question questions = 1;
 }
 
 message GetQuestionRequest {
